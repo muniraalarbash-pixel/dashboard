@@ -34,7 +34,7 @@ export const SAMPLE = {
     description: 'بيانات وهمية للعرض: المبيعات الشهرية لكل فرع وقسم، ومقارنتها بالمستهدف السنوي.',
     period: 'يناير – سبتمبر 2026',
     template: 'tiles',
-    brand: { primary: '#1F3B63', secondary: '#C9972E', accent: '#2FA38A', font: 'IBM Plex Sans Arabic', logo_url: '' },
+    brand: { primary: '#6C151E', secondary: '#0F3D3A', accent: '#D9B48F', font: 'IBM Plex Sans Arabic', logo_url: '' },
     config: { target: { aKey: 'الفرع', aVal: 'المبيعات (ر.س)', tKey: 'الفرع', tVal: 'المستهدف (ر.س)' } }
   },
   version: { period: 'سبتمبر 2026', file_name: 'sales_sep.xlsx', data, targets, totals: computeTotals(data), created_at: '2026-10-03T09:00:00Z' },
