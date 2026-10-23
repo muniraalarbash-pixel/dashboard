@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>المشروع | داش بورد</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&family=Readex+Pro:wght@500;600;700&display=swap">
+<link rel="stylesheet" href="assets/css/base.css">
+<link rel="stylesheet" href="assets/css/dashboard.css">
+</head>
+<body>
+<header class="topbar"><div class="wrap">
+  <a class="brand" href="app.html"><span class="mark" aria-hidden="true"><i></i><i></i><i></i><i></i></span>داش بورد <small>DASHBOARD</small></a>
+  <nav class="nav" id="nav"></nav>
+</div></header>
+
+<main class="wrap">
+  <div id="setup" class="notice" hidden style="margin-top:16px"></div>
+  <div class="page-head" style="padding-block:20px 0">
+    <div><a href="app.html" class="btn-ghost btn" style="padding-inline:0">→ مشاريعي</a><h1 id="h-title">…</h1></div>
+    <div class="row"><span class="save-chip" id="save-chip" role="status" aria-live="polite"></span><a class="btn btn-quiet btn-sm" id="open-link" href="#" target="_blank" rel="noopener" hidden>فتح رابط المشاركة</a></div>
+  </div>
+
+  <div class="editor">
+    <div class="rail">
+      <!-- 1 details -->
+      <details class="sec" open>
+        <summary><span class="n" style="background:var(--violet)">1</span>تفاصيل المشروع<span class="chev">▾</span></summary>
+        <div class="body">
+          <label class="field"><span class="label">العنوان</span><input type="text" id="f-title" maxlength="90"></label>
+          <label class="field"><span class="label">الموضوع أو اسم الجهة</span><input type="text" id="f-topic" maxlength="90" placeholder="مثال: شركة آفاق · قسم المبيعات"></label>
+          <label class="field"><span class="label">وصف قصير</span><textarea id="f-desc" maxlength="300" placeholder="ماذا يعرض هذا الداش بورد ولمن؟"></textarea></label>
+          <label class="field"><span class="label">الفترة</span><input type="text" id="f-period" maxlength="60" placeholder="مثال: الربع الثالث 2026"></label>
+        </div>
+      </details>
+
+      <!-- 2 brand -->
+      <details class="sec">
+        <summary><span class="n" style="background:var(--blue)">2</span>الهوية البصرية<span class="chev">▾</span></summary>
+        <div class="body">
+          <div class="logo-row">
+            <span class="logo-prev" id="logo-prev" aria-hidden="true"></span>
+            <label class="drop" style="flex:1" for="f-logo"><input type="file" id="f-logo" accept="image/*" aria-label="رفع الشعار"><strong>ارفع الشعار</strong><span>PNG أو SVG أو JPG، حتى 2MB</span></label>
+          </div>
+          <div class="field" id="sw-wrap" hidden><span class="label">ألوان الشعار. اضغط لونًا لجعله اللون الرئيسي</span><div class="swatches" id="swatches"></div></div>
+          <div class="colors">
+            <label class="color" for="c-primary">الرئيسي<input type="color" id="c-primary"></label>
+            <label class="color" for="c-secondary">الثانوي<input type="color" id="c-secondary"></label>
+            <label class="color" for="c-accent">المميز<input type="color" id="c-accent"></label>
+          </div>
+          <label class="field"><span class="label">الخط</span><select id="f-font"></select></label>
+          <button type="button" class="btn btn-ghost btn-sm" id="b-nologo" hidden style="justify-self:start">إزالة الشعار</button>
+        </div>
+      </details>
+
+      <!-- 3 data -->
+      <details class="sec" id="sec-data">
+        <summary><span class="n" style="background:var(--teal)">3</span>البيانات<span class="chev">▾</span></summary>
+        <div class="body">
+          <p class="label" id="cur-version"></p>
+          <label class="drop" id="drop-data" for="f-data"><input type="file" id="f-data" aria-label="ملف البيانات الفعلية"><strong>ملف البيانات (Excel أو CSV)</strong><span>يحل محل البيانات الحالية ويُحفظ كتحديث جديد</span></label>
+          <details><summary class="label" style="cursor:pointer">أو الصق الجدول من Excel</summary>
+            <div class="field" style="margin-top:8px"><textarea id="f-paste" dir="ltr" placeholder="انسخ الجدول مع صف العناوين والصقه هنا"></textarea><button type="button" class="btn btn-quiet btn-sm" id="b-paste" style="justify-self:start">استخدام البيانات الملصوقة</button></div>
+          </details>
+          <label class="field" id="sheet-wrap" hidden><span class="label">الورقة</span><select id="f-sheet"></select></label>
+          <div id="cols"></div>
+
+          <label class="drop" id="drop-target" for="f-target"><input type="file" id="f-target" aria-label="ملف المستهدف"><strong>ملف المستهدف (اختياري)</strong><span>لحساب نسبة الإنجاز. مثال: عمود الفرع وعمود المستهدف</span></label>
+          <label class="field" id="tsheet-wrap" hidden><span class="label">ورقة المستهدف</span><select id="f-tsheet"></select></label>
+          <div class="field" id="map" hidden>
+            <span class="label">ربط المستهدف بالبيانات</span>
+            <div class="mapgrid">
+              <label class="field"><span class="label">الربط في البيانات</span><select id="m-akey"></select></label>
+              <label class="field"><span class="label">الربط في المستهدف</span><select id="m-tkey"></select></label>
+              <label class="field"><span class="label">قيمة الفعلي</span><select id="m-aval"></select></label>
+              <label class="field"><span class="label">قيمة المستهدف</span><select id="m-tval"></select></label>
+            </div>
+            <button type="button" class="btn btn-ghost btn-sm" id="b-notarget" style="justify-self:start">إزالة ملف المستهدف</button>
+          </div>
+
+          <div id="pub-box" hidden class="field">
+            <label class="field"><span class="label">اسم الفترة لهذا التحديث</span><input type="text" id="f-vperiod" maxlength="60" placeholder="مثال: سبتمبر 2026"></label>
+            <div class="row"><button type="button" class="btn btn-primary" id="b-version">نشر التحديث</button><button type="button" class="btn btn-ghost" id="b-discard">تجاهل</button></div>
+          </div>
+          <p class="status" id="data-status" role="status" aria-live="polite"></p>
+          <div class="field"><span class="label">سجل التحديثات</span><ol class="vlist" id="vlist"></ol></div>
+        </div>
+      </details>
+
+      <!-- 4 template -->
+      <details class="sec">
+        <summary><span class="n" style="background:var(--amber)">4</span>القالب<span class="chev">▾</span></summary>
+        <div class="body"><div class="tpls" id="tpls"></div></div>
+      </details>
+
+      <!-- 5 share -->
+      <details class="sec">
+        <summary><span class="n" style="background:var(--ink)">5</span>المشاركة<span class="chev">▾</span></summary>
+        <div class="body">
+          <label class="switch" for="f-pub"><input type="checkbox" id="f-pub">نشر الداش بورد برابط عام (للعرض فقط)</label>
+          <div class="field"><span class="label">رابط المشاركة</span><div class="share-link"><input type="text" id="f-link" readonly><button type="button" class="btn btn-quiet btn-sm" id="b-copy">نسخ</button></div></div>
+          <div class="field"><span class="label" id="pass-state">بدون كلمة مرور</span><div class="share-link"><input type="password" id="f-pass" placeholder="كلمة مرور للرابط (اختياري)" autocomplete="new-password"><button type="button" class="btn btn-quiet btn-sm" id="b-pass">حفظ</button></div>
+            <button type="button" class="btn btn-ghost btn-sm" id="b-nopass" hidden style="justify-self:start">إزالة كلمة المرور</button></div>
+          <p class="status" id="share-status" role="status" aria-live="polite"></p>
+          <hr style="border:0;border-top:1px solid var(--line);width:100%">
+          <div class="row"><button type="button" class="btn btn-danger btn-sm" id="b-del">حذف المشروع</button><span id="del-confirm" hidden class="row"><span class="label">يُحذف المشروع وكل تحديثاته نهائيًا.</span><button type="button" class="btn btn-danger btn-sm" id="b-del2">تأكيد الحذف</button></span></div>
+        </div>
+      </details>
+    </div>
+
+    <div class="preview">
+      <div class="preview-head"><span>معاينة مباشرة</span><span id="preview-note"></span></div>
+      <div class="preview-frame" id="preview"></div>
+    </div>
+  </div>
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script type="module" src="assets/js/project.js"></script>
+</body>
+</html>

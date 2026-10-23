@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>داش بورد</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&family=Readex+Pro:wght@500;600;700&display=swap">
+<link rel="stylesheet" href="assets/css/base.css">
+<link rel="stylesheet" href="assets/css/dashboard.css">
+</head>
+<body>
+<div class="view-wrap">
+  <div class="demo-bar" id="demo-bar" hidden>
+    <a class="brand" href="index.html" style="font-size:16px"><span class="mark" aria-hidden="true"><i></i><i></i><i></i><i></i></span>عرض تجريبي</a>
+    <div class="tabs" role="tablist" id="demo-tabs"></div>
+    <a class="btn btn-primary btn-sm" href="index.html#login">أنشئ داش بورد خاص بك</a>
+  </div>
+  <div id="gate" class="gate card" hidden>
+    <h1 id="gate-title" style="font-size:20px"></h1>
+    <p class="muted" id="gate-msg"></p>
+    <form id="gate-form" class="auth" hidden novalidate>
+      <label class="field"><span class="label">كلمة المرور</span><input type="password" id="gate-pass" autocomplete="current-password"></label>
+      <button class="btn btn-primary" type="submit">فتح الداش بورد</button>
+      <p class="status err" id="gate-err" role="status" aria-live="polite"></p>
+    </form>
+  </div>
+  <div id="dash"></div>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script type="module">
+import { sb, $, toast } from './assets/js/sb.js';
+import { mountDashboard, TEMPLATES } from './assets/js/render.js';
+
+const qs = new URLSearchParams(location.search);
+let dash = null, lastStamp = null, pass = null;
+
+function gate(title, msg, withForm) {
+  $('#gate').hidden = false; $('#gate-title').textContent = title; $('#gate-msg').textContent = msg; $('#gate-form').hidden = !withForm;
+  if (withForm) $('#gate-pass').focus();
+}
+
+if (qs.get('demo')) {
+  const { SAMPLE } = await import('./assets/js/sample.js');
+  const proj = { ...SAMPLE.project };
+  $('#demo-bar').hidden = false;
+  const tabs = () => { $('#demo-tabs').innerHTML = Object.entries(TEMPLATES).map(([k, t]) => `<button type="button" role="tab" data-t="${k}" aria-selected="${proj.template === k}">${t.name}</button>`).join(''); };
+  tabs();
+  $('#demo-tabs').addEventListener('click', e => { const b = e.target.closest('[data-t]'); if (!b) return; proj.template = b.dataset.t; tabs(); dash.setTemplate(proj.template); });
+  document.title = proj.title + ' | داش بورد';
+  dash = mountDashboard($('#dash'), { project: proj, version: SAMPLE.version, previous: SAMPLE.previous });
+} else {
+  const slug = qs.get('s');
+  if (!slug || !sb) gate('الرابط غير صحيح', 'تأكد من نسخ رابط المشاركة كاملًا.', false);
+  else {
+    async function fetchShared(first) {
+      const { data, error } = await sb.rpc('get_shared', { p_slug: slug, p_pass: pass });
+      if (error) { if (first) gate('تعذّر فتح الداش بورد', 'حاول مرة أخرى بعد قليل.', false); return; }
+      if (data.error === 'not_found') { gate('الداش بورد غير متاح', 'قد يكون الرابط متوقفًا أو غير صحيح.', false); return; }
+      if (data.error === 'password' || data.error === 'wrong_password') {
+        gate(data.title || 'داش بورد محمي', 'هذا الداش بورد محمي بكلمة مرور.', true);
+        if (data.error === 'wrong_password') $('#gate-err').textContent = 'كلمة المرور غير صحيحة.';
+        return;
+      }
+      $('#gate').hidden = true;
+      const stamp = (data.version && data.version.created_at) + '|' + data.project.updated_at;
+      if (stamp === lastStamp) return;
+      const opts = { project: data.project, version: data.version, previous: data.previous };
+      document.title = data.project.title + ' | داش بورد';
+      if (!dash) dash = mountDashboard($('#dash'), opts); else { dash.update(opts); toast('تم تحديث البيانات'); }
+      lastStamp = stamp;
+    }
+    $('#gate-form').addEventListener('submit', e => { e.preventDefault(); pass = $('#gate-pass').value; $('#gate-err').textContent = ''; fetchShared(true); });
+    await fetchShared(true);
+    // auto-refresh: pick up new uploads without reloading the page
+    setInterval(() => { if (document.visibilityState === 'visible' && lastStamp) fetchShared(false); }, 120000);
+  }
+}
+</script>
+</body>
+</html>
