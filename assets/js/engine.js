@@ -141,7 +141,7 @@ export const FONTS = {
   'Noto Kufi Arabic': 'Noto+Kufi+Arabic:wght@400;500;600;700',
   'Readex Pro': 'Readex+Pro:wght@400;500;600;700'
 };
-export const DEFAULT_BRAND = { primary: '#14A89E', secondary: '#3A4A4F', accent: '#F2C230', font: 'IBM Plex Sans Arabic', logo_url: '' };
+export const DEFAULT_BRAND = { primary: '#1F3B63', secondary: '#C9972E', accent: '#2FA38A', font: 'IBM Plex Sans Arabic', logo_url: '' };
 
 const hex2rgb = h => { const m = /^#?([0-9a-f]{6})$/i.exec(h || ''); if (!m) return null; const n = parseInt(m[1], 16); return [n >> 16, (n >> 8) & 255, n & 255]; };
 const rgb2hex = (r, g, b) => '#' + [r, g, b].map(x => Math.max(0, Math.min(255, Math.round(x))).toString(16).padStart(2, '0')).join('').toUpperCase();
