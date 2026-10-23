@@ -23,13 +23,53 @@ export const fmtDate = s => { try { return dtf.format(new Date(s)); } catch (e) 
 
 const MEAN_RE = /(rate|ratio|%|percent|avg|average|ctr|cpc|cpm|معدل|نسبة|متوسط)/i;
 
+const MONTHS = [
+  ['يناير','جانفي','كانون الثاني','jan','january','محرم'], ['فبراير','فيفري','شباط','feb','february'], ['مارس','آذار','mar','march'],
+  ['أبريل','ابريل','إبريل','نيسان','apr','april'], ['مايو','ماي','أيار','may'], ['يونيو','جوان','حزيران','jun','june'],
+  ['يوليو','جويلية','تموز','jul','july'], ['أغسطس','اغسطس','أوت','آب','aug','august'], ['سبتمبر','أيلول','sep','sept','september'],
+  ['أكتوبر','اكتوبر','تشرين الأول','oct','october'], ['نوفمبر','تشرين الثاني','nov','november'], ['ديسمبر','كانون الأول','dec','december']
+];
+const MONTH_MAP = new Map(); MONTHS.forEach((names, i) => names.forEach(n => MONTH_MAP.set(n.toLowerCase(), i + 1)));
+export function monthIndex(v) {
+  if (v == null) return 0;
+  const s = String(v).trim().toLowerCase();
+  if (MONTH_MAP.has(s)) return MONTH_MAP.get(s);
+  const n = Number(s.replace(/[٠-٩]/g, d => d.charCodeAt(0) - 1632));
+  return Number.isInteger(n) && n >= 1 && n <= 12 ? n : 0;
+}
+const YEAR_RE = /(year|سنة|السنة|عام|العام)/i, MONTH_RE = /(month|شهر|الشهر)/i;
+
 export function createModel(data) {
-  const cols = data.columns, rows = data.rows, nums = [], cats = []; let date = -1;
-  cols.forEach((c, i) => { if (c.type === 'number') nums.push(i); else if (c.type === 'category') cats.push(i); else if (c.type === 'date' && date < 0) date = i; });
+  let cols = data.columns, rows = data.rows;
+  const nums = [], cats = []; let date = -1;
+  cols.forEach((c, i) => { if (c.type === 'date' && date < 0) date = i; });
+  // No date column? Derive one from a month-name column (+ optional year column).
+  let monthCol = -1, yearCol = -1;
+  if (date < 0 && rows.length) {
+    monthCol = cols.findIndex((c, i) => {
+      if (c.type === 'number' && !MONTH_RE.test(c.name)) return false;
+      const vals = rows.map(r => r[i]).filter(v => v != null && v !== '');
+      return vals.length > 0 && vals.filter(v => monthIndex(v) > 0).length / vals.length >= 0.9;
+    });
+    if (monthCol >= 0) {
+      yearCol = cols.findIndex((c, i) => i !== monthCol && YEAR_RE.test(c.name) && rows.every(r => r[i] == null || /^\d{4}$/.test(String(r[i]).trim())));
+      const fallbackYear = new Date().getFullYear();
+      cols = cols.concat([{ name: 'الفترة', type: 'date', virtual: true }]);
+      rows = rows.map(r => { const mo = monthIndex(r[monthCol]); const y = yearCol >= 0 && r[yearCol] ? String(r[yearCol]).trim() : fallbackYear; return r.concat([mo ? `${y}-${String(mo).padStart(2, '0')}-01` : null]); });
+      date = cols.length - 1;
+    }
+  }
+  cols.forEach((c, i) => { if (c.type === 'number' && i !== monthCol) nums.push(i); else if (c.type === 'category' || (i === monthCol)) cats.push(i); });
   let monthly = false;
   if (date >= 0) { const ms = new Set(); for (const r of rows) { if (r[date]) ms.add(String(r[date]).slice(0, 7)); if (ms.size > 1) break; } monthly = ms.size > 1; }
+  // Rank category columns for default "split by": 2–15 distinct values first, time-like columns last.
+  const uniq = i => new Set(rows.map(r => r[i]).filter(v => v != null && v !== '')).size;
+  const dims = cats.slice().sort((a, b) => {
+    const score = i => { const u = uniq(i); let s = (u >= 2 && u <= 15) ? 0 : (u > 15 ? 2 : 4); if (i === monthCol || i === yearCol || YEAR_RE.test(cols[i].name) || /(quarter|ربع|الربع|week|أسبوع|اسبوع|day|يوم)/i.test(cols[i].name)) s += 3; return s; };
+    return score(a) - score(b) || Math.min(uniq(b), 15) - Math.min(uniq(a), 15);
+  });
   const m = {
-    cols, rows, nums, cats, date, monthly,
+    cols, rows, nums, cats, dims, date, monthly, monthCol, uniq,
     idx: name => cols.findIndex(c => c.name === name),
     isMean: mi => mi >= 0 && !!cols[mi] && MEAN_RE.test(cols[mi].name),
     label: mi => mi < 0 ? 'عدد السجلات' : cols[mi].name,
@@ -46,7 +86,8 @@ export function createModel(data) {
     },
     breakdown(rs, di, mi) {
       const g = m.groups(rs, r => r[di] == null ? null : String(r[di]));
-      return [...g.entries()].map(([k, x]) => ({ k, v: m.agg(x, mi) })).sort((a, b) => b.v - a.v);
+      const out = [...g.entries()].map(([k, x]) => ({ k, v: m.agg(x, mi) }));
+      return di === monthCol ? out.sort((a, b) => monthIndex(a.k) - monthIndex(b.k)) : out.sort((a, b) => b.v - a.v);
     },
     filter(f, q) {
       const fe = Object.entries(f).filter(([, v]) => v != null);

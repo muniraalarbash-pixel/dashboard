@@ -58,7 +58,7 @@ export function mountDashboard(root, opts) {
     st.filters = {}; st.metric = null; st.dim = null; st.page = 0; st.sortCol = null;
   }
   function metricIdx() { return (st.metric != null && (st.metric === -1 || m.nums.includes(st.metric))) ? st.metric : (m.nums.length ? m.nums[0] : -1); }
-  function dimIdx() { return (st.dim != null && m.cats.includes(st.dim)) ? st.dim : (m.cats.length ? m.cats[0] : -1); }
+  function dimIdx() { return (st.dim != null && m.cats.includes(st.dim)) ? st.dim : (m.dims.length ? m.dims[0] : -1); }
   const activeF = () => Object.entries(st.filters).filter(([, v]) => v != null);
 
   function chartBase(ink, grid) {
@@ -108,7 +108,7 @@ export function mountDashboard(root, opts) {
     const mi = metricIdx(), di = dimIdx();
     const mo = (m.nums.length ? m.nums.concat([-1]) : [-1]).map(i => `<option value="${i}" ${i === mi ? 'selected' : ''}>${esc(m.label(i))}</option>`).join('');
     let h = `<label class="d-ctl"><span>المؤشر</span><select data-k="metric">${mo}</select></label>`;
-    if (m.cats.length > 1) h += `<label class="d-ctl"><span>التقسيم حسب</span><select data-k="dim">${m.cats.map(i => `<option value="${i}" ${i === di ? 'selected' : ''}>${esc(m.cols[i].name)}</option>`).join('')}</select></label>`;
+    if (m.cats.length > 1) h += `<label class="d-ctl"><span>التقسيم حسب</span><select data-k="dim">${m.dims.map(i => `<option value="${i}" ${i === di ? 'selected' : ''}>${esc(m.cols[i].name)}</option>`).join('')}</select></label>`;
     m.cats.slice(0, 4).forEach(ci => {
       const freq = new Map(); for (const r of m.rows) { const v = r[ci]; if (v == null) continue; const k = String(v); freq.set(k, (freq.get(k) || 0) + 1); }
       const vals = [...freq.entries()].sort((a, b) => b[1] - a[1]).map(x => x[0]);
@@ -125,7 +125,7 @@ export function mountDashboard(root, opts) {
     const tstats = o.version.targets ? targetStats(m, rows, o.version.targets, tcfg, st.filters) : null;
     return {
       metric, dim, rows, tstats,
-      sd: m.cats.find(c => c !== dim) ?? -1,
+      sd: m.dims.find(c => c !== dim && c !== m.monthCol && m.uniq(c) >= 2) ?? -1,
       ml: m.label(metric), mean: m.isMean(metric), hasF: activeF().length > 0,
       pal: theme.palette, ink: theme.vars['--d-muted'], grid: theme.vars['--d-line'],
       prev: o.previous && o.previous.totals,
@@ -201,7 +201,7 @@ export function mountDashboard(root, opts) {
     let top = `<article class="d-tile d-num">${head(c.ml, c.mean ? 'المتوسط' : (c.hasF ? 'الإجمالي حسب الفلاتر' : 'الإجمالي'))}<p class="d-big">${fmt(total)}</p>${c.tstats ? `<p class="d-sub">المستهدف ${fmt(c.tstats.target)}</p>` : ''}</article>`;
     let gauge = null;
     if (c.tstats && c.tstats.pct != null) gauge = { title: 'نسبة الإنجاز', sub: c.tstats.valName + ' مقابل المستهدف', v: c.tstats.pct, max: 100, label: fmtPct(c.tstats.pct, 1), lo: '0%', hi: '100%' };
-    else if (c.dim >= 0 && !c.mean && c.rows.length) { const b = m.breakdown(c.rows, c.dim, c.metric), t = b.reduce((s, x) => s + x.v, 0); if (b.length && t > 0) gauge = { title: 'حصة ' + b[0].k, sub: 'من إجمالي ' + c.ml, v: b[0].v, max: t, label: fmt(b[0].v), lo: '0', hi: fmt(t) }; }
+    else if (c.dim >= 0 && !c.mean && c.rows.length) { const b = m.breakdown(c.rows, c.dim, c.metric), t = b.reduce((s, x) => s + x.v, 0); if (b.length >= 2 && t > 0) gauge = { title: 'حصة ' + b[0].k, sub: 'من إجمالي ' + c.ml, v: b[0].v, max: t, label: fmt(b[0].v), lo: '0', hi: fmt(t) }; }
     if (gauge) top += `<article class="d-tile d-gauge">${head(gauge.title, gauge.sub)}<div class="d-gbox"><canvas data-cv="gauge" role="img" aria-label="${esc(gauge.title)}"></canvas><p class="d-gval">${gauge.label}</p></div><div class="d-gscale"><span>${gauge.lo}</span><span>${gauge.hi}</span></div></article>`;
     if (c.tstats) top += `<article class="d-tile d-wide d-bartile">${head('الفعلي مقابل المستهدف', 'حسب ' + c.tstats.keyName)}<div class="d-box"><canvas data-cv="bar" role="img" aria-label="الفعلي مقابل المستهدف"></canvas></div></article>`;
     else if (c.dim >= 0) top += `<article class="d-tile d-wide d-bartile">${head(c.ml + ' حسب ' + m.cols[c.dim].name, c.sd >= 0 && !c.mean ? 'مقسّم حسب ' + m.cols[c.sd].name + ' · اضغط عمودًا للفلترة' : 'اضغط عمودًا للفلترة')}<div class="d-box"><canvas data-cv="bar" role="img" aria-label="التوزيع"></canvas></div></article>`;
@@ -286,8 +286,9 @@ export function mountDashboard(root, opts) {
     }
     const PAGE = 15, pages = Math.max(1, Math.ceil(rows.length / PAGE)); if (st.page >= pages) st.page = pages - 1; if (st.page < 0) st.page = 0;
     const slice = rows.slice(st.page * PAGE, st.page * PAGE + PAGE), q = s => root.querySelector(s);
-    q('[data-thead]').innerHTML = '<tr>' + m.cols.map((c, i) => `<th scope="col"><button type="button" data-sort="${i}">${esc(c.name)}${st.sortCol === i ? (st.sortDir > 0 ? ' ↑' : ' ↓') : ''}</button></th>`).join('') + '</tr>';
-    q('[data-tbody]').innerHTML = slice.length ? slice.map(r => '<tr>' + m.cols.map((c, i) => c.type === 'number' ? `<td class="num">${typeof r[i] === 'number' ? r[i].toLocaleString('en-US', { maximumFractionDigits: 2 }) : ''}</td>` : `<td>${esc(r[i] ?? '')}</td>`).join('') + '</tr>').join('') : `<tr><td class="d-none" colspan="${m.cols.length}">لا توجد صفوف مطابقة.</td></tr>`;
+    const vis = m.cols.map((c, i) => i).filter(i => !m.cols[i].virtual);
+    q('[data-thead]').innerHTML = '<tr>' + vis.map(i => `<th scope="col"><button type="button" data-sort="${i}">${esc(m.cols[i].name)}${st.sortCol === i ? (st.sortDir > 0 ? ' ↑' : ' ↓') : ''}</button></th>`).join('') + '</tr>';
+    q('[data-tbody]').innerHTML = slice.length ? slice.map(r => '<tr>' + vis.map(i => m.cols[i].type === 'number' ? `<td class="num">${typeof r[i] === 'number' ? r[i].toLocaleString('en-US', { maximumFractionDigits: 2 }) : ''}</td>` : `<td>${esc(r[i] ?? '')}</td>`).join('') + '</tr>').join('') : `<tr><td class="d-none" colspan="${vis.length}">لا توجد صفوف مطابقة.</td></tr>`;
     q('[data-count]').textContent = rows.length.toLocaleString('en-US') + ' سجل';
     q('[data-pager]').innerHTML = pages > 1 ? `<button type="button" data-pg="-1" ${st.page === 0 ? 'disabled' : ''}>السابق</button><span>${st.page + 1} / ${pages}</span><button type="button" data-pg="1" ${st.page >= pages - 1 ? 'disabled' : ''}>التالي</button>` : '';
   }
