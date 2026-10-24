@@ -20,7 +20,7 @@
 HTML · CSS · JavaScript (ES Modules) · Chart.js · SheetJS · Supabase (Auth, Postgres, Storage, RLS) · GitHub Pages
 
 ## التشغيل
-1. أنشئ مشروعًا في [Supabase](https://supabase.com) وشغّل الملف `supabase/schema.sql` من **SQL Editor**.
+1. أنشئ مشروعًا في [Supabase](https://supabase.com) وشغّل من **SQL Editor** الملف `supabase/schema.sql` ثم `supabase/migration-002-views.sql`.
 2. ضع `Project URL` و`anon public key` في `assets/js/config.js`.
 3. فعّل **GitHub Pages** من إعدادات المستودع (Branch: `main`، المجلد: `/root`).
 

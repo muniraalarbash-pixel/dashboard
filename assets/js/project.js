@@ -265,6 +265,19 @@ function renderShare() {
   const hasPass = !!project.share_pass_hash;
   $('#pass-state').textContent = hasPass ? 'الرابط محمي بكلمة مرور' : 'بدون كلمة مرور';
   $('#b-nopass').hidden = !hasPass;
+  renderViews();
+}
+async function renderViews() {
+  if (!('view_count' in project)) return; // migration 002 not applied yet
+  $('#views-box').hidden = false;
+  $('#v-total').textContent = Number(project.view_count || 0).toLocaleString('en-US');
+  $('#v-last').textContent = project.last_viewed_at ? 'آخر مشاهدة ' + fmtDate(project.last_viewed_at) + ' · آخر 14 يوم' : (project.is_published ? 'ما فتح أحد الرابط بعد.' : 'فعّل النشر وشارك الرابط لتبدأ المشاهدات.');
+  const since = new Date(Date.now() - 13 * 864e5).toISOString().slice(0, 10);
+  const { data } = await sb.from('share_views').select('day,views').eq('project_id', id).gte('day', since);
+  const map = new Map((data || []).map(r => [r.day, r.views]));
+  const days = [...Array(14)].map((_, i) => new Date(Date.now() - (13 - i) * 864e5).toISOString().slice(0, 10));
+  const max = Math.max(1, ...days.map(d => map.get(d) || 0));
+  $('#v-bars').innerHTML = days.map(d => { const v = map.get(d) || 0; return `<i style="height:${Math.max(6, v / max * 100)}%" class="${v ? 'on' : ''}" title="${d}: ${v}"></i>`; }).join('');
 }
 const sstatus = (m, err) => { const s = $('#share-status'); s.textContent = m; s.classList.toggle('err', !!err); };
 $('#f-pub').addEventListener('change', async e => {

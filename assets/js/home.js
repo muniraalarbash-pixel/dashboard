@@ -46,10 +46,13 @@ const ICON = {
 
 /* ---------- data ---------- */
 async function load() {
-  const [p, v] = await Promise.all([
-    sb.from('projects').select('id,title,topic,brand,template,is_published,share_slug,share_pass_hash,created_at,updated_at').order('updated_at', { ascending: false }),
+  const cols = 'id,title,topic,brand,template,is_published,share_slug,share_pass_hash,created_at,updated_at';
+  const [p0, v] = await Promise.all([
+    sb.from('projects').select(cols + ',view_count,last_viewed_at').order('updated_at', { ascending: false }),
     sb.from('versions').select('id,project_id,period,file_name,row_count,created_at').order('created_at', { ascending: false }).limit(500)
   ]);
+  // fall back if migration 002 (view counter) is not applied yet
+  const p = p0.error && /view_count|last_viewed_at/.test(p0.error.message || '') ? await sb.from('projects').select(cols).order('updated_at', { ascending: false }) : p0;
   if (p.error) { $('#view').innerHTML = `<div class="notice err">تعذّر تحميل المشاريع: ${esc(p.error.message)}</div>`; return; }
   S.projects = p.data || []; S.versions = v.data || [];
   if (!S.selected || !projById(S.selected)) S.selected = S.projects[0] ? S.projects[0].id : null;
@@ -217,7 +220,7 @@ function viewProjects() {
       ${list.map(p => { const v = vByP.get(p.id), c = color(p); return `<a class="pcard3" href="project.html?id=${p.id}" style="background:color-mix(in srgb, ${esc(c)} 24%, var(--surface))">
         <div class="top"><span class="chipx">${ICON.file.replace('<svg', '<svg width="14" height="14"')}${esc(p.topic || 'بدون تصنيف')}</span><span class="pill ${p.is_published ? 'live' : ''}">${p.is_published ? 'منشور' : 'مسودة'}</span></div>
         <h3>${esc(p.title)}</h3>
-        <div class="bot"><span>${v ? Number(v.row_count).toLocaleString('en-US') + ' سجل' : 'بدون بيانات'} · قالب ${TPL[p.template] || 'مربعات'}</span><span>${esc(rel(p.updated_at))}</span></div></a>`; }).join('')}
+        <div class="bot"><span>${v ? Number(v.row_count).toLocaleString('en-US') + ' سجل' : 'بدون بيانات'}${p.is_published && 'view_count' in p ? ' · 👁 ' + Number(p.view_count || 0).toLocaleString('en-US') : ''}</span><span>${esc(rel(p.updated_at))}</span></div></a>`; }).join('')}
       <button type="button" class="pcard3 newcard" data-new><span class="ic c1">${ICON.plus}</span><b>مشروع جديد</b><span>ارفع ملف Excel وابدأ</span></button>
     </div>
     ${!list.length && S.projects.length ? '<p class="muted">لا توجد مشاريع تطابق البحث.</p>' : ''}`;
@@ -225,9 +228,10 @@ function viewProjects() {
 
 function viewLinks() {
   const pub = S.projects.filter(p => p.is_published);
-  return `<header class="vhead"><div><h1>الروابط المنشورة</h1><p class="muted">كل الروابط اللي شاركتيها، للعرض فقط.</p></div></header>
+  const totalViews = pub.reduce((s, p) => s + (p.view_count || 0), 0);
+  return `<header class="vhead"><div><h1>الروابط المنشورة</h1><p class="muted">كل الروابط اللي شاركتيها، للعرض فقط.</p></div>${pub.length && 'view_count' in pub[0] ? `<div class="tile4" style="min-width:200px"><span class="ic c2">${ICON.star}</span><span class="t"><small>إجمالي المشاهدات</small><b>${totalViews.toLocaleString('en-US')}</b></span></div>` : ''}</header>
     <section class="card2">${pub.length ? `<div class="lrows">${pub.map(p => `<div class="lrow">
-        <div><b>${esc(p.title)}</b><div class="muted" style="font-size:12.5px">${p.share_pass_hash ? '🔒 محمي بكلمة مرور' : 'بدون كلمة مرور'} · ${esc(rel(p.updated_at))}</div></div>
+        <div><b>${esc(p.title)}</b><div class="muted" style="font-size:12.5px">${'view_count' in p ? `👁 ${Number(p.view_count || 0).toLocaleString('en-US')} مشاهدة${p.last_viewed_at ? ' · آخرها ' + esc(rel(p.last_viewed_at)) : ''} · ` : ''}${p.share_pass_hash ? '🔒 محمي بكلمة مرور' : 'بدون كلمة مرور'}</div></div>
         <label class="sr" for="l-${p.id}">رابط ${esc(p.title)}</label><input type="text" id="l-${p.id}" readonly value="${esc(shareUrl(p))}">
         <div class="row"><button type="button" class="btn btn-quiet btn-sm" data-copy="${esc(shareUrl(p))}">نسخ</button><a class="btn btn-primary btn-sm" href="${esc(shareUrl(p))}" target="_blank" rel="noopener">فتح</a></div>
       </div>`).join('')}</div>`

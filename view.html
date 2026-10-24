@@ -90,6 +90,8 @@ if (qs.get('demo')) {
       if (!dash) dash = mountDashboard($('#dash'), opts); else { dash.update(opts); toast('تم تحديث البيانات'); }
       curTitle = data.project.title; $('#xbar').hidden = !data.version;
       lastStamp = stamp;
+      // count one view per visitor session (owner visits are ignored by the database)
+      try { const k = 'viewed-' + slug; if (!sessionStorage.getItem(k)) { sessionStorage.setItem(k, '1'); sb.rpc('log_view', { p_slug: slug }).then(() => {}, () => {}); } } catch (e) {}
     }
     $('#gate-form').addEventListener('submit', e => { e.preventDefault(); pass = $('#gate-pass').value; $('#gate-err').textContent = ''; fetchShared(true); });
     await fetchShared(true);
