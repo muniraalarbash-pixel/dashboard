@@ -44,9 +44,10 @@ p{margin:0}
 .topbar .wrap{display:flex;align-items:center;justify-content:space-between;gap:12px;padding-block:12px}
 .brand{display:flex;align-items:center;gap:10px;font-family:var(--f-display);font-weight:700;font-size:19px;color:var(--ink);text-decoration:none}
 .brand small{font-family:var(--f-body);font-size:11px;color:var(--muted);font-weight:500;letter-spacing:.1em}
-.mark{display:grid;grid-template-columns:repeat(2,9px);gap:3px}
-.mark i{width:9px;height:9px;border-radius:2.5px}
-.mark i:nth-child(1){background:var(--violet)}.mark i:nth-child(2){background:var(--blue)}.mark i:nth-child(3){background:var(--teal)}.mark i:nth-child(4){background:var(--amber)}
+.logo{width:36px;height:36px;flex:none;display:block}
+.lg-bg{fill:var(--logo-bg,#0F3D3A)}.lg-ln{stroke:var(--logo-ink,#F5DABF)}.lg-dot{fill:var(--logo-dot,#C9443F)}
+:root{--logo-bg:#6C151E;--logo-ink:#F5DABF;--logo-dot:#F5DABF}
+:root[data-mode="light"],:root[data-mode="dark"]{--logo-bg:#0F3D3A;--logo-ink:#F5DABF;--logo-dot:#C9443F}
 .nav{display:flex;align-items:center;gap:10px;font-size:13.5px}
 .nav .who{color:var(--muted);max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 
@@ -222,7 +223,8 @@ body.app{min-height:100vh}
 
 /* nav (left) */
 .sidenav{grid-area:nav;position:sticky;top:16px;display:flex;flex-direction:column;gap:4px;background:var(--surface);border:1px solid var(--line);border-radius:22px;padding:18px 12px;min-height:calc(100vh - 32px)}
-.side-brand{display:flex;align-items:center;gap:8px;font-family:var(--f-display);font-weight:700;font-size:17px;color:var(--ink);text-decoration:none;padding:0 8px 12px}
+.side-brand{display:flex;align-items:center;justify-content:center;gap:8px;color:var(--ink);text-decoration:none;padding:0 8px 12px}
+.side-brand .logo{width:42px;height:42px}
 .me{display:grid;justify-items:center;gap:4px;text-align:center;padding:8px 4px 14px;border-bottom:1px solid var(--line);margin-bottom:8px}
 .avatar{width:62px;height:62px;border-radius:50%;display:grid;place-items:center;font-family:var(--f-display);font-size:34px;line-height:1;font-weight:700;background:var(--bordo);color:var(--on-bordo);margin-bottom:4px}
 .me b{font-size:15px}
