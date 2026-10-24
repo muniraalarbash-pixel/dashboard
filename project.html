@@ -5,6 +5,19 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>المشروع | داش بورد</title>
 <script>try{document.documentElement.dataset.mode=localStorage.getItem("dash-mode")||"bordo"}catch(e){document.documentElement.dataset.mode="bordo"}</script>
+<meta name="description" content="ارفع ملف Excel واحصل على داش بورد تفاعلي بهويتك البصرية، وشاركه برابط للعرض فقط.">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="داش بورد">
+<meta property="og:locale" content="ar_SA">
+<meta property="og:title" content="داش بورد">
+<meta property="og:description" content="ارفع ملف Excel واحصل على داش بورد تفاعلي بهويتك البصرية، وشاركه برابط للعرض فقط.">
+<meta property="og:url" content="https://muniraalarbash-pixel.github.io/dashboard/project.html">
+<meta property="og:image" content="https://muniraalarbash-pixel.github.io/dashboard/assets/og.png">
+<meta property="og:image:width" content="1200"><meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="ملف Excel يتحول إلى داش بورد تفاعلي">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://muniraalarbash-pixel.github.io/dashboard/assets/og.png">
+<meta name="robots" content="noindex">
 <link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%2064%2064%22%3E%3Crect%20width%3D%2264%22%20height%3D%2264%22%20rx%3D%2216%22%20fill%3D%22%230F3D3A%22/%3E%3Cpath%20d%3D%22M12%2044%20L24%2034%20L34%2039%20L52%2018%22%20fill%3D%22none%22%20stroke%3D%22%23F5DABF%22%20stroke-width%3D%225.5%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22/%3E%3Ccircle%20cx%3D%2252%22%20cy%3D%2218%22%20r%3D%225.5%22%20fill%3D%22%23C9443F%22/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&family=Alexandria:wght@500;600;700&display=swap">
@@ -61,6 +74,7 @@
         <summary><span class="n" style="background:var(--teal)">3</span>البيانات<span class="chev">▾</span></summary>
         <div class="body">
           <p class="label" id="cur-version"></p>
+          <div class="tpl-dl"><span class="label">ما تعرف شكل الملف؟ حمّل نموذج جاهز:</span><div class="row"><a class="btn btn-quiet btn-sm" href="assets/templates/template-sales.xlsx" download>نموذج مبيعات</a><a class="btn btn-quiet btn-sm" href="assets/templates/template-marketing.xlsx" download>نموذج تسويق</a></div></div>
           <label class="drop" id="drop-data" for="f-data"><input type="file" id="f-data" aria-label="ملف البيانات الفعلية"><strong>ملف البيانات (Excel أو CSV)</strong><span>يحل محل البيانات الحالية ويُحفظ كتحديث جديد</span></label>
           <details><summary class="label" style="cursor:pointer">أو الصق الجدول من Excel</summary>
             <div class="field" style="margin-top:8px"><textarea id="f-paste" dir="ltr" placeholder="انسخ الجدول مع صف العناوين والصقه هنا"></textarea><button type="button" class="btn btn-quiet btn-sm" id="b-paste" style="justify-self:start">استخدام البيانات الملصوقة</button></div>
@@ -112,7 +126,7 @@
     </div>
 
     <div class="preview">
-      <div class="preview-head"><span>معاينة مباشرة</span><span id="preview-note"></span></div>
+      <div class="preview-head"><span>معاينة مباشرة <span id="preview-note"></span></span><span class="row"><span class="xs muted" id="xst" role="status" aria-live="polite" style="font-size:12px"></span><button type="button" class="btn btn-quiet btn-sm" data-export="png">صورة</button><button type="button" class="btn btn-quiet btn-sm" data-export="pdf">PDF</button></span></div>
       <div class="preview-frame" id="preview"></div>
     </div>
   </div>

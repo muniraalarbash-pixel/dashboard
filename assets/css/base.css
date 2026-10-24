@@ -366,3 +366,7 @@ body.app{min-height:100vh}
   .lrow{grid-template-columns:minmax(0,1fr)}
   .tile4{padding:12px;gap:10px}.tile4 .ic{width:38px;height:38px;border-radius:12px}.tile4 b{font-size:18px}
 }
+
+.tpl-dl{display:grid;gap:6px;padding:10px 12px;border-radius:10px;background:var(--surface-2)}
+.dl-link{font-size:13.5px;font-weight:600;color:var(--accent);text-decoration:none;margin-top:2px}
+.dl-link:hover{text-decoration:underline}

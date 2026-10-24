@@ -149,7 +149,7 @@ async function drawProjectChart() {
   const box = $('#pchart'); if (!box) return;
   if (chart) { chart.destroy(); chart = null; }
   const p = projById(S.selected);
-  if (!p) { box.innerHTML = `<div class="empty2"><b style="color:var(--ink)">ابدأ أول مشروع</b><span>ارفع ملف Excel وشوف الرسم البياني هنا.</span><button class="btn btn-primary btn-sm" type="button" data-new>مشروع جديد</button></div>`; return; }
+  if (!p) { box.innerHTML = `<div class="empty2"><b style="color:var(--ink)">ابدأ أول مشروع</b><span>ارفع ملف Excel وشوف الرسم البياني هنا.</span><a class="btn btn-ghost btn-sm" href="assets/templates/template-sales.xlsx" download>حمّل ملف نموذجي</a><button class="btn btn-primary btn-sm" type="button" data-new>مشروع جديد</button></div>`; return; }
   const my = ++drawToken;
   box.innerHTML = `<div class="c-head"><div><h2>${esc(p.title)}</h2><span class="muted">جاري التحميل…</span></div></div><div class="chart-wrap"></div>`;
   if (!latestCache.has(p.id)) {

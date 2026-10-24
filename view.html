@@ -5,6 +5,18 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>داش بورد</title>
 <script>try{document.documentElement.dataset.mode=localStorage.getItem("dash-mode")||"bordo"}catch(e){document.documentElement.dataset.mode="bordo"}</script>
+<meta name="description" content="داش بورد تفاعلي للعرض فقط. افتح الرابط وتصفح الأرقام وفلترها.">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="داش بورد">
+<meta property="og:locale" content="ar_SA">
+<meta property="og:title" content="داش بورد تفاعلي">
+<meta property="og:description" content="داش بورد تفاعلي للعرض فقط. افتح الرابط وتصفح الأرقام وفلترها.">
+<meta property="og:url" content="https://muniraalarbash-pixel.github.io/dashboard/view.html">
+<meta property="og:image" content="https://muniraalarbash-pixel.github.io/dashboard/assets/og.png">
+<meta property="og:image:width" content="1200"><meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="ملف Excel يتحول إلى داش بورد تفاعلي">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://muniraalarbash-pixel.github.io/dashboard/assets/og.png">
 <link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%2064%2064%22%3E%3Crect%20width%3D%2264%22%20height%3D%2264%22%20rx%3D%2216%22%20fill%3D%22%230F3D3A%22/%3E%3Cpath%20d%3D%22M12%2044%20L24%2034%20L34%2039%20L52%2018%22%20fill%3D%22none%22%20stroke%3D%22%23F5DABF%22%20stroke-width%3D%225.5%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22/%3E%3Ccircle%20cx%3D%2252%22%20cy%3D%2218%22%20r%3D%225.5%22%20fill%3D%22%23C9443F%22/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&family=Alexandria:wght@500;600;700&display=swap">
@@ -27,12 +39,16 @@
       <p class="status err" id="gate-err" role="status" aria-live="polite"></p>
     </form>
   </div>
+  <div class="exportbar" id="xbar" hidden><span class="xs" id="xst" role="status" aria-live="polite"></span><button type="button" class="btn btn-quiet btn-sm" data-export="png">حفظ كصورة</button><button type="button" class="btn btn-quiet btn-sm" data-export="pdf">تحميل PDF</button></div>
   <div id="dash"></div>
 </div>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.75.0/dist/umd/supabase.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <script type="module">
 import { sb, $, toast } from './assets/js/sb.js';
+import { wireExport } from './assets/js/export.js';
+let curTitle = '';
+wireExport(() => ({ el: document.querySelector('#dash .dash'), title: curTitle }), m => { $('#xst').textContent = m; });
 import { mountDashboard, TEMPLATES } from './assets/js/render.js';
 
 const qs = new URLSearchParams(location.search);
@@ -52,6 +68,7 @@ if (qs.get('demo')) {
   $('#demo-tabs').addEventListener('click', e => { const b = e.target.closest('[data-t]'); if (!b) return; proj.template = b.dataset.t; tabs(); dash.setTemplate(proj.template); });
   document.title = proj.title + ' | داش بورد';
   dash = mountDashboard($('#dash'), { project: proj, version: SAMPLE.version, previous: SAMPLE.previous });
+  curTitle = proj.title; $('#xbar').hidden = false;
 } else {
   const slug = qs.get('s');
   if (!slug || !sb) gate('الرابط غير صحيح', 'تأكد من نسخ رابط المشاركة كاملًا.', false);
@@ -71,6 +88,7 @@ if (qs.get('demo')) {
       const opts = { project: data.project, version: data.version, previous: data.previous };
       document.title = data.project.title + ' | داش بورد';
       if (!dash) dash = mountDashboard($('#dash'), opts); else { dash.update(opts); toast('تم تحديث البيانات'); }
+      curTitle = data.project.title; $('#xbar').hidden = !data.version;
       lastStamp = stamp;
     }
     $('#gate-form').addEventListener('submit', e => { e.preventDefault(); pass = $('#gate-pass').value; $('#gate-err').textContent = ''; fetchShared(true); });

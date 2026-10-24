@@ -7,6 +7,17 @@
 <meta name="description" content="ارفع ملف Excel واحصل على داش بورد تفاعلي بهويتك البصرية، وشاركه برابط للعرض فقط.">
 <meta name="theme-color" content="#0B2E2B">
 <script>try{document.documentElement.dataset.mode=localStorage.getItem("dash-mode")||"bordo"}catch(e){document.documentElement.dataset.mode="bordo"}</script>
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="داش بورد">
+<meta property="og:locale" content="ar_SA">
+<meta property="og:title" content="داش بورد | من Excel إلى داش بورد تفاعلي">
+<meta property="og:description" content="ارفع ملف Excel واحصل على داش بورد تفاعلي بهويتك البصرية، وشاركه برابط للعرض فقط.">
+<meta property="og:url" content="https://muniraalarbash-pixel.github.io/dashboard/">
+<meta property="og:image" content="https://muniraalarbash-pixel.github.io/dashboard/assets/og.png">
+<meta property="og:image:width" content="1200"><meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="ملف Excel يتحول إلى داش بورد تفاعلي">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://muniraalarbash-pixel.github.io/dashboard/assets/og.png">
 <link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%2064%2064%22%3E%3Crect%20width%3D%2264%22%20height%3D%2264%22%20rx%3D%2216%22%20fill%3D%22%230F3D3A%22/%3E%3Cpath%20d%3D%22M12%2044%20L24%2034%20L34%2039%20L52%2018%22%20fill%3D%22none%22%20stroke%3D%22%23F5DABF%22%20stroke-width%3D%225.5%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22/%3E%3Ccircle%20cx%3D%2252%22%20cy%3D%2218%22%20r%3D%225.5%22%20fill%3D%22%23C9443F%22/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&family=Alexandria:wght@500;600;700&display=swap">
@@ -40,7 +51,7 @@
   </section>
 
   <section class="flow2" aria-label="كيف يعمل">
-    <div class="st"><span class="num">01</span><h3>ارفع الملف</h3><p>Excel أو CSV، أو الصق الجدول مباشرة. ملف المستهدف اختياري.</p></div>
+    <div class="st"><span class="num">01</span><h3>ارفع الملف</h3><p>Excel أو CSV، أو الصق الجدول مباشرة. ملف المستهدف اختياري.</p><a class="dl-link" href="assets/templates/template-sales.xlsx" download>حمّل ملف نموذجي ↓</a></div>
     <div class="st"><span class="num">02</span><h3>معالجة تلقائية</h3><p>يتعرف على الأعمدة والتواريخ، وينظف صفوف الإجمالي، ويحسب نسبة الإنجاز.</p></div>
     <div class="st"><span class="num">03</span><h3>هوية وقالب</h3><p>ارفع الشعار وتُستخرج ألوانه، واختر بين ثلاثة قوالب.</p></div>
     <div class="st"><span class="num">04</span><h3>شارك الرابط</h3><p>للعرض فقط، ومع كلمة مرور إذا احتجت. كل تحديث ينحفظ ويُقارن بالسابق.</p></div>
@@ -68,6 +79,7 @@
           <label class="field"><span class="label">البريد الإلكتروني</span><input type="email" id="email" autocomplete="email" required dir="ltr"></label>
           <label class="field"><span class="label">كلمة المرور</span><input type="password" id="pass" autocomplete="current-password" required minlength="6" dir="ltr"></label>
           <button class="btn btn-primary" type="submit" id="auth-btn">دخول</button>
+          <button class="btn btn-ghost btn-sm" type="button" id="forgot" style="justify-self:start">نسيت كلمة المرور؟</button>
           <p class="status" id="auth-status" role="status" aria-live="polite"></p>
         </form>
       </div>
@@ -94,6 +106,7 @@ const setMode = m => {
   $('#auth-btn').textContent = m === 'in' ? 'دخول' : 'إنشاء الحساب';
   $('#pass').autocomplete = m === 'in' ? 'current-password' : 'new-password';
   $('#auth-status').textContent = '';
+  $('#forgot').hidden = m !== 'in';
 };
 $('#tab-in').onclick = () => setMode('in');
 $('#tab-up').onclick = () => setMode('up');
@@ -102,6 +115,17 @@ if (setupNotice($('#setup'))) { $('#authbox').hidden = true; }
 const user = await currentUser();
 mountNav(user);
 if (user) { $('#authbox').hidden = true; $('#signed').hidden = false; }
+
+$('#forgot').addEventListener('click', async () => {
+  const st = $('#auth-status'), email = $('#email').value.trim();
+  st.classList.remove('err');
+  if (!/^\S+@\S+\.\S+$/.test(email)) { st.textContent = 'اكتب بريدك الإلكتروني فوق، ثم اضغط «نسيت كلمة المرور؟».'; st.classList.add('err'); $('#email').focus(); return; }
+  $('#forgot').disabled = true; st.textContent = 'جاري الإرسال…';
+  const { error } = await sb.auth.resetPasswordForEmail(email, { redirectTo: new URL('reset.html', location.href).href });
+  $('#forgot').disabled = false;
+  if (error) { st.textContent = /rate|seconds/i.test(error.message) ? 'طلبت رابطًا قبل قليل. انتظر دقيقة ثم حاول مرة أخرى.' : 'تعذّر الإرسال: ' + error.message; st.classList.add('err'); return; }
+  st.textContent = 'إذا كان البريد مسجلًا، بيوصلك رابط لتعيين كلمة مرور جديدة. تحقق من صندوق الوارد والرسائل غير المرغوبة.';
+});
 
 $('#auth-form').addEventListener('submit', async e => {
   e.preventDefault();

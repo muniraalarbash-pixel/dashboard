@@ -3,6 +3,7 @@ import { sb, $, requireUser, mountNav, setupNotice, toast } from './sb.js';
 import { mountDashboard, TEMPLATES } from './render.js';
 import { DEFAULT_BRAND, FONTS, extractColors, computeTotals, guessTargetCfg, esc, fmtDate } from './engine.js';
 import { openFile, openPasted, extractRaw, convert, TYPES } from './parse.js';
+import { wireExport } from './export.js';
 
 if (setupNotice($('#setup'))) throw new Error('not configured');
 const user = await requireUser();
@@ -289,4 +290,5 @@ $('#b-del2').addEventListener('click', async () => {
   location.href = 'app.html';
 });
 
+wireExport(() => ({ el: document.querySelector('#preview .dash'), title: project && project.title }), m => { $('#xst').textContent = m; });
 load();

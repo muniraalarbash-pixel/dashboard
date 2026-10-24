@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>تعيين كلمة مرور جديدة | داش بورد</title>
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#0B2E2B">
+<script>try{document.documentElement.dataset.mode=localStorage.getItem("dash-mode")||"bordo"}catch(e){document.documentElement.dataset.mode="bordo"}</script>
+<meta name="description" content="ارفع ملف Excel واحصل على داش بورد تفاعلي بهويتك البصرية، وشاركه برابط للعرض فقط.">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="داش بورد">
+<meta property="og:locale" content="ar_SA">
+<meta property="og:title" content="داش بورد">
+<meta property="og:description" content="ارفع ملف Excel واحصل على داش بورد تفاعلي بهويتك البصرية، وشاركه برابط للعرض فقط.">
+<meta property="og:url" content="https://muniraalarbash-pixel.github.io/dashboard/reset.html">
+<meta property="og:image" content="https://muniraalarbash-pixel.github.io/dashboard/assets/og.png">
+<meta property="og:image:width" content="1200"><meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="ملف Excel يتحول إلى داش بورد تفاعلي">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://muniraalarbash-pixel.github.io/dashboard/assets/og.png">
+<link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%2064%2064%22%3E%3Crect%20width%3D%2264%22%20height%3D%2264%22%20rx%3D%2216%22%20fill%3D%22%230F3D3A%22/%3E%3Cpath%20d%3D%22M12%2044%20L24%2034%20L34%2039%20L52%2018%22%20fill%3D%22none%22%20stroke%3D%22%23F5DABF%22%20stroke-width%3D%225.5%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22/%3E%3Ccircle%20cx%3D%2252%22%20cy%3D%2218%22%20r%3D%225.5%22%20fill%3D%22%23C9443F%22/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&family=Alexandria:wght@500;600;700&display=swap">
+<link rel="stylesheet" href="assets/css/base.css">
+</head>
+<body>
+<header class="topbar"><div class="wrap">
+  <a class="brand" href="index.html"><svg class="logo" viewBox="0 0 64 64" aria-hidden="true"><rect width="64" height="64" rx="16" class="lg-bg"/><path d="M12 44 L24 34 L34 39 L52 18" fill="none" class="lg-ln" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round"/><circle cx="52" cy="18" r="5.5" class="lg-dot"/></svg><span class="sr">داش بورد</span></a>
+  <nav class="nav" id="nav"></nav>
+</div></header>
+<main class="wrap">
+  <div class="gate card">
+    <h1 style="font-size:22px">تعيين كلمة مرور جديدة</h1>
+    <p class="muted" id="intro">لحظة، نتحقق من الرابط…</p>
+    <form class="auth" id="reset-form" hidden novalidate>
+      <label class="field"><span class="label">كلمة المرور الجديدة</span><input type="password" id="p1" autocomplete="new-password" minlength="6" dir="ltr" required></label>
+      <label class="field"><span class="label">أعد كتابتها</span><input type="password" id="p2" autocomplete="new-password" minlength="6" dir="ltr" required></label>
+      <button class="btn btn-primary" type="submit" id="save">حفظ كلمة المرور</button>
+      <p class="status" id="st" role="status" aria-live="polite"></p>
+    </form>
+    <a class="btn btn-quiet" href="index.html#login" id="back" hidden>الرجوع لتسجيل الدخول</a>
+  </div>
+</main>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.75.0/dist/umd/supabase.js"></script>
+<script type="module">
+import { sb, $, mountNav } from './assets/js/sb.js';
+mountNav(null);
+const show = () => { $('#intro').textContent = 'اكتب كلمة مرور جديدة من 6 أحرف أو أكثر.'; $('#reset-form').hidden = false; $('#p1').focus(); };
+const fail = () => { $('#intro').textContent = 'الرابط غير صالح أو انتهت صلاحيته. اطلب رابطًا جديدًا من صفحة تسجيل الدخول.'; $('#back').hidden = false; };
+let ready = false;
+sb.auth.onAuthStateChange((ev, session) => { if ((ev === 'PASSWORD_RECOVERY' || (ev === 'SIGNED_IN' && session)) && !ready) { ready = true; show(); } });
+const hasToken = /access_token|code=|type=recovery/.test(location.hash + location.search);
+setTimeout(async () => { if (ready) return; const { data } = await sb.auth.getSession(); if (data.session && hasToken) { ready = true; show(); } else fail(); }, 2500);
+$('#reset-form').addEventListener('submit', async e => {
+  e.preventDefault();
+  const st = $('#st'), a = $('#p1').value, b = $('#p2').value;
+  st.classList.remove('err');
+  if (a.length < 6) { st.textContent = 'كلمة المرور لازم تكون 6 أحرف أو أكثر.'; st.classList.add('err'); return; }
+  if (a !== b) { st.textContent = 'الكلمتين غير متطابقتين.'; st.classList.add('err'); return; }
+  $('#save').disabled = true; st.textContent = 'جاري الحفظ…';
+  const { error } = await sb.auth.updateUser({ password: a });
+  $('#save').disabled = false;
+  if (error) { st.textContent = /different|same/i.test(error.message) ? 'اختر كلمة مرور مختلفة عن القديمة.' : 'تعذّر الحفظ: ' + error.message; st.classList.add('err'); return; }
+  st.textContent = 'تم تغيير كلمة المرور. ننقلك لحسابك…';
+  setTimeout(() => { location.href = 'app.html'; }, 1200);
+});
+</script>
+</body>
+</html>
