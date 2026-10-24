@@ -1,0 +1,25 @@
+# Keeps the free Supabase project awake (free projects pause after ~7 days without activity).
+# Runs a tiny read-only database query every 3 days. Can also be run by hand from the Actions tab.
+name: Keep Supabase awake
+
+on:
+  schedule:
+    - cron: "17 5 */3 * *"   # every 3 days at 05:17 UTC (08:17 Riyadh)
+  workflow_dispatch:
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Query the database
+        env:
+          # Public (publishable) key — the same one already in assets/js/config.js
+          SUPABASE_URL: https://zuahmohagnusgzxiykti.supabase.co
+          SUPABASE_KEY: sb_publishable_spuhbyR15velJI-0VfFyRw_6tIiQs4o
+        run: |
+          code=$(curl -s -o response.json -w "%{http_code}" -X POST "$SUPABASE_URL/rest/v1/rpc/get_shared" \
+            -H "apikey: $SUPABASE_KEY" -H "Authorization: Bearer $SUPABASE_KEY" -H "Content-Type: application/json" \
+            -d '{"p_slug":"keep-alive-ping"}')
+          echo "HTTP $code"; cat response.json; echo
+          test "$code" = "200"
