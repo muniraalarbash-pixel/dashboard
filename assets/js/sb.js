@@ -8,11 +8,10 @@ export const $ = (s, r = document) => r.querySelector(s);
 /* ---------- color modes ---------- */
 export const MODES = [
   { id: 'light', name: 'فاتح', a: '#FFFFFF', b: '#2F5BEA' },
-  { id: 'warm', name: 'دافئ', a: '#FAF4EC', b: '#7A4A2A' },
   { id: 'dark', name: 'داكن', a: '#1D2128', b: '#7FE0C8' },
   { id: 'bordo', name: 'عنابي', a: '#0F3D3A', b: '#6C151E' }
 ];
-export const getMode = () => document.documentElement.dataset.mode || 'bordo';
+export const getMode = () => { const m = document.documentElement.dataset.mode; return MODES.some(x => x.id === m) ? m : 'bordo'; };
 export function setMode(id) {
   if (!MODES.some(m => m.id === id)) return;
   document.documentElement.dataset.mode = id;
