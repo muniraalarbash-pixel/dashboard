@@ -1,5 +1,6 @@
 // Supabase client + shared page helpers
 import { SUPABASE_URL, SUPABASE_ANON_KEY } from './config.js';
+import { T } from './engine.js';
 
 export const configured = !/YOUR-/.test(SUPABASE_URL + SUPABASE_ANON_KEY);
 export const sb = configured && window.supabase ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null;
@@ -23,9 +24,29 @@ export function setMode(id) {
 }
 export function modeSwitchHTML() {
   const cur = getMode();
-  return `<div class="modes" role="group" aria-label="لون الموقع">${MODES.map(m => `<button type="button" data-mode="${m.id}" aria-pressed="${m.id === cur}" title="${m.name}" aria-label="الوضع ${m.name}" style="background:linear-gradient(135deg,${m.a} 50%,${m.b} 50%)"></button>`).join('')}</div>`;
+  const N = { light: T('فاتح', 'Light'), dark: T('داكن', 'Dark'), bordo: T('عنابي', 'Bordeaux') };
+  return `<div class="modes" role="group" aria-label="${T('لون الموقع', 'Site color')}">${MODES.map(m => `<button type="button" data-mode="${m.id}" aria-pressed="${m.id === cur}" title="${N[m.id] || m.name}" aria-label="${N[m.id] || m.name}" style="background:linear-gradient(135deg,${m.a} 50%,${m.b} 50%)"></button>`).join('')}</div>`;
 }
 document.addEventListener('click', e => { const b = e.target.closest('.modes button[data-mode]'); if (b) setMode(b.dataset.mode); });
+
+/* ---------- language (public pages only) ---------- */
+export const getLang = () => document.documentElement.lang === 'en' ? 'en' : 'ar';
+export function setLang(l) {
+  try { localStorage.setItem('dash-lang', l); } catch (e) {}
+  const u = new URL(location.href); u.searchParams.delete('lang'); location.href = u.href;
+}
+export const langToggleHTML = () => getLang() === 'en'
+  ? '<button class="btn btn-ghost btn-sm" type="button" data-lang="ar" lang="ar">العربية</button>'
+  : '<button class="btn btn-ghost btn-sm" type="button" data-lang="en" lang="en">English</button>';
+document.addEventListener('click', e => { const b = e.target.closest('[data-lang]'); if (b) setLang(b.dataset.lang); });
+export function applyStatic(root = document) {
+  if (getLang() !== 'en') return;
+  root.querySelectorAll('[data-en]').forEach(el => { el.textContent = el.dataset.en; });
+  root.querySelectorAll('[data-en-html]').forEach(el => { el.innerHTML = el.dataset.enHtml; });
+  root.querySelectorAll('[data-en-ph]').forEach(el => { el.placeholder = el.dataset.enPh; });
+  root.querySelectorAll('[data-en-aria]').forEach(el => { el.setAttribute('aria-label', el.dataset.enAria); });
+  const mt = document.querySelector('meta[name="en-title"]'); if (mt) document.title = mt.content;
+}
 
 export async function currentUser() {
   if (!sb) return null;
@@ -38,10 +59,11 @@ export async function requireUser() {
   return u;
 }
 export async function signOut() { await sb.auth.signOut(); location.href = 'index.html'; }
-export function mountNav(user) {
+export function mountNav(user, opts = {}) {
   const nav = $('#nav'); if (!nav) return;
-  if (!user) { nav.innerHTML = modeSwitchHTML() + `<a class="btn btn-quiet btn-sm" href="index.html#login">تسجيل الدخول</a>`; return; }
-  nav.innerHTML = modeSwitchHTML() + `<a class="btn btn-quiet btn-sm" href="app.html">حسابي</a><button class="btn btn-ghost btn-sm" type="button" id="signout">خروج</button>`;
+  const lang = opts.lang ? langToggleHTML() : '';
+  if (!user) { nav.innerHTML = lang + modeSwitchHTML() + `<a class="btn btn-quiet btn-sm" href="index.html#login">${T('تسجيل الدخول', 'Sign in')}</a>`; return; }
+  nav.innerHTML = lang + modeSwitchHTML() + `<a class="btn btn-quiet btn-sm" href="app.html">${T('حسابي', 'My account')}</a><button class="btn btn-ghost btn-sm" type="button" id="signout">${T('خروج', 'Sign out')}</button>`;
   $('#signout').addEventListener('click', signOut);
 }
 export function setupNotice(el) {

@@ -6,6 +6,8 @@
 <title>داش بورد | Dashboard</title>
 <meta name="description" content="ارفع ملف Excel واحصل على داش بورد تفاعلي بهويتك البصرية، وشاركه برابط للعرض فقط.">
 <meta name="theme-color" content="#0B2E2B">
+<script>try{var q=new URLSearchParams(location.search).get("lang");if(q==="en"||q==="ar")localStorage.setItem("dash-lang",q);var l=q||localStorage.getItem("dash-lang");if(l==="en"){document.documentElement.lang="en";document.documentElement.dir="ltr"}}catch(e){}</script>
+<meta name="en-title" content="Dashboard | Excel to interactive dashboards">
 <script>try{document.documentElement.dataset.mode=localStorage.getItem("dash-mode")||"bordo"}catch(e){document.documentElement.dataset.mode="bordo"}</script>
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="داش بورد">
@@ -34,66 +36,68 @@
   <section class="hero2">
     <div class="copy">
       <p class="eyebrow">UPLOAD · AUTOMATE · ANALYZE</p>
-      <h1>ملف Excel يتحول إلى <em>داش بورد</em> بهويتك</h1>
-      <p class="lead">ارفع بياناتك، اختر القالب، وطبّق ألوان جهتك وشعارها. تحصل على رابط خاص يتصفحه أي شخص ويفلتر فيه، والتعديل لك وحدك.</p>
-      <div class="cta row"><a class="btn btn-primary" href="#login">ابدأ مشروعك</a><a class="btn btn-quiet" href="view.html?demo=1">شاهد العرض التجريبي</a></div>
+      <h1 data-en-html="Turn an Excel file into a <em>dashboard</em> with your brand">ملف Excel يتحول إلى <em>داش بورد</em> بهويتك</h1>
+      <p class="lead" data-en="Upload your data, pick a template, and apply your organization’s colors and logo. You get a private link anyone can browse and filter, while editing stays with you.">ارفع بياناتك، اختر القالب، وطبّق ألوان جهتك وشعارها. تحصل على رابط خاص يتصفحه أي شخص ويفلتر فيه، والتعديل لك وحدك.</p>
+      <div class="cta row"><a class="btn btn-primary" href="#login" data-en="Start a project">ابدأ مشروعك</a><a class="btn btn-quiet" href="view.html?demo=1" data-en="View the live demo">شاهد العرض التجريبي</a></div>
       <div class="stats">
-        <div><b>3</b><span>قوالب جاهزة</span></div>
-        <div><b>10,000</b><span>صف لكل ملف</span></div>
-        <div><b>0 ر.س</b><span>للبدء</span></div>
+        <div><b>3</b><span data-en="templates">قوالب جاهزة</span></div>
+        <div><b>10,000</b><span data-en="rows per file">صف لكل ملف</span></div>
+        <div><b data-en="SAR 0">0 ر.س</b><span data-en="to start">للبدء</span></div>
       </div>
     </div>
-    <div class="screen" aria-label="معاينة حية لداش بورد تجريبي">
+    <div class="screen" aria-label="معاينة حية لداش بورد تجريبي" data-en-aria="Live preview of a demo dashboard">
       <div class="screen-bar" aria-hidden="true"><i></i><i></i><i></i></div>
       <div class="screen-in" id="screen"></div>
-      <a class="btn btn-primary btn-sm" href="view.html?demo=1">افتح العرض التفاعلي</a>
+      <a class="btn btn-primary btn-sm" href="view.html?demo=1" data-en="Open interactive demo">افتح العرض التفاعلي</a>
     </div>
   </section>
 
-  <section class="flow2" aria-label="كيف يعمل">
-    <div class="st"><span class="num">01</span><h3>ارفع الملف</h3><p>Excel أو CSV، أو الصق الجدول مباشرة. ملف المستهدف اختياري.</p><a class="dl-link" href="assets/templates/template-sales.xlsx" download>حمّل ملف نموذجي ↓</a></div>
-    <div class="st"><span class="num">02</span><h3>معالجة تلقائية</h3><p>يتعرف على الأعمدة والتواريخ، وينظف صفوف الإجمالي، ويحسب نسبة الإنجاز.</p></div>
-    <div class="st"><span class="num">03</span><h3>هوية وقالب</h3><p>ارفع الشعار وتُستخرج ألوانه، واختر بين ثلاثة قوالب.</p></div>
-    <div class="st"><span class="num">04</span><h3>شارك الرابط</h3><p>للعرض فقط، ومع كلمة مرور إذا احتجت. كل تحديث ينحفظ ويُقارن بالسابق.</p></div>
+  <section class="flow2" aria-label="كيف يعمل" data-en-aria="How it works">
+    <div class="st"><span class="num">01</span><h3 data-en="Upload a file">ارفع الملف</h3><p data-en="Excel or CSV, or paste a table. A target file is optional.">Excel أو CSV، أو الصق الجدول مباشرة. ملف المستهدف اختياري.</p><a class="dl-link" href="assets/templates/template-sales.xlsx" download data-en="Download a sample file ↓">حمّل ملف نموذجي ↓</a></div>
+    <div class="st"><span class="num">02</span><h3 data-en="Automatic processing">معالجة تلقائية</h3><p data-en="Detects columns and dates, removes total rows, and calculates achievement.">يتعرف على الأعمدة والتواريخ، وينظف صفوف الإجمالي، ويحسب نسبة الإنجاز.</p></div>
+    <div class="st"><span class="num">03</span><h3 data-en="Brand and template">هوية وقالب</h3><p data-en="Upload a logo to extract its colors, and choose from three templates.">ارفع الشعار وتُستخرج ألوانه، واختر بين ثلاثة قوالب.</p></div>
+    <div class="st"><span class="num">04</span><h3 data-en="Share the link">شارك الرابط</h3><p data-en="View-only, with an optional password. Every update is saved and compared with the last.">للعرض فقط، ومع كلمة مرور إذا احتجت. كل تحديث ينحفظ ويُقارن بالسابق.</p></div>
   </section>
 
   <section class="split" id="login">
     <div class="feat">
-      <h2>كل مشروع له هويته</h2>
+      <h2 data-en="Every project has its own identity">كل مشروع له هويته</h2>
       <ul>
-        <li><strong>الهوية البصرية</strong><span>ارفع الشعار وتُستخرج ألوانه تلقائيًا، واختر الخط المناسب.</span></li>
-        <li><strong>المستهدف مقابل الفعلي</strong><span>ارفع ملف المستهدف ويحسب نسبة الإنجاز لكل فرع أو قسم.</span></li>
-        <li><strong>تفاعلي للزائر، محمي للمالك</strong><span>الزائر يفلتر ويبحث ويرتب، ولا يقدر يعدل أي شيء.</span></li>
-        <li><strong>يتحدث لحاله</strong><span>ارفع ملف الشهر الجديد، والرابط نفسه يعرض الأرقام الجديدة.</span></li>
+        <li><strong data-en="Visual identity">الهوية البصرية</strong><span data-en="Upload a logo and its colors are extracted automatically; pick a font.">ارفع الشعار وتُستخرج ألوانه تلقائيًا، واختر الخط المناسب.</span></li>
+        <li><strong data-en="Target vs actual">المستهدف مقابل الفعلي</strong><span data-en="Upload a target file to get achievement by branch or department.">ارفع ملف المستهدف ويحسب نسبة الإنجاز لكل فرع أو قسم.</span></li>
+        <li><strong data-en="Interactive for viewers, protected for you">تفاعلي للزائر، محمي للمالك</strong><span data-en="Viewers filter, search and sort, but can’t change anything.">الزائر يفلتر ويبحث ويرتب، ولا يقدر يعدل أي شيء.</span></li>
+        <li><strong data-en="Updates itself">يتحدث لحاله</strong><span data-en="Upload next month’s file and the same link shows the new numbers.">ارفع ملف الشهر الجديد، والرابط نفسه يعرض الأرقام الجديدة.</span></li>
       </ul>
     </div>
     <div class="card">
       <div id="setup" class="notice" hidden></div>
-      <div id="signed" hidden class="auth"><p>أنت مسجل الدخول.</p><a class="btn btn-primary" href="app.html">اذهب إلى مشاريعي</a></div>
+      <div id="signed" hidden class="auth"><p data-en="You are signed in.">أنت مسجل الدخول.</p><a class="btn btn-primary" href="app.html" data-en="Go to my account">اذهب إلى مشاريعي</a></div>
       <div id="authbox">
         <div class="tabs" role="tablist">
-          <button type="button" role="tab" id="tab-in" aria-selected="true">تسجيل الدخول</button>
-          <button type="button" role="tab" id="tab-up" aria-selected="false">حساب جديد</button>
+          <button type="button" role="tab" id="tab-in" aria-selected="true" data-en="Sign in">تسجيل الدخول</button>
+          <button type="button" role="tab" id="tab-up" aria-selected="false" data-en="New account">حساب جديد</button>
         </div>
         <form class="auth" id="auth-form" novalidate>
-          <label class="field"><span class="label">البريد الإلكتروني</span><input type="email" id="email" autocomplete="email" required dir="ltr"></label>
-          <label class="field"><span class="label">كلمة المرور</span><input type="password" id="pass" autocomplete="current-password" required minlength="6" dir="ltr"></label>
-          <button class="btn btn-primary" type="submit" id="auth-btn">دخول</button>
-          <button class="btn btn-ghost btn-sm" type="button" id="forgot" style="justify-self:start">نسيت كلمة المرور؟</button>
+          <label class="field"><span class="label" data-en="Email">البريد الإلكتروني</span><input type="email" id="email" autocomplete="email" required dir="ltr"></label>
+          <label class="field"><span class="label" data-en="Password">كلمة المرور</span><input type="password" id="pass" autocomplete="current-password" required minlength="6" dir="ltr"></label>
+          <button class="btn btn-primary" type="submit" id="auth-btn" data-en="Sign in">دخول</button>
+          <button class="btn btn-ghost btn-sm" type="button" id="forgot" style="justify-self:start" data-en="Forgot password?">نسيت كلمة المرور؟</button>
           <p class="status" id="auth-status" role="status" aria-live="polite"></p>
-          <p class="muted" id="terms" hidden style="font-size:12.5px">بإنشاء حساب، أنت توافق على <a href="privacy.html">سياسة الخصوصية</a>.</p>
+          <p class="muted" id="terms" hidden style="font-size:12.5px" data-en-html="By creating an account you agree to the <a href=&quot;privacy.html&quot;>privacy policy</a>.">بإنشاء حساب، أنت توافق على <a href="privacy.html">سياسة الخصوصية</a>.</p>
         </form>
       </div>
     </div>
   </section>
 </main>
 
-<footer class="wrap foot"><span>داش بورد · مشروع تحليل بيانات من تصميم وتطوير منيرة الأربش</span><span class="row"><a href="privacy.html">سياسة الخصوصية</a><span dir="ltr">Upload. Automate. Analyze.</span></span></footer>
+<footer class="wrap foot"><span data-en="Dashboard · a data-analysis project designed and built by Munirah Alarbash">داش بورد · مشروع تحليل بيانات من تصميم وتطوير منيرة الأربش</span><span class="row"><a href="privacy.html" data-en="Privacy policy">سياسة الخصوصية</a><span dir="ltr">Upload. Automate. Analyze.</span></span></footer>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.75.0/dist/umd/supabase.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <script type="module">
-import { sb, $, currentUser, mountNav, setupNotice } from './assets/js/sb.js';
+import { sb, $, currentUser, mountNav, setupNotice, applyStatic } from './assets/js/sb.js';
+import { T } from './assets/js/engine.js';
+applyStatic();
 import { mountDashboard } from './assets/js/render.js';
 import { SAMPLE } from './assets/js/sample.js';
 
@@ -104,7 +108,7 @@ let mode = 'in';
 const setMode = m => {
   mode = m;
   $('#tab-in').setAttribute('aria-selected', m === 'in'); $('#tab-up').setAttribute('aria-selected', m === 'up');
-  $('#auth-btn').textContent = m === 'in' ? 'دخول' : 'إنشاء الحساب';
+  $('#auth-btn').textContent = m === 'in' ? T('دخول', 'Sign in') : T('إنشاء الحساب', 'Create account');
   $('#pass').autocomplete = m === 'in' ? 'current-password' : 'new-password';
   $('#auth-status').textContent = '';
   $('#forgot').hidden = m !== 'in';
@@ -115,34 +119,34 @@ $('#tab-up').onclick = () => setMode('up');
 
 if (setupNotice($('#setup'))) { $('#authbox').hidden = true; }
 const user = await currentUser();
-mountNav(user);
+mountNav(user, { lang: true });
 if (user) { $('#authbox').hidden = true; $('#signed').hidden = false; }
 
 $('#forgot').addEventListener('click', async () => {
   const st = $('#auth-status'), email = $('#email').value.trim();
   st.classList.remove('err');
-  if (!/^\S+@\S+\.\S+$/.test(email)) { st.textContent = 'اكتب بريدك الإلكتروني فوق، ثم اضغط «نسيت كلمة المرور؟».'; st.classList.add('err'); $('#email').focus(); return; }
-  $('#forgot').disabled = true; st.textContent = 'جاري الإرسال…';
+  if (!/^\S+@\S+\.\S+$/.test(email)) { st.textContent = T('اكتب بريدك الإلكتروني فوق، ثم اضغط «نسيت كلمة المرور؟».', 'Enter your email above, then press “Forgot password?”.'); st.classList.add('err'); $('#email').focus(); return; }
+  $('#forgot').disabled = true; st.textContent = T('جاري الإرسال…', 'Sending…');
   const { error } = await sb.auth.resetPasswordForEmail(email, { redirectTo: new URL('reset.html', location.href).href });
   $('#forgot').disabled = false;
-  if (error) { st.textContent = /rate|seconds/i.test(error.message) ? 'طلبت رابطًا قبل قليل. انتظر دقيقة ثم حاول مرة أخرى.' : 'تعذّر الإرسال: ' + error.message; st.classList.add('err'); return; }
-  st.textContent = 'إذا كان البريد مسجلًا، بيوصلك رابط لتعيين كلمة مرور جديدة. تحقق من صندوق الوارد والرسائل غير المرغوبة.';
+  if (error) { st.textContent = /rate|seconds/i.test(error.message) ? T('طلبت رابطًا قبل قليل. انتظر دقيقة ثم حاول مرة أخرى.', 'You requested a link recently. Wait a minute and try again.') : T('تعذّر الإرسال: ', 'Could not send: ') + error.message; st.classList.add('err'); return; }
+  st.textContent = T('إذا كان البريد مسجلًا، بيوصلك رابط لتعيين كلمة مرور جديدة. تحقق من صندوق الوارد والرسائل غير المرغوبة.', 'If this email is registered, you’ll receive a link to set a new password. Check your inbox and spam folder.');
 });
 
 $('#auth-form').addEventListener('submit', async e => {
   e.preventDefault();
   const st = $('#auth-status'), email = $('#email').value.trim(), password = $('#pass').value;
   st.classList.remove('err');
-  if (!email || password.length < 6) { st.textContent = 'اكتب البريد وكلمة مرور من 6 أحرف أو أكثر.'; st.classList.add('err'); return; }
-  $('#auth-btn').disabled = true; st.textContent = 'لحظة…';
+  if (!email || password.length < 6) { st.textContent = T('اكتب البريد وكلمة مرور من 6 أحرف أو أكثر.', 'Enter your email and a password of at least 6 characters.'); st.classList.add('err'); return; }
+  $('#auth-btn').disabled = true; st.textContent = T('لحظة…', 'One moment…');
   const res = mode === 'in' ? await sb.auth.signInWithPassword({ email, password }) : await sb.auth.signUp({ email, password });
   $('#auth-btn').disabled = false;
   if (res.error) {
     const m = res.error.message || '';
-    const msg = /Invalid login/i.test(m) ? 'البريد أو كلمة المرور غير صحيحة.' : /registered/i.test(m) ? 'هذا البريد مسجل مسبقًا. جرّب تسجيل الدخول.' : /confirm/i.test(m) ? 'فعّل حسابك من الرسالة اللي وصلت بريدك أولًا.' : 'تعذّر الإكمال: ' + m;
+    const msg = /Invalid login/i.test(m) ? T('البريد أو كلمة المرور غير صحيحة.', 'Incorrect email or password.') : /registered/i.test(m) ? T('هذا البريد مسجل مسبقًا. جرّب تسجيل الدخول.', 'This email is already registered. Try signing in.') : /confirm/i.test(m) ? T('فعّل حسابك من الرسالة اللي وصلت بريدك أولًا.', 'Confirm your account from the email we sent first.') : T('تعذّر الإكمال: ', 'Could not continue: ') + m;
     st.textContent = msg; st.classList.add('err'); return;
   }
-  if (mode === 'up' && !res.data.session) { st.textContent = 'تم إنشاء الحساب. افتح الرسالة اللي وصلت بريدك لتفعيله، ثم سجّل الدخول.'; return; }
+  if (mode === 'up' && !res.data.session) { st.textContent = T('تم إنشاء الحساب. افتح الرسالة اللي وصلت بريدك لتفعيله، ثم سجّل الدخول.', 'Account created. Open the email we sent to confirm it, then sign in.'); return; }
   location.href = 'app.html';
 });
 </script>

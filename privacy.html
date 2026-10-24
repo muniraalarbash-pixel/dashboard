@@ -5,6 +5,8 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>سياسة الخصوصية | داش بورد</title>
 <meta name="theme-color" content="#0B2E2B">
+<script>try{var q=new URLSearchParams(location.search).get("lang");if(q==="en"||q==="ar")localStorage.setItem("dash-lang",q);var l=q||localStorage.getItem("dash-lang");if(l==="en"){document.documentElement.lang="en";document.documentElement.dir="ltr"}}catch(e){}</script>
+<meta name="en-title" content="Privacy policy | Dashboard">
 <script>try{document.documentElement.dataset.mode=localStorage.getItem("dash-mode")||"bordo"}catch(e){document.documentElement.dataset.mode="bordo"}</script>
 <meta name="description" content="ارفع ملف Excel واحصل على داش بورد تفاعلي بهويتك البصرية، وشاركه برابط للعرض فقط.">
 <meta property="og:type" content="website">
@@ -44,7 +46,7 @@
   <nav class="nav" id="nav"></nav>
 </div></header>
 <main class="wrap">
-<article class="legal">
+<article class="legal ar-only">
   <header><h1>سياسة الخصوصية</h1><p class="meta">آخر تحديث: 24 أكتوبر 2026</p></header>
 
   <div class="sum" aria-label="ملخص">
@@ -62,6 +64,7 @@
       <li><strong>بيانات المشاريع:</strong> العنوان والوصف والهوية البصرية والقالب، والجدول المستخرج من ملفك. <strong>ملف Excel نفسه لا يُرفع</strong>؛ يُقرأ داخل متصفحك ويُحفظ الجدول الناتج فقط.</li>
       <li><strong>الشعارات:</strong> الصور التي ترفعها كشعار تُحفظ في مساحة تخزين عامة، أي أن من يملك رابط الصورة يستطيع فتحها.</li>
       <li><strong>سجل التحديثات:</strong> كل رفع يُحفظ كنسخة مع تاريخه لعرض المقارنة بالفترة السابقة.</li>
+      <li><strong>مشاهدات الرابط:</strong> عدد مرات فتح الرابط المنشور يوميًا، بدون تسجيل من فتحه.</li>
     </ul></section>
 
   <section><h2>من يستطيع رؤية بياناتك</h2>
@@ -80,7 +83,7 @@
     <p>إذا كانت بياناتك خاضعة لاشتراطات استضافة داخل المملكة (مثل نظام حماية البيانات الشخصية)، ننصح بعدم رفع بيانات شخصية أو حساسة، واستخدام بيانات مجمّعة أو مموّهة.</p></section>
 
   <section><h2>التخزين في المتصفح</h2>
-    <p>نستخدم التخزين المحلي في متصفحك لحفظ جلسة الدخول ولون الموقع الذي اخترته فقط. لا نستخدم ملفات تعريف ارتباط للإعلانات أو التتبّع.</p></section>
+    <p>نستخدم التخزين المحلي في متصفحك لحفظ جلسة الدخول ولون الموقع واللغة التي اخترتها فقط. لا نستخدم ملفات تعريف ارتباط للإعلانات أو التتبّع.</p></section>
 
   <section><h2>حذف بياناتك</h2>
     <ul>
@@ -91,12 +94,53 @@
   <section><h2>التعديلات على هذه السياسة</h2>
     <p>قد نحدّث هذه الصفحة عند إضافة مزايا جديدة، ويُذكر تاريخ آخر تحديث في أعلاها.</p></section>
 </article>
+<article class="legal en-only" lang="en">
+  <header><h1>Privacy policy</h1><p class="meta">Last updated: 24 October 2026</p></header>
+  <div class="sum" aria-label="Summary">
+    <div><b>Your data is yours</b><span>Each user can only see and edit their own projects.</span></div>
+    <div><b>No ads, no tracking</b><span>We don’t use analytics or advertising tools.</span></div>
+    <div><b>You decide what’s shared</b><span>No dashboard is visible unless you publish it.</span></div>
+  </div>
+  <section><h2>What is Dashboard?</h2>
+    <p>Dashboard is a free web tool that turns Excel files into interactive dashboards you can share through a view-only link. It is a personal data-analysis project designed and built by Munirah Alarbash, provided as is, without warranties.</p></section>
+  <section><h2>Data we store</h2>
+    <ul>
+      <li><strong>Account:</strong> your email, your password stored hashed (nobody can read it), and your name if you add one.</li>
+      <li><strong>Projects:</strong> title, description, visual identity, template, and the table extracted from your file. <strong>The Excel file itself is never uploaded</strong>; it is read in your browser and only the resulting table is saved.</li>
+      <li><strong>Logos:</strong> images you upload as a logo are kept in public storage, so anyone with the image link can open it.</li>
+      <li><strong>Update history:</strong> each upload is saved as a version with its date, to compare with the previous period.</li>
+      <li><strong>Link views:</strong> a count of how many times a published link was opened, per day. We don’t record who opened it.</li>
+    </ul></section>
+  <section><h2>Who can see your data</h2>
+    <ul>
+      <li>Only you, inside your account. The database enforces this with row-level security.</li>
+      <li>If you turn on “Publish”, anyone with the link can view the latest version without editing. You can add a password or turn publishing off at any time.</li>
+      <li>We don’t sell data or share it with anyone for marketing.</li>
+    </ul></section>
+  <section><h2>Where data is stored</h2>
+    <ul>
+      <li><strong>Database, accounts and storage:</strong> Supabase, on servers in Tokyo, Japan.</li>
+      <li><strong>Website pages:</strong> GitHub Pages.</li>
+      <li><strong>Fonts and libraries:</strong> loaded from Google Fonts, jsDelivr and cdnjs, which may see your device’s IP address like any website.</li>
+    </ul>
+    <p>If your data must be hosted inside Saudi Arabia (for example under the Personal Data Protection Law), avoid uploading personal or sensitive data and use aggregated or anonymized figures instead.</p></section>
+  <section><h2>Browser storage</h2>
+    <p>We use your browser’s local storage only for your sign-in session, your chosen site color and language. We don’t use advertising or tracking cookies.</p></section>
+  <section><h2>Deleting your data</h2>
+    <ul>
+      <li>Delete any project and all its versions from the project page → “Sharing” → “Delete project”.</li>
+      <li>To delete your whole account, contact us through the <a href="https://github.com/muniraalarbash-pixel/dashboard/issues" target="_blank" rel="noopener">project page on GitHub</a>.</li>
+    </ul></section>
+  <section><h2>Changes to this policy</h2>
+    <p>We may update this page when new features are added; the date at the top shows the latest update.</p></section>
+</article>
 </main>
-<footer class="wrap foot"><span>داش بورد · مشروع تحليل بيانات من تصميم وتطوير منيرة الأربش</span><a href="index.html">الصفحة الرئيسية</a></footer>
+<footer class="wrap foot"><span data-en="Dashboard · a data-analysis project by Munirah Alarbash">داش بورد · مشروع تحليل بيانات من تصميم وتطوير منيرة الأربش</span><a href="index.html" data-en="Home">الصفحة الرئيسية</a></footer>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.75.0/dist/umd/supabase.js"></script>
 <script type="module">
-import { mountNav, currentUser } from './assets/js/sb.js';
-mountNav(await currentUser());
+import { mountNav, currentUser, applyStatic } from './assets/js/sb.js';
+applyStatic();
+mountNav(await currentUser(), { lang: true });
 </script>
 </body>
 </html>

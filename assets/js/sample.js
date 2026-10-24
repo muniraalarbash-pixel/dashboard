@@ -1,8 +1,14 @@
-// Demo data (clearly fictional): branch sales vs targets, Jan–Sep 2026.
-import { computeTotals } from './engine.js';
+// Demo data (clearly fictional): branch sales vs targets, Jan–Sep 2026. Arabic or English labels.
+import { computeTotals, isEn } from './engine.js';
 
-const branches = [['الرياض', 1.35], ['جدة', 1.15], ['الدمام', 0.95], ['مكة', 0.8], ['المدينة', 0.65]];
-const depts = [['أغذية', 1], ['مشروبات', 0.55], ['خدمات', 0.35]];
+const en = isEn();
+const branches = en
+  ? [['Riyadh', 1.35], ['Jeddah', 1.15], ['Dammam', 0.95], ['Makkah', 0.8], ['Madinah', 0.65]]
+  : [['الرياض', 1.35], ['جدة', 1.15], ['الدمام', 0.95], ['مكة', 0.8], ['المدينة', 0.65]];
+const depts = en ? [['Food', 1], ['Beverages', 0.55], ['Services', 0.35]] : [['أغذية', 1], ['مشروبات', 0.55], ['خدمات', 0.35]];
+const C = en
+  ? { month: 'Month', branch: 'Branch', dept: 'Department', sales: 'Sales (SAR)', orders: 'Orders', newc: 'New customers', target: 'Target (SAR)' }
+  : { month: 'الشهر', branch: 'الفرع', dept: 'القسم', sales: 'المبيعات (ر.س)', orders: 'عدد الطلبات', newc: 'العملاء الجدد', target: 'المستهدف (ر.س)' };
 
 function build(monthsCount) {
   const rows = [];
@@ -15,28 +21,28 @@ function build(monthsCount) {
     rows.push([`2026-${String(mi + 1).padStart(2, '0')}-01`, b, d, sales, orders, newc]);
   }
   return {
-    columns: [{ name: 'الشهر', type: 'date' }, { name: 'الفرع', type: 'category' }, { name: 'القسم', type: 'category' },
-      { name: 'المبيعات (ر.س)', type: 'number' }, { name: 'عدد الطلبات', type: 'number' }, { name: 'العملاء الجدد', type: 'number' }],
+    columns: [{ name: C.month, type: 'date' }, { name: C.branch, type: 'category' }, { name: C.dept, type: 'category' },
+      { name: C.sales, type: 'number' }, { name: C.orders, type: 'number' }, { name: C.newc, type: 'number' }],
     rows
   };
 }
 
 const data = build(9);
 const targets = {
-  columns: [{ name: 'الفرع', type: 'category' }, { name: 'المستهدف (ر.س)', type: 'number' }],
+  columns: [{ name: C.branch, type: 'category' }, { name: C.target, type: 'number' }],
   rows: branches.map(([b, bw], i) => [b, Math.round(9000 * bw * 1.9 * 9 * 1.22 * (i === 0 ? 0.95 : i === 3 ? 1.12 : 1) / 100) * 100])
 };
 
 export const SAMPLE = {
   project: {
-    title: 'أداء المبيعات مقابل المستهدف 2026',
-    topic: 'شركة تجريبية · قسم المبيعات',
-    description: 'بيانات وهمية للعرض: المبيعات الشهرية لكل فرع وقسم، ومقارنتها بالمستهدف السنوي.',
-    period: 'يناير – سبتمبر 2026',
+    title: en ? 'Sales vs Target 2026' : 'أداء المبيعات مقابل المستهدف 2026',
+    topic: en ? 'Demo company · Sales department' : 'شركة تجريبية · قسم المبيعات',
+    description: en ? 'Fictional demo data: monthly sales by branch and department, compared with the annual target.' : 'بيانات وهمية للعرض: المبيعات الشهرية لكل فرع وقسم، ومقارنتها بالمستهدف السنوي.',
+    period: en ? 'Jan – Sep 2026' : 'يناير – سبتمبر 2026',
     template: 'tiles',
     brand: { primary: '#6C151E', secondary: '#0F3D3A', accent: '#D9B48F', font: 'IBM Plex Sans Arabic', logo_url: '' },
-    config: { target: { aKey: 'الفرع', aVal: 'المبيعات (ر.س)', tKey: 'الفرع', tVal: 'المستهدف (ر.س)' } }
+    config: { target: { aKey: C.branch, aVal: C.sales, tKey: C.branch, tVal: C.target } }
   },
-  version: { period: 'سبتمبر 2026', file_name: 'sales_sep.xlsx', data, targets, totals: computeTotals(data), created_at: '2026-10-03T09:00:00Z' },
-  previous: { period: 'أغسطس 2026', totals: computeTotals(build(8)), created_at: '2026-09-02T09:00:00Z' }
+  version: { period: en ? 'September 2026' : 'سبتمبر 2026', file_name: 'sales_sep.xlsx', data, targets, totals: computeTotals(data), created_at: '2026-10-03T09:00:00Z' },
+  previous: { period: en ? 'August 2026' : 'أغسطس 2026', totals: computeTotals(build(8)), created_at: '2026-09-02T09:00:00Z' }
 };

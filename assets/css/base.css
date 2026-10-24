@@ -182,7 +182,7 @@ body.landing .topbar{background:transparent;border-bottom-color:transparent;posi
 .hero2{display:grid;grid-template-columns:minmax(0,.9fr) minmax(0,1.1fr);gap:36px;align-items:center;padding-block:28px 40px}
 .hero2>*{min-width:0}
 .hero2 .copy{display:grid;gap:18px;align-content:center}
-.eyebrow{font-size:12.5px;font-weight:600;letter-spacing:.14em;color:var(--accent);direction:ltr;text-align:right}
+.eyebrow{font-size:12.5px;font-weight:600;letter-spacing:.14em;color:var(--accent);text-align:start}
 .hero2 h1{font-size:clamp(30px,4.4vw,50px);line-height:1.3;font-weight:700}
 .hero2 h1 em{font-style:normal;background:var(--bordo);color:var(--on-bordo);padding:0 .25em;border-radius:.18em;white-space:nowrap}
 .hero2 .lead{color:var(--muted);font-size:16.5px;max-width:48ch}
@@ -395,3 +395,10 @@ body.app{min-height:100vh}
 .vbars{display:flex;align-items:flex-end;gap:3px;height:44px;direction:ltr}
 .vbars i{flex:1;border-radius:3px 3px 0 0;background:var(--line)}
 .vbars i.on{background:var(--bordo-soft)}
+
+[dir=ltr] .screen-in .dash{transform-origin:top left}
+.tpl,.navlink,.pitem{text-align:start}
+.htable th,.htable td{text-align:start}
+
+html[lang=en] .ar-only{display:none!important}
+html:not([lang=en]) .en-only{display:none!important}

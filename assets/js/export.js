@@ -1,3 +1,4 @@
+import { T } from './engine.js';
 // Export the rendered dashboard: PNG image (html-to-image) or PDF (browser print → "Save as PDF").
 const H2I = 'https://cdn.jsdelivr.net/npm/html-to-image@1.11.11/dist/html-to-image.js';
 let loading = null;
@@ -32,9 +33,9 @@ export function wireExport(getTarget, onStatus = () => {}) {
     const b = e.target.closest('[data-export]'); if (!b) return;
     const t = getTarget(); if (!t || !t.el) return;
     if (b.dataset.export === 'pdf') { exportPDF(t.title); return; }
-    b.disabled = true; onStatus('جاري تجهيز الصورة…');
-    try { await exportPNG(t.el, t.title); onStatus('تم حفظ الصورة.'); }
-    catch (err) { onStatus('تعذّر حفظ الصورة. جرّب «تحميل PDF».'); }
+    b.disabled = true; onStatus(T('جاري تجهيز الصورة…', 'Preparing image…'));
+    try { await exportPNG(t.el, t.title); onStatus(T('تم حفظ الصورة.', 'Image saved.')); }
+    catch (err) { onStatus(T('تعذّر حفظ الصورة. جرّب «تحميل PDF».', 'Could not save the image. Try “Download PDF”.')); }
     finally { b.disabled = false; }
   });
 }

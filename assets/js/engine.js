@@ -1,5 +1,8 @@
 // Data model, formatting, insights, targets vs actual, brand theming.
 
+export const isEn = () => typeof document !== 'undefined' && document.documentElement.lang === 'en';
+export const T = (ar, en) => (isEn() ? en : ar);
+export const EN_M = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 export const AR_M = ['يناير','فبراير','مارس','أبريل','مايو','يونيو','يوليو','أغسطس','سبتمبر','أكتوبر','نوفمبر','ديسمبر'];
 export const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
@@ -12,14 +15,16 @@ export function fmt(n) {
 }
 export const fmtPct = (p, d = 0) => (p == null || !isFinite(p)) ? '—' : p.toFixed(d) + '%';
 export function pLabel(k) {
-  if (/^\d{4}-\d{2}$/.test(k)) { const [y, mm] = k.split('-'); return AR_M[+mm - 1] + ' ' + y.slice(2); }
-  if (/^\d{4}-\d{2}-\d{2}$/.test(k)) { const [, mm, dd] = k.split('-'); return (+dd) + ' ' + AR_M[+mm - 1]; }
+  const M = isEn() ? EN_M : AR_M;
+  if (/^\d{4}-\d{2}$/.test(k)) { const [y, mm] = k.split('-'); return M[+mm - 1] + ' ' + y.slice(2); }
+  if (/^\d{4}-\d{2}-\d{2}$/.test(k)) { const [, mm, dd] = k.split('-'); return isEn() ? M[+mm - 1] + ' ' + (+dd) : (+dd) + ' ' + M[+mm - 1]; }
   return k;
 }
 let dtf;
 try { dtf = new Intl.DateTimeFormat('ar-SA-u-ca-gregory-nu-latn', { day: 'numeric', month: 'long', year: 'numeric' }); }
 catch (e) { dtf = new Intl.DateTimeFormat('ar', { day: 'numeric', month: 'long', year: 'numeric' }); }
-export const fmtDate = s => { try { return dtf.format(new Date(s)); } catch (e) { return ''; } };
+const dtfEn = new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
+export const fmtDate = s => { try { return (isEn() ? dtfEn : dtf).format(new Date(s)); } catch (e) { return ''; } };
 
 const MEAN_RE = /(rate|ratio|%|percent|avg|average|ctr|cpc|cpm|معدل|نسبة|متوسط)/i;
 
@@ -72,7 +77,7 @@ export function createModel(data) {
     cols, rows, nums, cats, dims, date, monthly, monthCol, uniq,
     idx: name => cols.findIndex(c => c.name === name),
     isMean: mi => mi >= 0 && !!cols[mi] && MEAN_RE.test(cols[mi].name),
-    label: mi => mi < 0 ? 'عدد السجلات' : cols[mi].name,
+    label: mi => mi < 0 ? T('عدد السجلات', 'Record count') : cols[mi].name,
     agg(rs, mi) {
       if (mi < 0) return rs.length;
       let s = 0, c = 0; for (const r of rs) { const v = r[mi]; if (typeof v === 'number' && isFinite(v)) { s += v; c++; } }
@@ -145,31 +150,31 @@ export function targetStats(m, rows, targets, cfg, filters) {
 // ---------- Insights ----------
 export function autoInsights(m, rows, metric, dim, tstats, max = 3) {
   const out = [], ml = m.label(metric), mean = m.isMean(metric);
-  if (!rows.length) return [{ title: 'لا توجد نتائج', body: 'لا توجد صفوف تطابق الفلاتر الحالية.' }];
+  if (!rows.length) return [{ title: T('لا توجد نتائج', 'No results'), body: T('لا توجد صفوف تطابق الفلاتر الحالية.', 'No rows match the current filters.') }];
   if (tstats && tstats.pct != null) {
     const done = tstats.items.filter(x => x.pct != null && x.pct >= 100).length, withT = tstats.items.filter(x => x.target).length;
-    out.push({ title: 'نسبة الإنجاز ' + fmtPct(tstats.pct, 1), body: `${done} من ${withT} حققوا المستهدف أو تجاوزوه.` });
+    out.push({ title: T('نسبة الإنجاز ', 'Achievement ') + fmtPct(tstats.pct, 1), body: T(`${done} من ${withT} حققوا المستهدف أو تجاوزوه.`, `${done} of ${withT} met or exceeded target.`) });
     const low = tstats.items.filter(x => x.pct != null).sort((a, b) => a.pct - b.pct)[0];
-    if (low && low.pct < 100) out.push({ title: 'الأبعد عن المستهدف: ' + low.k, body: `حقق ${fmtPct(low.pct)} من المستهدف (${fmt(low.actual)} من ${fmt(low.target)}).` });
+    if (low && low.pct < 100) out.push({ title: T('الأبعد عن المستهدف: ', 'Furthest from target: ') + low.k, body: T(`حقق ${fmtPct(low.pct)} من المستهدف (${fmt(low.actual)} من ${fmt(low.target)}).`, `Reached ${fmtPct(low.pct)} of target (${fmt(low.actual)} of ${fmt(low.target)}).`) });
   }
   if (dim >= 0) {
     const b = m.breakdown(rows, dim, metric), tot = b.reduce((s, x) => s + x.v, 0);
     if (b.length) {
       const t = b[0];
-      out.push({ title: 'الأعلى: ' + t.k, body: mean ? `${ml}: ${fmt(t.v)}.` : `${fmt(t.v)} من ${ml}، أي ${tot ? (t.v / tot * 100).toFixed(0) : 0}% من الإجمالي.` });
-      if (b.length >= 3) { const l = b[b.length - 1]; out.push({ title: 'الأقل: ' + l.k, body: `${fmt(l.v)}${!mean && tot ? `، أي ${(l.v / tot * 100).toFixed(1)}% من الإجمالي` : ''}.` }); }
+      out.push({ title: T('الأعلى: ', 'Top: ') + t.k, body: mean ? `${ml}: ${fmt(t.v)}.` : T(`${fmt(t.v)} من ${ml}، أي ${tot ? (t.v / tot * 100).toFixed(0) : 0}% من الإجمالي.`, `${fmt(t.v)} ${ml}, ${tot ? (t.v / tot * 100).toFixed(0) : 0}% of total.`) });
+      if (b.length >= 3) { const l = b[b.length - 1]; out.push({ title: T('الأقل: ', 'Lowest: ') + l.k, body: `${fmt(l.v)}${!mean && tot ? T(`، أي ${(l.v / tot * 100).toFixed(1)}% من الإجمالي`, `, ${(l.v / tot * 100).toFixed(1)}% of total`) : ''}.` }); }
     }
   }
   if (m.date >= 0) {
     const s = m.series(rows, metric);
     if (s.length >= 2) {
       const a = s[s.length - 1], p = s[s.length - 2];
-      if (p.v) { const ch = (a.v - p.v) / Math.abs(p.v) * 100; out.push({ title: pLabel(a.k) + ' مقابل ' + pLabel(p.k), body: `${ch >= 0 ? 'ارتفاع' : 'انخفاض'} بنسبة ${Math.abs(ch).toFixed(1)}% في ${ml}.` }); }
+      if (p.v) { const ch = (a.v - p.v) / Math.abs(p.v) * 100; out.push({ title: pLabel(a.k) + T(' مقابل ', ' vs ') + pLabel(p.k), body: T(`${ch >= 0 ? 'ارتفاع' : 'انخفاض'} بنسبة ${Math.abs(ch).toFixed(1)}% في ${ml}.`, `${ml} ${ch >= 0 ? 'up' : 'down'} ${Math.abs(ch).toFixed(1)}%.`) }); }
       const best = s.reduce((x, y) => y.v > x.v ? y : x);
-      out.push({ title: 'أفضل فترة', body: `${pLabel(best.k)} بقيمة ${fmt(best.v)}.` });
+      out.push({ title: T('أفضل فترة', 'Best period'), body: T(`${pLabel(best.k)} بقيمة ${fmt(best.v)}.`, `${pLabel(best.k)} at ${fmt(best.v)}.`) });
     }
   }
-  if (!out.length) out.push({ title: 'الإجمالي', body: `${ml}: ${fmt(m.agg(rows, metric))} عبر ${rows.length} سجل.` });
+  if (!out.length) out.push({ title: T('الإجمالي', 'Total'), body: T(`${ml}: ${fmt(m.agg(rows, metric))} عبر ${rows.length} سجل.`, `${ml}: ${fmt(m.agg(rows, metric))} across ${rows.length} records.`) });
   return out.slice(0, max);
 }
 
