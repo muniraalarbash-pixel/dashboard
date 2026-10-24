@@ -83,8 +83,8 @@ export function mountDashboard(root, opts) {
       ${m ? `<div class="d-bar" data-bar></div><div class="d-body" data-body></div>
       <section class="d-card d-tablecard"><div class="d-tablehead">${head(T('البيانات', 'Data'), '')}<span class="d-count" data-count></span><input type="search" class="d-search" data-search placeholder="${T('بحث في الجدول', 'Search table')}" aria-label="${T('بحث في الجدول', 'Search table')}"></div>
         <div class="d-scroll"><table class="d-table"><thead data-thead></thead><tbody data-tbody></tbody></table></div><div class="d-pager" data-pager></div></section>`
-      : `<div class="d-empty"><p>${T('لا توجد بيانات بعد.', 'No data yet.')}</p><p class="d-muted">${T('ارفع ملف Excel من صفحة المشروع ليظهر الداشبورد هنا.', 'Upload an Excel file from the project page to see the dashboard here.')}</p></div>`}
-      <footer class="d-foot">${T('صُنع بـ <strong>داش بورد</strong>', 'Made with <strong>Dashboard</strong>')}</footer>
+      : `<div class="d-empty"><p>${T('لا توجد بيانات بعد.', 'No data yet.')}</p><p class="d-muted">${T('ارفع ملف Excel من صفحة المشروع لتظهر لوحة التحكم هنا.', 'Upload an Excel file from the project page to see the dashboard here.')}</p></div>`}
+      <footer class="d-foot">${T('صُنع بـ <strong>لوحة التحكم</strong>', 'Made with <strong>Dashboard</strong>')}</footer>
     </div>`;
     if (!m) return;
     const q = s => root.querySelector(s);

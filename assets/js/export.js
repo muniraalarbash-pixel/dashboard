@@ -48,7 +48,7 @@ function showPreview(blob, name) {
   const m = document.createElement('div'); m.className = 'x-modal'; m.setAttribute('role', 'dialog'); m.setAttribute('aria-modal', 'true');
   m.dir = document.documentElement.dir || 'rtl';
   m.innerHTML = `<div class="x-box"><p>${T('الصورة جاهزة. اضغط «تحميل»، أو اضغط مطولًا على الصورة واختر «حفظ الصورة».', 'Your image is ready. Press “Download”, or long-press the image and choose “Save image”.')}</p>
-    <div class="x-img"><img alt="${T('صورة الداش بورد', 'Dashboard image')}"></div>
+    <div class="x-img"><img alt="${T('صورة لوحة التحكم', 'Dashboard image')}"></div>
     <div class="x-actions">${canShare ? `<button type="button" data-x="share">${T('مشاركة', 'Share')}</button>` : ''}<a class="x-pri" data-x="dl">${T('تحميل', 'Download')}</a><button type="button" data-x="close">${T('إغلاق', 'Close')}</button></div></div>`;
   m.querySelector('img').src = url;
   const dl = m.querySelector('[data-x="dl"]'); dl.href = url; dl.download = name;
