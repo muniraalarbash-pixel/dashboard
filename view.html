@@ -3,19 +3,19 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>لوحة التحكم</title>
+<title>لوحة المؤشرات</title>
 <script>try{var q=new URLSearchParams(location.search).get("lang");if(q==="en"||q==="ar")localStorage.setItem("dash-lang",q);var l=q||localStorage.getItem("dash-lang");if(l==="en"){document.documentElement.lang="en";document.documentElement.dir="ltr"}}catch(e){}</script>
 <script>try{document.documentElement.dataset.mode=localStorage.getItem("dash-mode")||"bordo"}catch(e){document.documentElement.dataset.mode="bordo"}</script>
-<meta name="description" content="لوحة تحكم تفاعلية للعرض فقط. افتح الرابط وتصفح الأرقام وفلترها.">
+<meta name="description" content="لوحة مؤشرات تفاعلية للعرض فقط. افتح الرابط وتصفح الأرقام وفلترها.">
 <meta property="og:type" content="website">
-<meta property="og:site_name" content="لوحة التحكم">
+<meta property="og:site_name" content="لوحة المؤشرات">
 <meta property="og:locale" content="ar_SA">
-<meta property="og:title" content="لوحة تحكم تفاعلية">
-<meta property="og:description" content="لوحة تحكم تفاعلية للعرض فقط. افتح الرابط وتصفح الأرقام وفلترها.">
+<meta property="og:title" content="لوحة مؤشرات تفاعلية">
+<meta property="og:description" content="لوحة مؤشرات تفاعلية للعرض فقط. افتح الرابط وتصفح الأرقام وفلترها.">
 <meta property="og:url" content="https://muniraalarbash-pixel.github.io/dashboard/view.html">
 <meta property="og:image" content="https://muniraalarbash-pixel.github.io/dashboard/assets/og.png">
 <meta property="og:image:width" content="1200"><meta property="og:image:height" content="630">
-<meta property="og:image:alt" content="ملف Excel يتحول إلى لوحة تحكم تفاعلية">
+<meta property="og:image:alt" content="ملف Excel يتحول إلى لوحة مؤشرات تفاعلية">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:image" content="https://muniraalarbash-pixel.github.io/dashboard/assets/og.png">
 <link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%2064%2064%22%3E%3Crect%20width%3D%2264%22%20height%3D%2264%22%20rx%3D%2216%22%20fill%3D%22%230F3D3A%22/%3E%3Cpath%20d%3D%22M12%2044%20L24%2034%20L34%2039%20L52%2018%22%20fill%3D%22none%22%20stroke%3D%22%23F5DABF%22%20stroke-width%3D%225.5%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22/%3E%3Ccircle%20cx%3D%2252%22%20cy%3D%2218%22%20r%3D%225.5%22%20fill%3D%22%23C9443F%22/%3E%3C/svg%3E">
@@ -27,16 +27,16 @@
 <body>
 <div class="view-wrap">
   <div class="demo-bar" id="demo-bar" hidden>
-    <a class="brand" href="index.html" style="font-size:16px"><svg class="logo" viewBox="0 0 64 64" aria-hidden="true"><rect width="64" height="64" rx="16" class="lg-bg"/><path d="M12 44 L24 34 L34 39 L52 18" fill="none" class="lg-ln" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round"/><circle cx="52" cy="18" r="5.5" class="lg-dot"/></svg><span class="sr" data-en="Dashboard">لوحة التحكم</span></a>
+    <a class="brand" href="index.html" style="font-size:16px"><svg class="logo" viewBox="0 0 64 64" aria-hidden="true"><rect width="64" height="64" rx="16" class="lg-bg"/><path d="M12 44 L24 34 L34 39 L52 18" fill="none" class="lg-ln" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round"/><circle cx="52" cy="18" r="5.5" class="lg-dot"/></svg><span class="sr" data-en="Dashboard">لوحة المؤشرات</span></a>
     <div class="tabs" role="tablist" id="demo-tabs"></div>
-    <span id="lang-demo"></span><a class="btn btn-primary btn-sm" href="index.html#login" data-en="Create your own dashboard">أنشئ لوحة تحكم خاصة بك</a>
+    <span id="lang-demo"></span><a class="btn btn-primary btn-sm" href="index.html#login" data-en="Create your own dashboard">أنشئ لوحة مؤشرات خاصة بك</a>
   </div>
   <div id="gate" class="gate card" hidden>
     <h1 id="gate-title" style="font-size:20px"></h1>
     <p class="muted" id="gate-msg"></p>
     <form id="gate-form" class="auth" hidden novalidate>
       <label class="field"><span class="label" data-en="Password">كلمة المرور</span><input type="password" id="gate-pass" autocomplete="current-password"></label>
-      <button class="btn btn-primary" type="submit" data-en="Open dashboard">فتح لوحة التحكم</button>
+      <button class="btn btn-primary" type="submit" data-en="Open dashboard">فتح لوحة المؤشرات</button>
       <p class="status err" id="gate-err" role="status" aria-live="polite"></p>
     </form>
   </div>
@@ -69,7 +69,7 @@ if (qs.get('demo')) {
   const tabs = () => { $('#demo-tabs').innerHTML = Object.entries(TEMPLATES).map(([k, t]) => `<button type="button" role="tab" data-t="${k}" aria-selected="${proj.template === k}">${T(t.name, t.en)}</button>`).join(''); };
   tabs();
   $('#demo-tabs').addEventListener('click', e => { const b = e.target.closest('[data-t]'); if (!b) return; proj.template = b.dataset.t; tabs(); dash.setTemplate(proj.template); });
-  document.title = proj.title + T(' | لوحة التحكم', ' | Dashboard');
+  document.title = proj.title + T(' | لوحة المؤشرات', ' | Dashboard');
   $('#lang-demo').innerHTML = langToggleHTML();
   dash = mountDashboard($('#dash'), { project: proj, version: SAMPLE.version, previous: SAMPLE.previous });
   curTitle = proj.title; $('#xbar').hidden = false;
@@ -79,10 +79,10 @@ if (qs.get('demo')) {
   else {
     async function fetchShared(first) {
       const { data, error } = await sb.rpc('get_shared', { p_slug: slug, p_pass: pass });
-      if (error) { if (first) gate(T('تعذّر فتح لوحة التحكم', 'Could not open the dashboard'), T('حاول مرة أخرى بعد قليل.', 'Please try again shortly.'), false); return; }
-      if (data.error === 'not_found') { gate(T('لوحة التحكم غير متاحة', 'Dashboard unavailable'), T('قد يكون الرابط متوقفًا أو غير صحيح.', 'The link may be turned off or incorrect.'), false); return; }
+      if (error) { if (first) gate(T('تعذّر فتح لوحة المؤشرات', 'Could not open the dashboard'), T('حاول مرة أخرى بعد قليل.', 'Please try again shortly.'), false); return; }
+      if (data.error === 'not_found') { gate(T('لوحة المؤشرات غير متاحة', 'Dashboard unavailable'), T('قد يكون الرابط متوقفًا أو غير صحيح.', 'The link may be turned off or incorrect.'), false); return; }
       if (data.error === 'password' || data.error === 'wrong_password') {
-        gate(data.title || T('لوحة تحكم محمية', 'Protected dashboard'), T('لوحة التحكم هذه محمية بكلمة مرور.', 'This dashboard is password protected.'), true);
+        gate(data.title || T('لوحة مؤشرات محمية', 'Protected dashboard'), T('لوحة المؤشرات هذه محمية بكلمة مرور.', 'This dashboard is password protected.'), true);
         if (data.error === 'wrong_password') $('#gate-err').textContent = T('كلمة المرور غير صحيحة.', 'Incorrect password.');
         return;
       }
@@ -90,7 +90,7 @@ if (qs.get('demo')) {
       const stamp = (data.version && data.version.created_at) + '|' + data.project.updated_at;
       if (stamp === lastStamp) return;
       const opts = { project: data.project, version: data.version, previous: data.previous };
-      document.title = data.project.title + T(' | لوحة التحكم', ' | Dashboard');
+      document.title = data.project.title + T(' | لوحة المؤشرات', ' | Dashboard');
       $('#lang-share').innerHTML = langToggleHTML();
       if (!dash) dash = mountDashboard($('#dash'), opts); else { dash.update(opts); toast(T('تم تحديث البيانات', 'Data updated')); }
       curTitle = data.project.title; $('#xbar').hidden = !data.version;

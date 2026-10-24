@@ -75,7 +75,7 @@ async function load() {
 
 function fill() {
   $('#h-title').textContent = project.title;
-  document.title = project.title + ' | لوحة التحكم';
+  document.title = project.title + ' | لوحة المؤشرات';
   $('#f-title').value = project.title; $('#f-topic').value = project.topic; $('#f-desc').value = project.description; $('#f-period').value = project.period;
   const b = project.brand;
   $('#c-primary').value = b.primary; $('#c-secondary').value = b.secondary; $('#c-accent').value = b.accent;
@@ -282,7 +282,7 @@ async function renderViews() {
 const sstatus = (m, err) => { const s = $('#share-status'); s.textContent = m; s.classList.toggle('err', !!err); };
 $('#f-pub').addEventListener('change', async e => {
   project.is_published = e.target.checked; queue({ is_published: project.is_published }); await flush(); renderShare();
-  sstatus(project.is_published ? (latest ? 'الرابط يعمل الآن. أي شخص معه الرابط يقدر يتصفح.' : 'تم النشر، لكن ارفع البيانات وانشر تحديثًا لتظهر لوحة التحكم.') : 'أُوقف الرابط. لن يفتح لأحد.');
+  sstatus(project.is_published ? (latest ? 'الرابط يعمل الآن. أي شخص معه الرابط يقدر يتصفح.' : 'تم النشر، لكن ارفع البيانات وانشر تحديثًا لتظهر لوحة المؤشرات.') : 'أُوقف الرابط. لن يفتح لأحد.');
 });
 $('#b-copy').addEventListener('click', async () => {
   try { await navigator.clipboard.writeText(shareUrl()); sstatus('تم نسخ الرابط.'); }

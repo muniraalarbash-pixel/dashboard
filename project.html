@@ -3,18 +3,18 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>المشروع | لوحة التحكم</title>
+<title>المشروع | لوحة المؤشرات</title>
 <script>try{document.documentElement.dataset.mode=localStorage.getItem("dash-mode")||"bordo"}catch(e){document.documentElement.dataset.mode="bordo"}</script>
-<meta name="description" content="ارفع ملف Excel واحصل على لوحة تحكم تفاعلية بهويتك البصرية، وشاركه برابط للعرض فقط.">
+<meta name="description" content="ارفع ملف Excel واحصل على لوحة مؤشرات تفاعلية بهويتك البصرية، وشاركه برابط للعرض فقط.">
 <meta property="og:type" content="website">
-<meta property="og:site_name" content="لوحة التحكم">
+<meta property="og:site_name" content="لوحة المؤشرات">
 <meta property="og:locale" content="ar_SA">
-<meta property="og:title" content="لوحة التحكم">
-<meta property="og:description" content="ارفع ملف Excel واحصل على لوحة تحكم تفاعلية بهويتك البصرية، وشاركه برابط للعرض فقط.">
+<meta property="og:title" content="لوحة المؤشرات">
+<meta property="og:description" content="ارفع ملف Excel واحصل على لوحة مؤشرات تفاعلية بهويتك البصرية، وشاركه برابط للعرض فقط.">
 <meta property="og:url" content="https://muniraalarbash-pixel.github.io/dashboard/project.html">
 <meta property="og:image" content="https://muniraalarbash-pixel.github.io/dashboard/assets/og.png">
 <meta property="og:image:width" content="1200"><meta property="og:image:height" content="630">
-<meta property="og:image:alt" content="ملف Excel يتحول إلى لوحة تحكم تفاعلية">
+<meta property="og:image:alt" content="ملف Excel يتحول إلى لوحة مؤشرات تفاعلية">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:image" content="https://muniraalarbash-pixel.github.io/dashboard/assets/og.png">
 <meta name="robots" content="noindex">
@@ -26,7 +26,7 @@
 </head>
 <body>
 <header class="topbar"><div class="wrap">
-  <a class="brand" href="app.html"><svg class="logo" viewBox="0 0 64 64" aria-hidden="true"><rect width="64" height="64" rx="16" class="lg-bg"/><path d="M12 44 L24 34 L34 39 L52 18" fill="none" class="lg-ln" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round"/><circle cx="52" cy="18" r="5.5" class="lg-dot"/></svg><span class="sr">لوحة التحكم</span></a>
+  <a class="brand" href="app.html"><svg class="logo" viewBox="0 0 64 64" aria-hidden="true"><rect width="64" height="64" rx="16" class="lg-bg"/><path d="M12 44 L24 34 L34 39 L52 18" fill="none" class="lg-ln" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round"/><circle cx="52" cy="18" r="5.5" class="lg-dot"/></svg><span class="sr">لوحة المؤشرات</span></a>
   <nav class="nav" id="nav"></nav>
 </div></header>
 
@@ -45,7 +45,7 @@
         <div class="body">
           <label class="field"><span class="label">العنوان</span><input type="text" id="f-title" maxlength="90"></label>
           <label class="field"><span class="label">الموضوع أو اسم الجهة</span><input type="text" id="f-topic" maxlength="90" placeholder="مثال: شركة آفاق · قسم المبيعات"></label>
-          <label class="field"><span class="label">وصف قصير</span><textarea id="f-desc" maxlength="300" placeholder="ماذا تعرض لوحة التحكم هذه ولمن؟"></textarea></label>
+          <label class="field"><span class="label">وصف قصير</span><textarea id="f-desc" maxlength="300" placeholder="ماذا تعرض لوحة المؤشرات هذه ولمن؟"></textarea></label>
           <label class="field"><span class="label">الفترة</span><input type="text" id="f-period" maxlength="60" placeholder="مثال: الربع الثالث 2026"></label>
         </div>
       </details>
@@ -114,7 +114,7 @@
       <details class="sec">
         <summary><span class="n" style="background:var(--ink)">5</span>المشاركة<span class="chev">▾</span></summary>
         <div class="body">
-          <label class="switch" for="f-pub"><input type="checkbox" id="f-pub">نشر لوحة التحكم برابط عام (للعرض فقط)</label>
+          <label class="switch" for="f-pub"><input type="checkbox" id="f-pub">نشر لوحة المؤشرات برابط عام (للعرض فقط)</label>
           <div class="field"><span class="label">رابط المشاركة</span><div class="share-link"><input type="text" id="f-link" readonly><button type="button" class="btn btn-quiet btn-sm" id="b-copy">نسخ</button></div></div>
           <div class="field"><span class="label" id="pass-state">بدون كلمة مرور</span><div class="share-link"><input type="password" id="f-pass" placeholder="كلمة مرور للرابط (اختياري)" autocomplete="new-password"><button type="button" class="btn btn-quiet btn-sm" id="b-pass">حفظ</button></div>
             <button type="button" class="btn btn-ghost btn-sm" id="b-nopass" hidden style="justify-self:start">إزالة كلمة المرور</button></div>

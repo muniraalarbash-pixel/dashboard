@@ -126,7 +126,7 @@ function guideHTML() {
   const first = S.projects[0], open = first ? `project.html?id=${first.id}` : null;
   const styled = S.projects.some(p => (p.brand && (p.brand.logo_url || (p.brand.primary && p.brand.primary.toUpperCase() !== DEFAULT_BRAND.primary))) || (p.template && p.template !== 'tiles'));
   const steps = [
-    { t: 'أنشئ مشروع', d: 'كل لوحة تحكم مشروع مستقل.', done: S.projects.length > 0, a: '<button type="button" class="btn btn-primary btn-sm" data-new>مشروع جديد</button>' },
+    { t: 'أنشئ مشروع', d: 'كل لوحة مؤشرات مشروع مستقل.', done: S.projects.length > 0, a: '<button type="button" class="btn btn-primary btn-sm" data-new>مشروع جديد</button>' },
     { t: 'ارفع ملف Excel', d: 'أو استخدم الملف النموذجي.', done: S.versions.length > 0, a: open ? `<a class="btn btn-quiet btn-sm" href="${open}">ارفع الملف</a>` : '<a class="btn btn-quiet btn-sm" href="assets/templates/template-sales.xlsx" download>ملف نموذجي</a>' },
     { t: 'خصّص الشكل', d: 'الشعار والألوان والقالب.', done: styled, a: open ? `<a class="btn btn-quiet btn-sm" href="${open}">الهوية والقالب</a>` : '' },
     { t: 'انشر وشارك', d: 'رابط للعرض فقط.', done: S.projects.some(p => p.is_published), a: open ? `<a class="btn btn-quiet btn-sm" href="${open}">المشاركة</a>` : '' }
@@ -212,7 +212,7 @@ function viewProjects() {
   const list = S.projects.filter(p => (S.filter === 'all' || (S.filter === 'pub' ? p.is_published : !p.is_published)) && (!q || (p.title + ' ' + (p.topic || '')).toLowerCase().includes(q)));
   const vByP = new Map(); for (const v of S.versions) if (!vByP.has(v.project_id)) vByP.set(v.project_id, v);
   const TPL = { tiles: 'مربعات', executive: 'تنفيذي', compact: 'جوال' };
-  return `<header class="vhead"><div><h1>المشاريع</h1><p class="muted">كل لوحة تحكم لها رابطها وهويتها.</p></div><button class="btn btn-primary" type="button" data-new>${ICON.plus.replace('<svg', '<svg width="18" height="18"')} مشروع جديد</button></header>
+  return `<header class="vhead"><div><h1>المشاريع</h1><p class="muted">كل لوحة مؤشرات لها رابطها وهويتها.</p></div><button class="btn btn-primary" type="button" data-new>${ICON.plus.replace('<svg', '<svg width="18" height="18"')} مشروع جديد</button></header>
     <div class="toolbar2"><div class="pills" role="group" aria-label="تصفية المشاريع">
       ${[['all', 'الكل'], ['pub', 'منشور'], ['draft', 'مسودة']].map(([k, l]) => `<button type="button" data-filter="${k}" aria-pressed="${S.filter === k}">${l} <small>${counts[k]}</small></button>`).join('')}
     </div><label class="sr" for="p-search">بحث في المشاريع</label><input type="search" id="p-search" placeholder="ابحث باسم المشروع" value="${esc(S.q)}"></div>
@@ -235,7 +235,7 @@ function viewLinks() {
         <label class="sr" for="l-${p.id}">رابط ${esc(p.title)}</label><input type="text" id="l-${p.id}" readonly value="${esc(shareUrl(p))}">
         <div class="row"><button type="button" class="btn btn-quiet btn-sm" data-copy="${esc(shareUrl(p))}">نسخ</button><a class="btn btn-primary btn-sm" href="${esc(shareUrl(p))}" target="_blank" rel="noopener">فتح</a></div>
       </div>`).join('')}</div>`
-      : `<div class="empty2"><span>ما نشرتي أي لوحة تحكم بعد.</span><span>افتح أي مشروع، ومن قسم «المشاركة» فعّل النشر.</span><a class="btn btn-quiet btn-sm" href="#projects">المشاريع</a></div>`}</section>`;
+      : `<div class="empty2"><span>ما نشرتي أي لوحة مؤشرات بعد.</span><span>افتح أي مشروع، ومن قسم «المشاركة» فعّل النشر.</span><a class="btn btn-quiet btn-sm" href="#projects">المشاريع</a></div>`}</section>`;
 }
 
 function viewHistory() {
@@ -268,7 +268,7 @@ function renderView() {
   if (chart) { chart.destroy(); chart = null; }
   const v = S.view;
   $('#view').innerHTML = `<div style="display:grid;gap:16px">${v === 'projects' ? viewProjects() : v === 'links' ? viewLinks() : v === 'history' ? viewHistory() : v === 'settings' ? viewSettings() : viewHome()}</div>`;
-  document.title = ({ home: 'حسابي', projects: 'المشاريع', links: 'الروابط المنشورة', history: 'سجل التحديثات', settings: 'الحساب والهوية' }[v] || 'حسابي') + ' | لوحة التحكم';
+  document.title = ({ home: 'حسابي', projects: 'المشاريع', links: 'الروابط المنشورة', history: 'سجل التحديثات', settings: 'الحساب والهوية' }[v] || 'حسابي') + ' | لوحة المؤشرات';
   if (v === 'home') drawProjectChart();
 }
 function renderAll() { renderNav(); renderProjList(); renderCal(); renderView(); }
