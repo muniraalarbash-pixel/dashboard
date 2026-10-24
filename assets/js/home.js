@@ -118,6 +118,26 @@ $('#cal-prev').addEventListener('click', () => { S.calM--; if (S.calM < 0) { S.c
 $('#cal-next').addEventListener('click', () => { S.calM++; if (S.calM > 11) { S.calM = 0; S.calY++; } renderCal(); });
 
 /* ---------- views ---------- */
+function guideHTML() {
+  let hidden = false; try { hidden = localStorage.getItem('dash-guide-hidden') === '1'; } catch (e) {}
+  const first = S.projects[0], open = first ? `project.html?id=${first.id}` : null;
+  const styled = S.projects.some(p => (p.brand && (p.brand.logo_url || (p.brand.primary && p.brand.primary.toUpperCase() !== DEFAULT_BRAND.primary))) || (p.template && p.template !== 'tiles'));
+  const steps = [
+    { t: 'أنشئ مشروع', d: 'كل داش بورد مشروع مستقل.', done: S.projects.length > 0, a: '<button type="button" class="btn btn-primary btn-sm" data-new>مشروع جديد</button>' },
+    { t: 'ارفع ملف Excel', d: 'أو استخدم الملف النموذجي.', done: S.versions.length > 0, a: open ? `<a class="btn btn-quiet btn-sm" href="${open}">ارفع الملف</a>` : '<a class="btn btn-quiet btn-sm" href="assets/templates/template-sales.xlsx" download>ملف نموذجي</a>' },
+    { t: 'خصّص الشكل', d: 'الشعار والألوان والقالب.', done: styled, a: open ? `<a class="btn btn-quiet btn-sm" href="${open}">الهوية والقالب</a>` : '' },
+    { t: 'انشر وشارك', d: 'رابط للعرض فقط.', done: S.projects.some(p => p.is_published), a: open ? `<a class="btn btn-quiet btn-sm" href="${open}">المشاركة</a>` : '' }
+  ];
+  const n = steps.filter(s => s.done).length;
+  if (hidden || n === steps.length) return '';
+  const next = steps.findIndex(s => !s.done);
+  return `<section class="card2 guide" aria-label="دليل البداية">
+    <div class="c-head"><div><h2>ابدأ في 4 خطوات</h2><span class="muted">${n} من 4 مكتملة</span></div><button type="button" class="btn btn-ghost btn-sm" data-hide-guide>إخفاء</button></div>
+    <div class="g-bar" role="progressbar" aria-valuemin="0" aria-valuemax="4" aria-valuenow="${n}"><i style="width:${n * 25}%"></i></div>
+    <ol class="g-steps">${steps.map((s, i) => `<li class="${s.done ? 'done' : ''} ${i === next ? 'next' : ''}"><span class="g-n" aria-hidden="true">${s.done ? '✓' : i + 1}</span><span class="g-t"><b>${s.t}</b><span>${s.done ? 'تم' : s.d}</span></span>${!s.done && i === next ? s.a : ''}</li>`).join('')}</ol>
+  </section>`;
+}
+
 function viewHome() {
   const h = now.getHours(), greet = h < 12 ? 'صباح الخير' : 'مساء الخير';
   const pub = S.projects.filter(p => p.is_published).length, total = S.projects.length;
@@ -129,6 +149,7 @@ function viewHome() {
   const ev = events().slice(0, 6);
   return `
     <header class="hello"><h1>${greet}، ${esc(name())} 👋</h1><p>هذا ملخص مشاريعك اليوم.</p></header>
+    ${guideHTML()}
     <section class="tiles4" aria-label="ملخص اليوم">
       <div class="tile4"><span class="ic c1">${ICON.cal}</span><span class="t"><small>التاريخ</small><b>${now.getDate()} ${AR_M[now.getMonth()]}</b><em>${hijriFmt ? esc(hijriFmt.format(now)) : ''}</em></span></div>
       <div class="tile4"><span class="ic c2">${ICON.sun}</span><span class="t"><small>اليوم</small><b>${esc(weekdayFmt.format(now))}</b><em>الأسبوع ${weekNo(now)} من السنة</em></span></div>
@@ -254,6 +275,7 @@ window.addEventListener('hashchange', route);
 document.addEventListener('click', async e => {
   if (e.target.closest('[data-new]')) { e.preventDefault(); createProject(); return; }
   if (e.target.closest('[data-signout]')) { signOut(); return; }
+  if (e.target.closest('[data-hide-guide]')) { try { localStorage.setItem('dash-guide-hidden', '1'); } catch (err) {} const g = $('.guide'); if (g) g.remove(); return; }
   const f = e.target.closest('[data-filter]'); if (f) { S.filter = f.dataset.filter; renderView(); return; }
   const m = e.target.closest('[data-setmode]'); if (m) { setMode(m.dataset.setmode); document.querySelectorAll('.modecard').forEach(x => x.setAttribute('aria-pressed', x.dataset.setmode === m.dataset.setmode)); return; }
   const c = e.target.closest('[data-copy]'); if (c) { try { await navigator.clipboard.writeText(c.dataset.copy); toast('تم نسخ الرابط'); } catch (err) { toast('انسخ الرابط من المربع'); } }

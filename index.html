@@ -81,13 +81,14 @@
           <button class="btn btn-primary" type="submit" id="auth-btn">دخول</button>
           <button class="btn btn-ghost btn-sm" type="button" id="forgot" style="justify-self:start">نسيت كلمة المرور؟</button>
           <p class="status" id="auth-status" role="status" aria-live="polite"></p>
+          <p class="muted" id="terms" hidden style="font-size:12.5px">بإنشاء حساب، أنت توافق على <a href="privacy.html">سياسة الخصوصية</a>.</p>
         </form>
       </div>
     </div>
   </section>
 </main>
 
-<footer class="wrap foot"><span>داش بورد · مشروع تحليل بيانات من تصميم وتطوير منيرة الأربش</span><span dir="ltr">Upload. Automate. Analyze.</span></footer>
+<footer class="wrap foot"><span>داش بورد · مشروع تحليل بيانات من تصميم وتطوير منيرة الأربش</span><span class="row"><a href="privacy.html">سياسة الخصوصية</a><span dir="ltr">Upload. Automate. Analyze.</span></span></footer>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.75.0/dist/umd/supabase.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
@@ -107,6 +108,7 @@ const setMode = m => {
   $('#pass').autocomplete = m === 'in' ? 'current-password' : 'new-password';
   $('#auth-status').textContent = '';
   $('#forgot').hidden = m !== 'in';
+  $('#terms').hidden = m !== 'up';
 };
 $('#tab-in').onclick = () => setMode('in');
 $('#tab-up').onclick = () => setMode('up');
