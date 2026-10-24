@@ -3,60 +3,64 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>مشاريعي | داش بورد</title>
+<title>حسابي | داش بورد</title>
+<meta name="theme-color" content="#0B2E2B">
+<script>try{document.documentElement.dataset.mode=localStorage.getItem("dash-mode")||"bordo"}catch(e){document.documentElement.dataset.mode="bordo"}</script>
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&family=Alexandria:wght@500;600;700&display=swap">
 <link rel="stylesheet" href="assets/css/base.css">
 </head>
-<body>
-<header class="topbar"><div class="wrap">
-  <a class="brand" href="index.html"><span class="mark" aria-hidden="true"><i></i><i></i><i></i><i></i></span>داش بورد <small>DASHBOARD</small></a>
-  <nav class="nav" id="nav"></nav>
-</div></header>
-<main class="wrap">
-  <div class="page-head">
-    <div><h1>مشاريعي</h1><p class="muted">كل مشروع داش بورد مستقل له رابطه وهويته.</p></div>
-    <button class="btn btn-primary" type="button" id="new">مشروع جديد</button>
-  </div>
-  <div id="setup" class="notice" hidden></div>
-  <p class="status" id="status" role="status" aria-live="polite"></p>
-  <div class="plist" id="list"></div>
-</main>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.75.0/dist/umd/supabase.js"></script>
-<script type="module">
-import { sb, $, requireUser, mountNav, setupNotice } from './assets/js/sb.js';
-import { esc, fmtDate } from './assets/js/engine.js';
-if (setupNotice($('#setup'))) { $('#new').disabled = true; throw new Error('not configured'); }
-const user = await requireUser();
-mountNav(user);
+<body class="app">
+<div class="shell">
+  <!-- left: navigation -->
+  <nav class="sidenav" aria-label="القائمة الرئيسية">
+    <a class="side-brand" href="index.html"><span class="mark" aria-hidden="true"><i></i><i></i><i></i><i></i></span>داش بورد</a>
+    <div class="me"><span class="avatar" id="avatar" aria-hidden="true"></span><b id="me-name"></b><span id="me-email"></span></div>
+    <a class="navlink" href="#home" data-view="home"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></svg>الرئيسية</a>
+    <button class="navlink new" type="button" data-new><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>مشروع جديد</button>
+    <a class="navlink" href="#projects" data-view="projects"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7.5" height="7.5" rx="2"/><rect x="13.5" y="3" width="7.5" height="7.5" rx="2"/><rect x="3" y="13.5" width="7.5" height="7.5" rx="2"/><rect x="13.5" y="13.5" width="7.5" height="7.5" rx="2"/></svg>المشاريع</a>
+    <a class="navlink" href="#links" data-view="links"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/></svg>الروابط المنشورة</a>
+    <a class="navlink" href="#history" data-view="history"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></svg>سجل التحديثات</a>
+    <a class="navlink desk" href="#settings" data-view="settings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="3.5"/><path d="M5 20c1.2-3.5 4-5 7-5s5.8 1.5 7 5"/></svg>الحساب والهوية</a>
+    <a class="navlink desk" href="view.html?demo=1"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" aria-hidden="true"><path d="M7 5l12 7-12 7z"/></svg>العرض التجريبي</a>
+    <div class="nav-sp"></div>
+    <div class="side-foot">
+      <span class="label">لون الموقع</span>
+      <div id="modes-side"></div>
+      <button class="navlink" type="button" data-signout><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 4h3a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-3M10 8l-4 4 4 4M6 12h10"/></svg>خروج</button>
+    </div>
+  </nav>
 
-async function load() {
-  $('#status').textContent = 'جاري التحميل…';
-  const { data, error } = await sb.from('projects').select('id,title,topic,brand,is_published,updated_at,template').order('updated_at', { ascending: false });
-  if (error) { $('#status').textContent = 'تعذّر تحميل المشاريع. تأكد من تشغيل ملف قاعدة البيانات (schema.sql).'; $('#status').classList.add('err'); return; }
-  $('#status').textContent = '';
-  if (!data.length) {
-    $('#list').innerHTML = `<div class="card empty" style="grid-column:1/-1"><h2>ابدأ أول داش بورد</h2><p class="muted">أنشئ مشروعًا، ارفع ملف Excel، واختر القالب.</p><button class="btn btn-primary" type="button" data-new>مشروع جديد</button></div>`;
-    return;
-  }
-  $('#list').innerHTML = data.map(p => {
-    const b = p.brand || {};
-    return `<a class="card pcard" href="project.html?id=${p.id}">
-      <span class="sw" aria-hidden="true"><i style="background:${esc(b.primary || '#14A89E')}"></i><i style="background:${esc(b.secondary || '#3A4A4F')}"></i><i style="background:${esc(b.accent || '#F2C230')}"></i></span>
-      <div><h3>${esc(p.title)}</h3>${p.topic ? `<p class="muted" style="font-size:13.5px">${esc(p.topic)}</p>` : ''}</div>
-      <div class="meta"><span>آخر تعديل ${esc(fmtDate(p.updated_at))}</span><span class="pill ${p.is_published ? 'live' : ''}">${p.is_published ? 'منشور' : 'مسودة'}</span></div></a>`;
-  }).join('');
-}
-async function create() {
-  $('#new').disabled = true;
-  const { data, error } = await sb.from('projects').insert({ title: 'مشروع جديد' }).select('id').single();
-  $('#new').disabled = false;
-  if (error) { $('#status').textContent = 'تعذّر إنشاء المشروع: ' + error.message; $('#status').classList.add('err'); return; }
-  location.href = 'project.html?id=' + data.id;
-}
-$('#new').addEventListener('click', create);
-$('#list').addEventListener('click', e => { if (e.target.closest('[data-new]')) create(); });
-load();
-</script>
+  <!-- middle -->
+  <main class="main" id="main">
+    <div class="mhead">
+      <a class="brand" href="index.html" style="font-size:17px"><span class="mark" aria-hidden="true"><i></i><i></i><i></i><i></i></span>داش بورد</a>
+      <div class="row"><div id="modes-top"></div><a class="iconbtn" href="#settings" aria-label="الحساب والهوية"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="8" r="3.5"/><path d="M5 20c1.2-3.5 4-5 7-5s5.8 1.5 7 5"/></svg></a></div>
+    </div>
+    <div id="setup" class="notice" hidden></div>
+    <div id="view"></div>
+  </main>
+
+  <!-- right: projects + calendar -->
+  <aside class="projpanel" aria-label="مشاريعي والتقويم">
+    <section class="card2">
+      <div class="c-head"><h2>مشاريعي</h2><a class="btn btn-ghost btn-sm" href="#projects">عرض الكل</a></div>
+      <div class="plist2" id="plist"></div>
+    </section>
+    <section class="card2">
+      <div class="cal-head">
+        <button class="iconbtn" type="button" id="cal-prev" aria-label="الشهر السابق"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M9 6l6 6-6 6"/></svg></button>
+        <b id="cal-title"></b>
+        <button class="iconbtn" type="button" id="cal-next" aria-label="الشهر التالي"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M15 6l-6 6 6 6"/></svg></button>
+      </div>
+      <div class="cal" id="cal" aria-label="التقويم"></div>
+      <ul class="devents" id="devents"></ul>
+    </section>
+  </aside>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.75.0/dist/umd/supabase.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script type="module" src="assets/js/home.js"></script>
 </body>
 </html>
