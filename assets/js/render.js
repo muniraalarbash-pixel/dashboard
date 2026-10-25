@@ -1,4 +1,5 @@
 // Dashboard renderer: three templates sharing one interactive model.
+import { findGeoCol, coordOf, loadLeaflet } from './geo.js';
 import { createModel, autoInsights, targetStats, brandTheme, loadFont, fmt, fmtPct, pLabel, fmtDate, esc, alpha, onColor, T, isEn } from './engine.js';
 
 export const TEMPLATES = {
@@ -45,7 +46,8 @@ function spark(vals) {
 }
 
 export function mountDashboard(root, opts) {
-  const charts = {};
+  const charts = {}, maps = [];
+  let geo = -1;
   const st = { filters: {}, metric: null, dim: null, search: '', sortCol: null, sortDir: -1, page: 0 };
   let o = opts, m, theme;
 
@@ -54,6 +56,7 @@ export function mountDashboard(root, opts) {
 
   function setup() {
     m = o.version ? createModel(o.version.data) : null;
+    geo = m ? findGeoCol(m) : -1;
     theme = brandTheme(o.project.brand);
     loadFont(theme.font);
     st.filters = {}; st.metric = null; st.dim = null; st.page = 0; st.sortCol = null;
@@ -196,6 +199,43 @@ export function mountDashboard(root, opts) {
         scales: { x: { grid: { display: false }, border: { display: false }, ticks: { font: { size: 10 }, maxRotation: 0, autoSkip: true } }, y: { display: false, beginAtZero: true } } } });
   }
 
+  // ---------- location map ----------
+  const mapTitle = c => c.ml + T(' حسب الموقع', ' by location');
+  const mapHTML = (c, cls) => geo < 0 ? '' : `<article class="${cls} d-maptile">${head(mapTitle(c), m.cols[geo].name + T(' · اضغط دائرة للفلترة', ' · click a circle to filter'))}<div class="d-map" data-map dir="ltr" role="img" aria-label="${esc(mapTitle(c))}"></div><ol class="d-maprank" data-maprank></ol></article>`;
+  function killMaps() { while (maps.length) { try { maps.pop().remove(); } catch (e) {} } }
+  function drawMap(c) {
+    const box = root.querySelector('[data-map]'); if (!box || geo < 0) return;
+    const f = { ...st.filters }; delete f[geo];
+    const rows = m.filter(f, ''), sel = st.filters[geo];
+    const pts = m.breakdown(rows, geo, c.metric).map(x => ({ ...x, ll: coordOf(x.k) })).filter(x => x.ll && x.v > 0);
+    const rank = root.querySelector('[data-maprank]'), tot = pts.reduce((s, x) => s + x.v, 0);
+    if (rank) rank.innerHTML = pts.slice(0, 5).map((x, i) => `<li class="${sel == null || sel === x.k ? '' : 'dim'}"><span class="r">${i + 1}</span><bdi>${esc(x.k)}</bdi><b>${fmt(x.v)}</b>${!c.mean && tot ? `<i>${(x.v / tot * 100).toFixed(0)}%</i>` : ''}</li>`).join('');
+    if (!pts.length) return;
+    loadLeaflet().then(L => {
+      if (!box.isConnected) return;
+      const map = L.map(box, { scrollWheelZoom: false, attributionControl: true, zoomSnap: 0.25 });
+      maps.push(map);
+      map.attributionControl.setPrefix(false);
+      L.tileLayer('https://{s}.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}{r}.png', { subdomains: 'abcd', maxZoom: 12, crossOrigin: '', attribution: '© OpenStreetMap © CARTO' }).addTo(map);
+      const max = Math.max(...pts.map(x => x.v)), col = c.pal[0], col2 = c.pal[1] || col;
+      const bnd = L.latLngBounds(pts.map(x => x.ll));
+      if (pts.length === 1) map.setView(pts[0].ll, 7); else map.fitBounds(bnd.pad(0.2), { maxZoom: 8, padding: [30, 30] });
+      const placed = [];
+      const mks = pts.map((x, i) => {
+        const on = sel == null || sel === x.k, r = 6 + 22 * Math.sqrt(x.v / max);
+        const pt = map.latLngToContainerPoint(x.ll);
+        const free = on && i < 8 && placed.every(q => Math.abs(q.x - pt.x) > 74 || Math.abs(q.y - pt.y) > 54);
+        if (free) placed.push(pt);
+        return { x, i, on, r, free };
+      });
+      mks.slice().reverse().forEach(({ x, on, r, free }) => {
+        const mk = L.circleMarker(x.ll, { radius: r, color: '#fff', weight: 2, fillColor: sel === x.k ? col2 : col, fillOpacity: on ? .8 : .22, opacity: on ? 1 : .5 }).addTo(map);
+        mk.bindTooltip(`<bdi>${esc(x.k)}</bdi><b>${fmt(x.v)}</b>`, { permanent: free, direction: 'top', offset: [0, -r + 2], className: 'd-maplbl', opacity: 1 });
+        mk.on('click', () => { if (st.filters[geo] === x.k) delete st.filters[geo]; else st.filters[geo] = x.k; st.page = 0; renderData(); });
+      });
+    }).catch(() => { box.innerHTML = `<p class="d-muted" style="padding:16px">${T('تعذّر تحميل الخريطة.', 'Map could not be loaded.')}</p>`; });
+  }
+
   // ---------- template: tiles ----------
   function tplTiles(c) {
     const total = m.agg(c.rows, c.metric);
@@ -219,13 +259,14 @@ export function mountDashboard(root, opts) {
     let hl;
     if (m.date >= 0) { const s = m.series(c.rows, c.metric); const avg = s.length ? s.reduce((a, x) => a + x.v, 0) / s.length : 0; hl = `<p class="d-big">${fmt(avg)}</p><p class="d-hlt">${T(`${esc(c.ml)} ${m.monthly ? 'شهريًا' : 'يوميًا'} في المتوسط`, `Average ${m.monthly ? 'monthly' : 'daily'} ${esc(c.ml)}`)}</p>`; }
     else hl = `<p class="d-big">${c.rows.length.toLocaleString('en-US')}</p><p class="d-hlt">${T('سجل في البيانات', 'records')}</p>`;
-    const html = `<section class="d-top ${gauge ? 'has-gauge' : ''} ${pd >= 0 && !c.mean ? 'has-pie' : ''}">${top}</section>
+    const html = `<section class="d-top ${gauge ? 'has-gauge' : ''} ${pd >= 0 && !c.mean ? 'has-pie' : ''}">${top}</section>${geo >= 0 ? `<section class="d-mapsec">${mapHTML(c, 'd-tile')}</section>` : ''}
       <section class="d-bottom" style="--n:${n + 1}">${chg.slice(0, mid).join('')}<article class="d-tile d-hl" style="--mo:0">${hl}</article>${chg.slice(mid).join('')}${mini.slice(0, mid).join('')}<article class="d-tile d-notes" style="--mo:99">${head(T('ملاحظات', 'Insights'), '')}${insList(c)}</article>${mini.slice(mid).join('')}</section>`;
     return { html, after() {
       if (gauge) chartGauge(c, 'gauge', gauge.v, gauge.max);
       if (c.tstats) chartTargets(c, 'bar'); else if (c.dim >= 0) chartBreakdown(c, 'bar', false); else if (m.date >= 0) chartLine(c, 'line', c.metric);
       if (pd >= 0 && !c.mean) chartPie(c, 'pie', pd);
       metrics.forEach((mi, idx) => chartMini(c, 'mini' + idx, mi));
+      drawMap(c);
     } };
   }
 
@@ -243,6 +284,7 @@ export function mountDashboard(root, opts) {
       <section class="d-grid">
         ${hasLine ? `<article class="d-card d-span8">${head(c.ml + T(' عبر الزمن', ' over time'), m.monthly ? T('تجميع شهري', 'Monthly') : T('تجميع يومي', 'Daily'))}<div class="d-box"><canvas data-cv="line" role="img" aria-label="${T('الاتجاه', 'Trend')}"></canvas></div></article>` : ''}
         <article class="d-card ${hasLine ? 'd-span4' : 'd-span12'} d-notes-ex">${head(T('أبرز الملاحظات', 'Key insights'), '')}${insList(c)}</article>
+        ${mapHTML(c, 'd-card d-span12')}
         ${c.dim >= 0 ? `<article class="d-card d-span6">${head(c.ml + T(' حسب ', ' by ') + m.cols[c.dim].name, T('اضغط أي شريط للفلترة', 'Click a bar to filter'))}<div class="d-box d-hbox"><canvas data-cv="hbar" role="img" aria-label="${T('الترتيب', 'Ranking')}"></canvas></div></article>` : ''}
         ${c.tstats ? `<article class="d-card d-span6">${head(T('الفعلي مقابل المستهدف', 'Actual vs target'), T('حسب ', 'by ') + c.tstats.keyName)}<div class="d-box"><canvas data-cv="tbar" role="img" aria-label="${T('الفعلي مقابل المستهدف', 'Actual vs target')}"></canvas></div></article>`
           : (c.sd >= 0 && !c.mean ? `<article class="d-card d-span6">${head(T('توزيع ', '') + c.ml + T(' حسب ', ' by ') + m.cols[c.sd].name, '')}<div class="d-box"><canvas data-cv="pie" role="img" aria-label="${T('الحصص', 'Shares')}"></canvas></div></article>` : '')}
@@ -251,6 +293,7 @@ export function mountDashboard(root, opts) {
       if (hasLine) chartLine(c, 'line', c.metric);
       if (c.dim >= 0) chartBreakdown(c, 'hbar', true);
       if (c.tstats) chartTargets(c, 'tbar'); else if (c.sd >= 0 && !c.mean) chartPie(c, 'pie', c.sd);
+      drawMap(c);
     } };
   }
 
@@ -264,19 +307,20 @@ export function mountDashboard(root, opts) {
         ${c.tstats && c.tstats.pct != null ? `<div class="d-target"><span>${T(`الإنجاز ${fmtPct(c.tstats.pct, 1)} من المستهدف`, `${fmtPct(c.tstats.pct, 1)} of target achieved`)}</span><div class="d-bar-track"><i style="width:${Math.min(100, c.tstats.pct).toFixed(1)}%"></i></div></div>` : ''}</article>
       <article class="d-card">${head(T('المؤشرات', 'Metrics'), T('اضغط مؤشرًا لعرضه', 'Tap a metric to show it'))}<ul class="d-list">${rows}</ul></article>
       ${c.dim >= 0 ? `<article class="d-card">${head(c.ml + T(' حسب ', ' by ') + m.cols[c.dim].name, '')}<div class="d-box d-hbox"><canvas data-cv="hbar" role="img" aria-label="${T('الترتيب', 'Ranking')}"></canvas></div></article>` : ''}
+      ${mapHTML(c, 'd-card')}
       ${m.date >= 0 ? `<article class="d-card">${head(c.ml + T(' عبر الزمن', ' over time'), '')}<div class="d-box d-sbox"><canvas data-cv="line" role="img" aria-label="${T('الاتجاه', 'Trend')}"></canvas></div></article>` : ''}
       <article class="d-card">${head(T('ملاحظات', 'Insights'), '')}${insList(c)}</article></section>`;
-    return { html, after() { if (c.dim >= 0) chartBreakdown(c, 'hbar', true); if (m.date >= 0) chartLine(c, 'line', c.metric); } };
+    return { html, after() { if (c.dim >= 0) chartBreakdown(c, 'hbar', true); if (m.date >= 0) chartLine(c, 'line', c.metric); drawMap(c); } };
   }
 
   function renderBody() {
-    Object.keys(charts).forEach(kill);
+    Object.keys(charts).forEach(kill); killMaps();
     const c = ctx();
     chartBase(c.ink, c.grid);
     const tpl = o.project.template === 'executive' ? tplExecutive : o.project.template === 'compact' ? tplCompact : tplTiles;
     const t = tpl(c);
     root.querySelector('[data-body]').innerHTML = t.html;
-    if (window.Chart) t.after();
+    if (window.Chart) t.after(); else drawMap(c);
   }
 
   function renderTable() {
@@ -298,8 +342,8 @@ export function mountDashboard(root, opts) {
 
   setup(); frame();
   return {
-    update(next) { o = { ...o, ...next }; setup(); frame(); },
-    setTemplate(t) { o.project = { ...o.project, template: t }; frame(); },
-    destroy() { Object.keys(charts).forEach(kill); root.innerHTML = ''; }
+    update(next) { killMaps(); o = { ...o, ...next }; setup(); frame(); },
+    setTemplate(t) { killMaps(); o.project = { ...o.project, template: t }; frame(); },
+    destroy() { Object.keys(charts).forEach(kill); killMaps(); root.innerHTML = ''; }
   };
 }

@@ -29,6 +29,7 @@ Teams share performance numbers as Excel attachments or static screenshots. Ever
 |---|---|
 | **Smart Excel import** | Reads `.xlsx` / `.csv` or a pasted table in the browser. Detects column types (date, number, category, text), understands Arabic digits and month names, “SAR / ر.س” values, and drops “Total” rows so nothing is double-counted. |
 | **Target vs actual** | Upload a target file and the app joins it to the data and computes achievement % per branch or department. |
+| **Location map** | If a column holds Saudi cities or regions (or GCC cities), in Arabic or English, a bubble map appears automatically with a top-5 ranking; click a city to filter the whole dashboard. |
 | **Three templates** | Analytical tiles, executive report, and a mobile summary, all from the same data model. |
 | **Brand identity** | Upload a logo and its dominant colors are extracted automatically; choose from six Arabic-friendly fonts. |
 | **Interactive for viewers** | Filters, metric switcher, click-to-filter charts, sortable/searchable table, period-over-period change, auto-generated insights. |
@@ -91,7 +92,7 @@ flowchart LR
 
 ## Tech stack
 
-`HTML` · `CSS` (custom properties, container queries, RTL/LTR logical properties) · `JavaScript` (ES modules, no framework) · `Chart.js` · `SheetJS` · `html-to-image` · `Supabase` (Auth, Postgres, Storage, RLS, RPC) · `GitHub Pages` · `GitHub Actions`
+`HTML` · `CSS` (custom properties, container queries, RTL/LTR logical properties) · `JavaScript` (ES modules, no framework) · `Chart.js` · `Leaflet` · `SheetJS` · `html-to-image` · `Supabase` (Auth, Postgres, Storage, RLS, RPC) · `GitHub Pages` · `GitHub Actions`
 
 ## Project structure
 
@@ -141,6 +142,7 @@ supabase/             Database schema and migrations
 ### المميزات
 - **قراءة ذكية للملف:** يتعرف على أنواع الأعمدة، ويفهم الأرقام العربية وأسماء الأشهر و«ر.س»، ويحذف صفوف الإجمالي. الملف نفسه ما يُرفع؛ يُقرأ داخل المتصفح.
 - **المستهدف مقابل الفعلي:** نسبة الإنجاز لكل فرع أو قسم.
+- **خريطة المواقع:** إذا الملف فيه عمود مدن أو مناطق سعودية (أو مدن خليجية)، تظهر خريطة تلقائيًا بدوائر حسب القيمة وترتيب لأعلى خمسة، والضغط على المدينة يفلتر اللوحة كاملة.
 - **ثلاثة قوالب:** مربعات تحليلية، تقرير تنفيذي، ملخص للجوال.
 - **الهوية البصرية:** استخراج ألوان الشعار تلقائيًا واختيار الخط.
 - **تفاعلي للزائر:** فلاتر، تبديل المؤشر، فلترة بالضغط على الرسم، جدول قابل للبحث والترتيب، ملاحظات تحليلية تلقائية.
