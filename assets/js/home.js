@@ -89,7 +89,7 @@ function renderProjList() {
       <span class="bar" style="background:${esc(color(p))}"></span>
       <span class="nm"><b><bdi>${esc(p.title)}</bdi></b><span><bdi>${esc(p.topic || (p.is_published ? 'منشور' : 'مسودة'))}</bdi> · ${esc(rel(p.updated_at))}</span></span>
     </button><a class="iconbtn" href="project.html?id=${p.id}" aria-label="فتح ${esc(p.title)}" title="فتح المشروع"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M15 6l-6 6 6 6"/></svg></a></div>`).join('')
-    : `<div class="empty2"><span>لا توجد مشاريع بعد</span><button class="btn btn-primary btn-sm" type="button" data-new>أنشئ أول مشروع</button></div>`;
+    : `<div class="empty2"><span>لا توجد مشاريع بعد</span><button class="btn btn-primary btn-sm" type="button" data-new>إنشاء أول مشروع</button></div>`;
 }
 function renderCal() {
   const y = S.calY, mo = S.calM, first = new Date(y, mo, 1), start = first.getDay(), days = new Date(y, mo + 1, 0).getDate(), prevDays = new Date(y, mo, 0).getDate();
@@ -126,7 +126,7 @@ function guideHTML() {
   const first = S.projects[0], open = first ? `project.html?id=${first.id}` : null;
   const styled = S.projects.some(p => (p.brand && (p.brand.logo_url || (p.brand.primary && p.brand.primary.toUpperCase() !== DEFAULT_BRAND.primary))) || (p.template && p.template !== 'tiles'));
   const steps = [
-    { t: 'أنشئ مشروع', d: 'كل لوحة مؤشرات مشروع مستقل.', done: S.projects.length > 0, a: '<button type="button" class="btn btn-primary btn-sm" data-new>مشروع جديد</button>' },
+    { t: 'إنشاء مشروع', d: 'كل لوحة مؤشرات مشروع مستقل.', done: S.projects.length > 0, a: '<button type="button" class="btn btn-primary btn-sm" data-new>مشروع جديد</button>' },
     { t: 'ارفع ملف Excel', d: 'أو استخدم الملف النموذجي.', done: S.versions.length > 0, a: open ? `<a class="btn btn-quiet btn-sm" href="${open}">ارفع الملف</a>` : '<a class="btn btn-quiet btn-sm" href="assets/templates/template-sales.xlsx" download>ملف نموذجي</a>' },
     { t: 'خصّص الشكل', d: 'الشعار والألوان والقالب.', done: styled, a: open ? `<a class="btn btn-quiet btn-sm" href="${open}">الهوية والقالب</a>` : '' },
     { t: 'انشر وشارك', d: 'رابط للعرض فقط.', done: S.projects.some(p => p.is_published), a: open ? `<a class="btn btn-quiet btn-sm" href="${open}">المشاركة</a>` : '' }
