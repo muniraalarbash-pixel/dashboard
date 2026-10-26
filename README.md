@@ -114,13 +114,6 @@ supabase/             Database schema and migrations
 .github/workflows/    Keep-alive job for the free database tier
 ```
 
-## Run your own copy
-
-1. Create a project on [Supabase](https://supabase.com) and run, in **SQL Editor**, `supabase/schema.sql` then `supabase/migration-002-views.sql`.
-2. Put your **Project URL** and **publishable key** in `assets/js/config.js` (and in `.github/workflows/keep-alive.yml`).
-3. In Supabase → Authentication → URL Configuration, set the Site URL to your site and add `https://<your-site>/**` to Redirect URLs.
-4. Enable **GitHub Pages** (branch `main`, folder `/root`).
-
 ## Roadmap
 
 - Custom domain and email confirmation
@@ -165,5 +158,7 @@ HTML · CSS · JavaScript · Chart.js · SheetJS · Supabase · GitHub Pages · 
 <div align="center">
 
 Designed and built by **Munirah Alarbash** · تصميم وتطوير **منيرة الأربش**
+
+© 2026 Munirah Alarbash. All rights reserved. · جميع الحقوق محفوظة
 
 </div>
