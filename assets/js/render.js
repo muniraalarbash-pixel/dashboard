@@ -8,6 +8,14 @@ export const TEMPLATES = {
   compact: { name: 'ملخص للجوال', en: 'Mobile summary', desc: 'عمود واحد مرتب يناسب الشاشات الصغيرة' }
 };
 
+// chart type per slot; the owner can override in project.config.viz
+const VIZ_DEFAULT = {
+  tiles: { breakdown: 'bar', share: 'doughnut', trend: 'area', kpi: 'gauge' },
+  executive: { breakdown: 'hbar', share: 'doughnut', trend: 'area', kpi: 'bar' },
+  compact: { breakdown: 'hbar', share: 'doughnut', trend: 'area', kpi: 'bar' }
+};
+export const vizDefault = (tpl, slot) => (VIZ_DEFAULT[tpl] || VIZ_DEFAULT.tiles)[slot];
+
 const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
 const anim = () => reduceMotion ? false : { duration: 350 };
 
@@ -63,6 +71,7 @@ export function mountDashboard(root, opts) {
   }
   function metricIdx() { return (st.metric != null && (st.metric === -1 || m.nums.includes(st.metric))) ? st.metric : (m.nums.length ? m.nums[0] : -1); }
   function dimIdx() { return (st.dim != null && m.cats.includes(st.dim)) ? st.dim : (m.dims.length ? m.dims[0] : -1); }
+  const vz = slot => { const v = o.project.config && o.project.config.viz && o.project.config.viz[slot]; return v || vizDefault(TEMPLATES[o.project.template] ? o.project.template : 'tiles', slot); };
   const activeF = () => Object.entries(st.filters).filter(([, v]) => v != null);
 
   function chartBase(ink, grid) {
@@ -148,7 +157,17 @@ export function mountDashboard(root, opts) {
   const insList = c => `<ul class="d-ins">${c.insights.map(i => `<li><strong>${esc(i.title)}</strong><span>${esc(i.body)}</span></li>`).join('')}</ul>`;
 
   // ---------- shared charts ----------
-  function chartBreakdown(c, key, horizontal) {
+  function chartBreakdown(c, key, type) {
+    const box0 = root.querySelector(`[data-cv="${key}"]`); if (box0) box0.parentElement.style.height = '';
+    if (type === 'pie' || type === 'doughnut') return chartShare(c, key, c.dim, 'doughnut', true);
+    if (type === 'line') {
+      const bl = m.breakdown(c.rows, c.dim, c.metric).slice(0, 12), sel = st.filters[c.dim];
+      draw(key, { type: 'line', data: { labels: bl.map(x => wrapLabel(x.k)), datasets: [{ label: c.ml, data: bl.map(x => x.v), borderColor: c.pal[0], backgroundColor: c.pal[0], tension: .3, borderWidth: 2.2, pointRadius: bl.map(x => sel === x.k ? 7 : 4), pointHoverRadius: 8, pointBackgroundColor: bl.map(x => sel == null || sel === x.k ? c.pal[0] : alpha(c.pal[0], .3)) }] },
+        options: { responsive: true, maintainAspectRatio: false, animation: anim(), onClick: (e, els) => { if (!els.length) return; const k = bl[els[0].index].k; if (st.filters[c.dim] === k) delete st.filters[c.dim]; else st.filters[c.dim] = k; st.page = 0; renderData(); }, onHover: (e, els) => { if (e.native) e.native.target.style.cursor = els.length ? 'pointer' : 'default'; },
+          plugins: { legend: { display: false }, tooltip: tip() }, scales: { x: { reverse: !isEn(), grid: { display: false }, ticks: { maxRotation: 0, autoSkip: false, font: { size: 11 } } }, y: { position: isEn() ? 'left' : 'right', beginAtZero: true, grid: { color: c.grid }, border: { display: false }, ticks: { callback: v => fmt(v), maxTicksLimit: 5 } } } } });
+      return;
+    }
+    const horizontal = type === 'hbar' || type === true;
     const b = m.breakdown(c.rows, c.dim, c.metric).slice(0, horizontal ? 10 : 8), sel = st.filters[c.dim];
     let ds;
     if (!horizontal && c.sd >= 0 && !c.mean) {
@@ -177,19 +196,37 @@ export function mountDashboard(root, opts) {
         plugins: { legend: { position: 'top', align: 'start', rtl: !isEn(), textDirection: isEn() ? 'ltr' : 'rtl', labels: { boxWidth: 10, boxHeight: 10, padding: 10 } }, tooltip: tip(), valueLabels: { mode: 'top', color: c.ink, font: theme.font } },
         scales: { x: { grid: { display: false }, ticks: { maxRotation: 0, autoSkip: false, font: { size: 11 } } }, y: { beginAtZero: true, grid: { color: c.grid }, border: { display: false }, ticks: { callback: v => fmt(v), maxTicksLimit: 5 } } } } });
   }
-  function chartPie(c, key, pd) {
+  function chartShare(c, key, pd, type, clickable) {
     const b = m.breakdown(c.rows, pd, c.metric); let t5 = b.slice(0, 5); const rest = b.slice(5).reduce((s, x) => s + x.v, 0); if (rest > 0) t5 = t5.concat([{ k: OTHER(), v: rest }]);
-    const pc = [c.pal[0], c.pal[2], c.pal[1], c.pal[3], c.pal[6]];
-    draw(key, { type: 'doughnut', data: { labels: t5.map(x => x.k), datasets: [{ data: t5.map(x => x.v), backgroundColor: t5.map((x, i) => x.k === OTHER() ? '#A9B4BC' : pc[i % pc.length]), borderColor: '#FFFFFF', borderWidth: 2 }] }, plugins: [valueLabels],
-      options: { responsive: true, maintainAspectRatio: false, cutout: '45%', animation: anim(), plugins: { legend: { position: 'bottom', rtl: !isEn(), textDirection: isEn() ? 'ltr' : 'rtl', labels: { boxWidth: 10, boxHeight: 10, padding: 10 } }, tooltip: tip(), valueLabels: { mode: 'pct', font: theme.font } } } });
+    const pc = [c.pal[0], c.pal[2], c.pal[1], c.pal[3], c.pal[6]], sel = st.filters[pd];
+    const cols = t5.map((x, i) => { const col = x.k === OTHER() ? '#A9B4BC' : pc[i % pc.length]; return sel == null || sel === x.k ? col : alpha(col, .3); });
+    const click = (e, els) => { if (!els.length) return; const k = t5[els[0].index].k; if (k === OTHER()) return; if (st.filters[pd] === k) delete st.filters[pd]; else st.filters[pd] = k; st.page = 0; renderData(); };
+    const hover = (e, els) => { if (e.native) e.native.target.style.cursor = els.length ? 'pointer' : 'default'; };
+    if (type === 'bar' || type === 'hbar') {
+      const h = type === 'hbar';
+      draw(key, { type: 'bar', data: { labels: t5.map(x => h ? x.k : wrapLabel(x.k)), datasets: [{ label: c.ml, data: t5.map(x => x.v), backgroundColor: cols, borderRadius: 3, maxBarThickness: h ? 24 : 48 }] }, plugins: [valueLabels],
+        options: { indexAxis: h ? 'y' : 'x', responsive: true, maintainAspectRatio: false, animation: anim(), onClick: click, onHover: hover, layout: h ? { padding: isEn() ? { right: 44 } : { left: 44 } } : { padding: { top: 16 } },
+          plugins: { legend: { display: false }, tooltip: tip(), valueLabels: { mode: h ? 'end' : 'top', color: c.ink, font: theme.font } },
+          scales: h ? { x: { reverse: !isEn(), beginAtZero: true, display: false }, y: { position: isEn() ? 'left' : 'right', grid: { display: false }, border: { display: false } } }
+            : { x: { reverse: !isEn(), grid: { display: false }, ticks: { maxRotation: 0, autoSkip: false, font: { size: 11 } } }, y: { display: false, beginAtZero: true } } } });
+      return;
+    }
+    draw(key, { type: 'doughnut', data: { labels: t5.map(x => x.k), datasets: [{ data: t5.map(x => x.v), backgroundColor: cols, borderColor: '#FFFFFF', borderWidth: 2 }] }, plugins: [valueLabels],
+      options: { responsive: true, maintainAspectRatio: false, cutout: type === 'pie' ? 0 : '45%', animation: anim(), onClick: click, onHover: hover, plugins: { legend: { position: 'bottom', rtl: !isEn(), textDirection: isEn() ? 'ltr' : 'rtl', labels: { boxWidth: 10, boxHeight: 10, padding: 10 } }, tooltip: tip(), valueLabels: { mode: 'pct', font: theme.font } } } });
   }
+  const chartPie = (c, key, pd) => chartShare(c, key, pd, vz('share'));
   function chartGauge(c, key, value, max) {
     draw(key, { type: 'doughnut', data: { datasets: [{ data: [Math.min(value, max), Math.max(0, max - value)], backgroundColor: [c.pal[0], theme.vars['--d-surface-2']], borderWidth: 0 }] },
       options: { responsive: true, maintainAspectRatio: false, rotation: -90, circumference: 180, cutout: '70%', animation: anim(), plugins: { legend: { display: false }, tooltip: { enabled: false } } } });
   }
   function chartLine(c, key, mi) {
-    const s = m.series(c.rows, mi);
-    draw(key, { type: 'line', data: { labels: s.map(p => pLabel(p.k)), datasets: [{ data: s.map(p => p.v), borderColor: c.pal[0], backgroundColor: alpha(c.pal[0], .14), fill: true, tension: .3, borderWidth: 2.2, pointRadius: s.length > 40 ? 0 : 3, pointBackgroundColor: c.pal[0] }] },
+    const s = m.series(c.rows, mi), tt = vz('trend');
+    if (tt === 'bar') {
+      draw(key, { type: 'bar', data: { labels: s.map(p => pLabel(p.k)), datasets: [{ data: s.map(p => p.v), backgroundColor: c.pal[0], borderRadius: 3, maxBarThickness: 40 }] },
+        options: { responsive: true, maintainAspectRatio: false, animation: anim(), plugins: { legend: { display: false }, tooltip: tip() }, scales: { x: { reverse: !isEn(), grid: { display: false }, ticks: { maxRotation: 0, autoSkip: true } }, y: { position: isEn() ? 'left' : 'right', beginAtZero: true, grid: { color: c.grid }, border: { display: false }, ticks: { callback: v => fmt(v), maxTicksLimit: 5 } } } } });
+      return;
+    }
+    draw(key, { type: 'line', data: { labels: s.map(p => pLabel(p.k)), datasets: [{ data: s.map(p => p.v), borderColor: c.pal[0], backgroundColor: alpha(c.pal[0], .14), fill: tt !== 'line', tension: .3, borderWidth: 2.2, pointRadius: s.length > 40 ? 0 : 3, pointBackgroundColor: c.pal[0] }] },
       options: { responsive: true, maintainAspectRatio: false, animation: anim(), plugins: { legend: { display: false }, tooltip: tip() }, scales: { x: { grid: { display: false }, ticks: { maxRotation: 0, autoSkip: true } }, y: { beginAtZero: true, grid: { color: c.grid }, border: { display: false }, ticks: { callback: v => fmt(v), maxTicksLimit: 5 } } } } });
   }
   function chartMini(c, key, mi) {
@@ -243,7 +280,14 @@ export function mountDashboard(root, opts) {
     let gauge = null;
     if (c.tstats && c.tstats.pct != null) gauge = { title: T('نسبة الإنجاز', 'Achievement'), sub: c.tstats.valName + T(' مقابل المستهدف', ' vs target'), v: c.tstats.pct, max: 100, label: fmtPct(c.tstats.pct, 1), lo: '0%', hi: '100%' };
     else if (c.dim >= 0 && !c.mean && c.rows.length) { const b = m.breakdown(c.rows, c.dim, c.metric), t = b.reduce((s, x) => s + x.v, 0); if (b.length >= 2 && t > 0) gauge = { title: T('حصة ', 'Share of ') + b[0].k, sub: T('من إجمالي ', 'of total ') + c.ml, v: b[0].v, max: t, label: fmt(b[0].v), lo: '0', hi: fmt(t) }; }
-    if (gauge) top += `<article class="d-tile d-gauge">${head(gauge.title, gauge.sub)}<div class="d-gbox"><canvas data-cv="gauge" role="img" aria-label="${esc(gauge.title)}"></canvas><p class="d-gval">${gauge.label}</p></div><div class="d-gscale"><span>${gauge.lo}</span><span>${gauge.hi}</span></div></article>`;
+    const kv = vz('kpi');
+    if (gauge) {
+      const gp = gauge.max ? Math.max(0, Math.min(100, gauge.v / gauge.max * 100)) : 0;
+      const inner = kv === 'number' ? `<p class="d-big d-kpinum">${gauge.label}</p>`
+        : kv === 'bar' ? `<div class="d-kpibar"><p class="d-big">${gauge.label}</p><div class="d-bar-track"><i style="width:${gp.toFixed(1)}%"></i></div><div class="d-gscale"><span>${gauge.lo}</span><span>${gauge.hi}</span></div></div>`
+        : `<div class="d-gbox"><canvas data-cv="gauge" role="img" aria-label="${esc(gauge.title)}"></canvas><p class="d-gval">${gauge.label}</p></div><div class="d-gscale"><span>${gauge.lo}</span><span>${gauge.hi}</span></div>`;
+      top += `<article class="d-tile d-gauge">${head(gauge.title, gauge.sub)}${inner}</article>`;
+    }
     if (c.tstats) top += `<article class="d-tile d-wide d-bartile">${head(T('الفعلي مقابل المستهدف', 'Actual vs target'), T('حسب ', 'by ') + c.tstats.keyName)}<div class="d-box"><canvas data-cv="bar" role="img" aria-label="${T('الفعلي مقابل المستهدف', 'Actual vs target')}"></canvas></div></article>`;
     else if (c.dim >= 0) top += `<article class="d-tile d-wide d-bartile">${head(c.ml + T(' حسب ', ' by ') + m.cols[c.dim].name, c.sd >= 0 && !c.mean ? T('مقسّم حسب ', 'Split by ') + m.cols[c.sd].name + T(' · اضغط عمودًا للفلترة', ' · click a bar to filter') : T('اضغط عمودًا للفلترة', 'Click a bar to filter'))}<div class="d-box"><canvas data-cv="bar" role="img" aria-label="${T('التوزيع', 'Breakdown')}"></canvas></div></article>`;
     else if (m.date >= 0) top += `<article class="d-tile d-wide d-bartile">${head(c.ml + T(' عبر الزمن', ' over time'), m.monthly ? T('شهريًا', 'Monthly') : T('يوميًا', 'Daily'))}<div class="d-box"><canvas data-cv="line" role="img" aria-label="${T('الاتجاه', 'Trend')}"></canvas></div></article>`;
@@ -262,8 +306,8 @@ export function mountDashboard(root, opts) {
     const html = `<section class="d-top ${gauge ? 'has-gauge' : ''} ${pd >= 0 && !c.mean ? 'has-pie' : ''}">${top}</section>${geo >= 0 ? `<section class="d-mapsec">${mapHTML(c, 'd-tile')}</section>` : ''}
       <section class="d-bottom" style="--n:${n + 1}">${chg.slice(0, mid).join('')}<article class="d-tile d-hl" style="--mo:0">${hl}</article>${chg.slice(mid).join('')}${mini.slice(0, mid).join('')}<article class="d-tile d-notes" style="--mo:99">${head(T('ملاحظات', 'Insights'), '')}${insList(c)}</article>${mini.slice(mid).join('')}</section>`;
     return { html, after() {
-      if (gauge) chartGauge(c, 'gauge', gauge.v, gauge.max);
-      if (c.tstats) chartTargets(c, 'bar'); else if (c.dim >= 0) chartBreakdown(c, 'bar', false); else if (m.date >= 0) chartLine(c, 'line', c.metric);
+      if (gauge && kv === 'gauge') chartGauge(c, 'gauge', gauge.v, gauge.max);
+      if (c.tstats) chartTargets(c, 'bar'); else if (c.dim >= 0) chartBreakdown(c, 'bar', vz('breakdown')); else if (m.date >= 0) chartLine(c, 'line', c.metric);
       if (pd >= 0 && !c.mean) chartPie(c, 'pie', pd);
       metrics.forEach((mi, idx) => chartMini(c, 'mini' + idx, mi));
       drawMap(c);
@@ -274,7 +318,7 @@ export function mountDashboard(root, opts) {
   function tplExecutive(c) {
     const metrics = m.nums.length ? m.nums.slice(0, c.tstats ? 3 : 4) : [-1];
     let kpis = '';
-    if (c.tstats && c.tstats.pct != null) kpis += `<article class="d-card d-kpi d-kpi-hero"><p class="d-kl">${T('نسبة الإنجاز', 'Achievement')}</p><p class="d-kv">${fmtPct(c.tstats.pct, 1)}</p><p class="d-kf">${fmt(c.tstats.actual)} ${T('من', 'of')} ${fmt(c.tstats.target)}</p><div class="d-bar-track"><i style="width:${Math.min(100, c.tstats.pct).toFixed(1)}%"></i></div></article>`;
+    if (c.tstats && c.tstats.pct != null) kpis += `<article class="d-card d-kpi d-kpi-hero"><p class="d-kl">${T('نسبة الإنجاز', 'Achievement')}</p><p class="d-kv">${fmtPct(c.tstats.pct, 1)}</p><p class="d-kf">${fmt(c.tstats.actual)} ${T('من', 'of')} ${fmt(c.tstats.target)}</p>${vz('kpi') === 'number' ? '' : `<div class="d-bar-track"><i style="width:${Math.min(100, c.tstats.pct).toFixed(1)}%"></i></div>`}</article>`;
     metrics.forEach(mi => {
       const ch = change(c, mi);
       kpis += `<article class="d-card d-kpi ${mi === c.metric ? 'on' : ''}" data-mi="${mi}" role="button" tabindex="0" aria-pressed="${mi === c.metric}"><p class="d-kl">${esc(m.label(mi))}</p><p class="d-kv">${fmt(m.agg(c.rows, mi))}</p><p class="d-kf"><span class="d-dl ${arrowCls(ch.pct)}">${ch.pct == null ? '' : (ch.pct >= 0 ? '▲ ' : '▼ ') + Math.abs(ch.pct).toFixed(1) + '%'}</span> ${ch.pct == null ? '' : esc(ch.sub)}</p>${spark(ch.s.map(p => p.v))}</article>`;
@@ -291,7 +335,7 @@ export function mountDashboard(root, opts) {
       </section>`;
     return { html, after() {
       if (hasLine) chartLine(c, 'line', c.metric);
-      if (c.dim >= 0) chartBreakdown(c, 'hbar', true);
+      if (c.dim >= 0) chartBreakdown(c, 'hbar', vz('breakdown'));
       if (c.tstats) chartTargets(c, 'tbar'); else if (c.sd >= 0 && !c.mean) chartPie(c, 'pie', c.sd);
       drawMap(c);
     } };
@@ -304,13 +348,13 @@ export function mountDashboard(root, opts) {
     const rows = metrics.map(mi => { const ch = change(c, mi); return `<li data-mi="${mi}" role="button" tabindex="0" class="${mi === c.metric ? 'on' : ''}" aria-pressed="${mi === c.metric}"><span class="d-ln">${esc(m.label(mi))}</span><span class="d-lv">${fmt(m.agg(c.rows, mi))}</span>${spark(ch.s.map(p => p.v).slice(-8))}<span class="d-dl ${arrowCls(ch.pct)}">${ch.pct == null ? '' : (ch.pct >= 0 ? '▲' : '▼') + Math.abs(ch.pct).toFixed(0) + '%'}</span></li>`; }).join('');
     const html = `<section class="d-stack">
       <article class="d-card d-hero"><p class="d-kl">${esc(c.ml)}${c.mean ? T(' (متوسط)', ' (avg)') : ''}</p><p class="d-kv">${fmt(total)}</p><p class="d-kf"><span class="d-dl ${arrowCls(ch0.pct)}">${ch0.pct == null ? '' : (ch0.pct >= 0 ? '▲ ' : '▼ ') + Math.abs(ch0.pct).toFixed(1) + '%'}</span> ${ch0.pct == null ? '' : esc(ch0.sub)}</p>
-        ${c.tstats && c.tstats.pct != null ? `<div class="d-target"><span>${T(`الإنجاز ${fmtPct(c.tstats.pct, 1)} من المستهدف`, `${fmtPct(c.tstats.pct, 1)} of target achieved`)}</span><div class="d-bar-track"><i style="width:${Math.min(100, c.tstats.pct).toFixed(1)}%"></i></div></div>` : ''}</article>
+        ${c.tstats && c.tstats.pct != null ? `<div class="d-target"><span>${T(`الإنجاز ${fmtPct(c.tstats.pct, 1)} من المستهدف`, `${fmtPct(c.tstats.pct, 1)} of target achieved`)}</span>${vz('kpi') === 'number' ? '' : `<div class="d-bar-track"><i style="width:${Math.min(100, c.tstats.pct).toFixed(1)}%"></i></div>`}</div>` : ''}</article>
       <article class="d-card">${head(T('المؤشرات', 'Metrics'), T('اضغط مؤشرًا لعرضه', 'Tap a metric to show it'))}<ul class="d-list">${rows}</ul></article>
       ${c.dim >= 0 ? `<article class="d-card">${head(c.ml + T(' حسب ', ' by ') + m.cols[c.dim].name, '')}<div class="d-box d-hbox"><canvas data-cv="hbar" role="img" aria-label="${T('الترتيب', 'Ranking')}"></canvas></div></article>` : ''}
       ${mapHTML(c, 'd-card')}
       ${m.date >= 0 ? `<article class="d-card">${head(c.ml + T(' عبر الزمن', ' over time'), '')}<div class="d-box d-sbox"><canvas data-cv="line" role="img" aria-label="${T('الاتجاه', 'Trend')}"></canvas></div></article>` : ''}
       <article class="d-card">${head(T('ملاحظات', 'Insights'), '')}${insList(c)}</article></section>`;
-    return { html, after() { if (c.dim >= 0) chartBreakdown(c, 'hbar', true); if (m.date >= 0) chartLine(c, 'line', c.metric); drawMap(c); } };
+    return { html, after() { if (c.dim >= 0) chartBreakdown(c, 'hbar', vz('breakdown')); if (m.date >= 0) chartLine(c, 'line', c.metric); drawMap(c); } };
   }
 
   function renderBody() {

@@ -181,3 +181,7 @@
 .t-compact .d-map{min-height:280px}
 @media (max-width:860px){.d-maptile{grid-template-columns:1fr}.d-map{min-height:280px}}
 @media print{.d-map{min-height:300px!important}.d-map .leaflet-control-zoom{display:none}}
+.d-kpibar{display:grid;gap:8px;align-content:center;flex:1}
+.d-kpibar .d-bar-track{height:12px}
+.d-kpibar .d-big{font-size:clamp(20px,2vw,30px)!important;margin:0}
+.d-kpinum{flex:1;display:grid;place-items:center;font-size:clamp(22px,2.4vw,36px)!important}

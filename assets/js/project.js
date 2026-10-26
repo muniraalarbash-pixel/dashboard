@@ -1,6 +1,6 @@
 // Project editor: details, brand, data versions, template, sharing — with live preview.
 import { sb, $, requireUser, mountNav, setupNotice, toast } from './sb.js';
-import { mountDashboard, TEMPLATES } from './render.js';
+import { mountDashboard, TEMPLATES, vizDefault } from './render.js';
 import { DEFAULT_BRAND, FONTS, extractColors, computeTotals, guessTargetCfg, esc, fmtDate } from './engine.js';
 import { openFile, openPasted, extractRaw, convert, TYPES } from './parse.js';
 import { wireExport } from './export.js';
@@ -81,7 +81,7 @@ function fill() {
   $('#c-primary').value = b.primary; $('#c-secondary').value = b.secondary; $('#c-accent').value = b.accent;
   $('#f-font').innerHTML = Object.keys(FONTS).map(f => `<option ${f === b.font ? 'selected' : ''}>${f}</option>`).join('');
   logoPreview(b.logo_url);
-  renderTemplates(); renderShare();
+  renderTemplates(); renderViz(); renderShare();
 }
 
 /* ---------- 1 details ---------- */
@@ -254,7 +254,37 @@ const SCHEMA = {
 function renderTemplates() {
   $('#tpls').innerHTML = Object.entries(TEMPLATES).map(([k, t]) => `<button type="button" class="tpl" data-t="${k}" aria-pressed="${project.template === k}"><svg viewBox="0 0 76 52" aria-hidden="true">${SCHEMA[k]}</svg><span><strong>${t.name}</strong><span>${t.desc}</span></span></button>`).join('');
 }
-$('#tpls').addEventListener('click', e => { const b = e.target.closest('[data-t]'); if (!b) return; project.template = b.dataset.t; renderTemplates(); queue({ template: project.template }); preview(); });
+$('#tpls').addEventListener('click', e => { const b = e.target.closest('[data-t]'); if (!b) return; project.template = b.dataset.t; renderTemplates(); renderViz(); queue({ template: project.template }); preview(); });
+
+/* chart type per slot */
+const VI = {
+  bar: '<rect x="3" y="12" width="4" height="9"/><rect x="10" y="6" width="4" height="15"/><rect x="17" y="9" width="4" height="12"/>',
+  hbar: '<rect x="3" y="3" width="15" height="4"/><rect x="3" y="10" width="11" height="4"/><rect x="3" y="17" width="18" height="4"/>',
+  line: '<path d="M3 18l5-6 4 3 8-9" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>',
+  area: '<path d="M3 18l5-6 4 3 8-9V21H3z" opacity=".35"/><path d="M3 18l5-6 4 3 8-9" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>',
+  pie: '<path d="M12 3a9 9 0 1 0 9 9h-9z"/><path d="M14 1.5a8.5 8.5 0 0 1 8.5 8.5H14z" opacity=".5"/>',
+  doughnut: '<circle cx="12" cy="12" r="7.5" fill="none" stroke="currentColor" stroke-width="4" stroke-dasharray="30 18"/>',
+  gauge: '<path d="M3 17a9 9 0 0 1 18 0" fill="none" stroke="currentColor" stroke-width="3.2" opacity=".35"/><path d="M3 17a9 9 0 0 1 14-7.5" fill="none" stroke="currentColor" stroke-width="3.2"/>',
+  kbar: '<rect x="2" y="10" width="20" height="5" rx="2.5" opacity=".35"/><rect x="2" y="10" width="14" height="5" rx="2.5"/>',
+  number: '<text x="12" y="17" text-anchor="middle" font-size="12" font-weight="700" fill="currentColor">97%</text>'
+};
+const VIZ_OPTS = [
+  { slot: 'breakdown', label: 'التوزيع حسب الفئة', opts: [['bar', 'أعمدة'], ['hbar', 'أفقي'], ['line', 'خطي'], ['pie', 'دائري', 'doughnut']] },
+  { slot: 'share', label: 'الحصص', opts: [['doughnut', 'حلقي'], ['pie', 'دائري'], ['bar', 'أعمدة'], ['hbar', 'أفقي']] },
+  { slot: 'trend', label: 'الاتجاه عبر الزمن', opts: [['area', 'مساحة'], ['line', 'خطي'], ['bar', 'أعمدة']] },
+  { slot: 'kpi', label: 'نسبة الإنجاز', opts: [['gauge', 'عداد'], ['bar', 'شريط', 'kbar'], ['number', 'رقم']] }
+];
+function renderViz() {
+  const cur = slot => (project.config.viz && project.config.viz[slot]) || vizDefault(project.template, slot);
+  $('#vizopts').innerHTML = VIZ_OPTS.map(g => `<div class="vizrow"><span class="vizl">${g.label}</span><div class="vizchips" role="group" aria-label="${g.label}">${g.opts.map(([v, l, ic]) => `<button type="button" class="vchip" data-slot="${g.slot}" data-v="${v}" aria-pressed="${cur(g.slot) === v}"><svg viewBox="0 0 24 24" aria-hidden="true">${VI[ic || v]}</svg>${l}</button>`).join('')}</div></div>`).join('');
+  $('#viz-reset').hidden = !(project.config.viz && Object.keys(project.config.viz).length);
+}
+$('#vizopts').addEventListener('click', e => {
+  const b = e.target.closest('[data-slot]'); if (!b) return;
+  project.config = { ...project.config, viz: { ...(project.config.viz || {}), [b.dataset.slot]: b.dataset.v } };
+  queue({ config: project.config }); renderViz(); preview();
+});
+$('#viz-reset').addEventListener('click', () => { const { viz, ...rest } = project.config; project.config = rest; queue({ config: project.config }); renderViz(); preview(); });
 
 /* ---------- 5 share ---------- */
 const shareUrl = () => new URL('view.html?s=' + project.share_slug, location.href).href;
