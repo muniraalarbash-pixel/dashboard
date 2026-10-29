@@ -174,7 +174,14 @@ async function takeActual(srcPromise) {
     $('#drop-data').classList.add('done');
     if (!$('#f-vperiod').value) $('#f-vperiod').value = project.period || '';
     rebuild();
-  } catch (e) { pending = null; dstatus('تعذّرت قراءة الملف. تأكد أنه Excel أو CSV وأن أحد الصفوف الأولى يحتوي عناوين الأعمدة.', true); }
+  } catch (e) { pending = null; dstatus(readError(e), true); console.error(e); }
+}
+function readError(e) {
+  const m = String((e && e.message) || e);
+  if (m === 'xlsx_load') return 'تعذّر تحميل أداة قراءة Excel. تحقق من الاتصال بالإنترنت، أو جرّب من شبكة ثانية (بعض شبكات العمل تحجبها).';
+  if (/password|encrypt|ECMA-376|CFB/i.test(m)) return 'الملف محمي بكلمة مرور أو بتصنيف حماية من الشركة. افتحه في Excel واحفظ نسخة جديدة بدون حماية، أو انسخ الجدول والصقه في خانة اللصق.';
+  if (m === 'empty') return 'الملف فاضي أو ما فيه صف عناوين. تأكد أن أول صف في الجدول فيه أسماء الأعمدة.';
+  return 'تعذّرت قراءة الملف (' + m.slice(0, 80) + '). جرّب تحفظه بصيغة .xlsx أو انسخ الجدول والصقه في خانة اللصق.';
 }
 const okExt = f => /\.(xlsx|xlsm|xls|csv)$/i.test(f.name);
 $('#f-data').addEventListener('change', e => { const f = e.target.files[0]; e.target.value = ''; if (!f) return; if (!okExt(f)) { dstatus('اختر ملفًا بصيغة xlsx أو xls أو csv.', true); return; } takeActual(openFile(f)); });
