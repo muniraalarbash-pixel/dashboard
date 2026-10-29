@@ -158,8 +158,13 @@ function renderCols() {
 }
 $('#cols').addEventListener('change', e => { const i = e.target.dataset.col; if (i == null || !pending) return; pending.actual.overrides[i] = e.target.value; safe(rebuild); });
 
-function sheetSelect(sel, wrap, src) {
-  $(sel).innerHTML = src.sheets.map(n => `<option>${esc(n)}</option>`).join('');
+// first sheet that holds a readable table (skips summary/cover sheets)
+function bestSheet(src) {
+  for (const n of src.sheets) { try { const r = extractRaw(src.aoa(n)); if (r.headers.length >= 2 && r.body.length >= 1) return n; } catch (e) { /* try next */ } }
+  return src.sheets[0];
+}
+function sheetSelect(sel, wrap, src, cur) {
+  $(sel).innerHTML = src.sheets.map(n => `<option ${n === cur ? 'selected' : ''}>${esc(n)}</option>`).join('');
   $(wrap).hidden = src.sheets.length < 2;
 }
 function safe(fn) { try { fn(); } catch (e) { dstatus('تعذّرت قراءة البيانات. تأكد أن أحد الصفوف الأولى يحتوي عناوين الأعمدة.', true); } }
@@ -168,9 +173,9 @@ async function takeActual(srcPromise) {
   dstatus('جاري قراءة الملف…');
   try {
     const src = await srcPromise;
-    pending = { actual: { src, sheet: src.sheets[0], overrides: {} }, target: pending ? pending.target : null };
+    pending = { actual: { src, sheet: bestSheet(src), overrides: {} }, target: pending ? pending.target : null };
     if (!pending.target && latest && latest.targets) pending.target = { src: null, data: latest.targets, fromLatest: true };
-    sheetSelect('#f-sheet', '#sheet-wrap', src);
+    sheetSelect('#f-sheet', '#sheet-wrap', src, pending.actual.sheet);
     $('#drop-data').classList.add('done');
     if (!$('#f-vperiod').value) $('#f-vperiod').value = project.period || '';
     rebuild();
@@ -197,11 +202,11 @@ $('#f-target').addEventListener('change', async e => {
       if (!latest) { dstatus('ارفع ملف البيانات أولًا، ثم ملف المستهدف.', true); return; }
       pending = { actual: { src: null, data: latest.data, reuse: true, name: latest.file_name }, target: null };
     }
-    pending.target = { src, sheet: src.sheets[0], overrides: {} };
-    sheetSelect('#f-tsheet', '#tsheet-wrap', src);
+    pending.target = { src, sheet: bestSheet(src), overrides: {} };
+    sheetSelect('#f-tsheet', '#tsheet-wrap', src, pending.target.sheet);
     $('#drop-target').classList.add('done');
     project.config = { ...project.config, target: null };
-    if (pending.actual.reuse) { const raw = extractRaw(src.aoa(src.sheets[0])); pending.target.data = convert(raw); renderMap(); $('#pub-box').hidden = false; dstatus('ملف المستهدف جاهز. راجع الربط ثم انشر التحديث.'); preview(); }
+    if (pending.actual.reuse) { const raw = extractRaw(src.aoa(pending.target.sheet)); pending.target.data = convert(raw); renderMap(); $('#pub-box').hidden = false; dstatus('ملف المستهدف جاهز. راجع الربط ثم انشر التحديث.'); preview(); }
     else safe(rebuild);
   } catch (err) { dstatus('تعذّرت قراءة ملف المستهدف.', true); }
 });
