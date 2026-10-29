@@ -41,7 +41,7 @@ const valueLabels = {
   }
 };
 const OTHER = () => T('أخرى', 'Other');
-const wrapLabel = s => { s = String(s); if (s.length <= 10) return s; const w = s.split(' '); if (w.length < 2) return s; const h = Math.ceil(w.length / 2); return [w.slice(0, h).join(' '), w.slice(h).join(' ')]; };
+const wrapLabel = s => { s = String(s); if (s.length > 24) s = s.slice(0, 22).trim() + '…'; if (s.length <= 10) return s; const w = s.split(' '); if (w.length < 2) return s; const h = Math.ceil(w.length / 2); return [w.slice(0, h).join(' '), w.slice(h).join(' ')]; };
 const head = (t, s) => `<div class="d-th"><h3>${esc(t)}</h3>${s ? `<p>${esc(s)}</p>` : ''}</div>`;
 
 function spark(vals) {
@@ -167,6 +167,10 @@ export function mountDashboard(root, opts) {
           plugins: { legend: { display: false }, tooltip: tip() }, scales: { x: { reverse: !isEn(), grid: { display: false }, ticks: { maxRotation: 0, autoSkip: false, font: { size: 11 } } }, y: { position: isEn() ? 'left' : 'right', beginAtZero: true, grid: { color: c.grid }, border: { display: false }, ticks: { callback: v => fmt(v), maxTicksLimit: 5 } } } } });
       return;
     }
+    if (type === 'bar' && !(o.project.config && o.project.config.viz && o.project.config.viz.breakdown)) {
+      const bb = m.breakdown(c.rows, c.dim, c.metric).slice(0, 8);
+      if (bb.length > 4 && bb.reduce((a, x) => a + String(x.k).length, 0) / bb.length > 12) type = 'hbar';
+    }
     const horizontal = type === 'hbar' || type === true;
     const b = m.breakdown(c.rows, c.dim, c.metric).slice(0, horizontal ? 10 : 8), sel = st.filters[c.dim];
     let ds;
@@ -178,7 +182,7 @@ export function mountDashboard(root, opts) {
     const hover = (e, els) => { if (e.native) e.native.target.style.cursor = els.length ? 'pointer' : 'default'; };
     if (horizontal) {
       const box = root.querySelector(`[data-cv="${key}"]`); if (box) box.parentElement.style.height = Math.max(200, b.length * 32 + 30) + 'px';
-      draw(key, { type: 'bar', data: { labels: b.map(x => x.k), datasets: ds }, plugins: [valueLabels], options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false, animation: anim(), onClick: click, onHover: hover, layout: { padding: isEn() ? { right: 44 } : { left: 44 } },
+      draw(key, { type: 'bar', data: { labels: b.map(x => { const k = String(x.k); return k.length > 18 ? k.slice(0, 17).trim() + '…' : k; }), datasets: ds }, plugins: [valueLabels], options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false, animation: anim(), onClick: click, onHover: hover, layout: { padding: isEn() ? { right: 44 } : { left: 44 } },
         plugins: { legend: { display: false }, tooltip: tip(), valueLabels: { mode: 'end', color: c.ink, font: theme.font } },
         scales: { x: { reverse: !isEn(), beginAtZero: true, display: false }, y: { position: isEn() ? 'left' : 'right', grid: { display: false }, border: { display: false } } } } });
     } else {

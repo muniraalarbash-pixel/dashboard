@@ -70,7 +70,8 @@ export function createModel(data) {
   // Rank category columns for default "split by": 2–15 distinct values first, time-like columns last.
   const uniq = i => new Set(rows.map(r => r[i]).filter(v => v != null && v !== '')).size;
   const dims = cats.slice().sort((a, b) => {
-    const score = i => { const u = uniq(i); let s = (u >= 2 && u <= 15) ? 0 : (u > 15 ? 2 : 4); if (i === monthCol || i === yearCol || YEAR_RE.test(cols[i].name) || /(quarter|ربع|الربع|week|أسبوع|اسبوع|day|يوم)/i.test(cols[i].name)) s += 3; return s; };
+    const cover = i => rows.length ? rows.filter(r => r[i] != null && r[i] !== '').length / rows.length : 0;
+    const score = i => { const u = uniq(i); let s = (u >= 2 && u <= 15) ? 0 : (u > 15 ? 2 : 4); if (cover(i) < 0.5) s += 5; if (i === monthCol || i === yearCol || YEAR_RE.test(cols[i].name) || /(quarter|ربع|الربع|week|أسبوع|اسبوع|day|يوم)/i.test(cols[i].name)) s += 3; return s; };
     return score(a) - score(b) || Math.min(uniq(b), 15) - Math.min(uniq(a), 15);
   });
   const m = {

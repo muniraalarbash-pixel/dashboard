@@ -44,12 +44,17 @@ export function detect(name, vals) {
   const dates = nn.filter(v => v instanceof Date || (typeof v === 'string' && parseDateStr(v))).length;
   const nums = nn.filter(v => !(v instanceof Date) && toNum(v) !== null).length;
   const uniq = new Set(nn.map(v => v instanceof Date ? isoDate(v) : String(v).trim())).size;
+  if (/^(ملاحظات|ملاحظة|الملاحظات|وصف|الوصف|تعليق|تعليقات|notes?|comments?|description|remarks?|الرابط|رابط|link|url|e-?mail|الإيميل|الايميل|البريد|البريد الإلكتروني)$/i.test(String(name).trim())) return 'text';
   if (dates / nn.length >= 0.7) return 'date';
   if (nums / nn.length >= 0.8) {
     if (/(^id$|\bid\b|رقم|كود|code|phone|mobile|جوال|هاتف)/i.test(name)) return 'text';
+    if (/^(#|م|ت|no\.?|n°|s\.?n\.?|serial|seq|index|تسلسل|التسلسل|الرقم)$/i.test(String(name).trim())) return 'text';
+    const ns = nn.map(toNum); if (ns.length >= 5 && ns.every((v, i) => v === ns[0] + i)) return 'text';
     if (/(year|سنة|عام)/i.test(name) && uniq <= 30) return 'category';
     return 'number';
   }
+  const avgLen = nn.reduce((a, v) => a + String(v).length, 0) / nn.length;
+  if (avgLen > 40) return 'text';
   return (uniq <= 50 && (uniq <= nn.length * 0.6 || nn.length < 12)) ? 'category' : 'text';
 }
 function conv(v, t) {
