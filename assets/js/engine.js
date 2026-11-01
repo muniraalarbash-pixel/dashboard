@@ -179,6 +179,51 @@ export function autoInsights(m, rows, metric, dim, tstats, max = 3) {
   return out.slice(0, max);
 }
 
+// ---------- Recommendations (rule-based, editable by the owner) ----------
+export function autoRecommendations(m, tstats) {
+  const rows = m.rows, out = [], metric = m.nums.length ? m.nums[0] : -1, ml = m.label(metric), mean = m.isMean(metric);
+  if (!rows.length) return out;
+  const pct = (a, b) => b ? (a / b * 100) : 0;
+  const short = k => { k = String(k); return k.length > 28 ? k.slice(0, 26).trim() + '…' : k; };
+  // 1) targets
+  if (tstats && tstats.pct != null) {
+    const it = tstats.items.filter(x => x.target && x.pct != null);
+    const low = it.filter(x => x.pct < 90).sort((a, b) => a.pct - b.pct);
+    if (low.length) out.push(T(`ركّز على ${low.slice(0, 2).map(x => x.k).join(' و')}: حققت ${low.slice(0, 2).map(x => fmtPct(x.pct)).join(' و')} من المستهدف. حدّد أسباب الفجوة وضع خطة متابعة شهرية.`, `Focus on ${low.slice(0, 2).map(x => x.k).join(' and ')}: ${low.slice(0, 2).map(x => fmtPct(x.pct)).join(' and ')} of target. Identify the gap drivers and set a monthly follow-up plan.`));
+    const top = it.slice().sort((a, b) => b.pct - a.pct)[0];
+    if (top && top.pct >= 100 && it.length > 1) out.push(T(`استفد من تجربة ${top.k} (${fmtPct(top.pct)} من المستهدف) وعمّم ممارساتها على الأقل أداءً.`, `Learn from ${top.k} (${fmtPct(top.pct)} of target) and roll out its practices to lower performers.`));
+    if (tstats.pct < 100) out.push(T(`الإنجاز الإجمالي ${fmtPct(tstats.pct)}؛ المتبقي ${fmt(tstats.target - tstats.actual)} للوصول للمستهدف. وزّعه على الفترات المتبقية كأهداف أصغر.`, `Overall achievement is ${fmtPct(tstats.pct)}; ${fmt(tstats.target - tstats.actual)} remains to reach target. Split it into smaller goals for the remaining periods.`));
+  }
+  // 2) concentration / weak segments
+  const dim = m.dims.find(c => c !== m.monthCol && m.uniq(c) >= 2);
+  if (dim != null && dim >= 0 && !mean) {
+    const b = m.breakdown(rows, dim, metric), tot = b.reduce((s, x) => s + x.v, 0), dn = m.cols[dim].name;
+    if (b.length >= 2 && tot) {
+      const sh = pct(b[0].v, tot);
+      if (sh >= 40) out.push(T(`${short(b[0].k)} يمثل ${sh.toFixed(0)}% من «${ml}». الاعتماد الكبير على عنصر واحد في «${dn}» مخاطرة؛ نوّع لتقليلها.`, `${b[0].k} accounts for ${sh.toFixed(0)}% of ${ml}. Heavy reliance on one ${dn} is a risk; diversify to reduce it.`));
+      else out.push(T(`${short(b[0].k)} الأعلى في «${ml}» (${sh.toFixed(0)}%). ادرس عوامل نجاحه وطبّقها على بقية عناصر «${dn}».`, `${b[0].k} leads ${ml} (${sh.toFixed(0)}%). Study what drives it and apply it across other ${dn} values.`));
+      if (b.length >= 4) { const weak = b.filter(x => pct(x.v, tot) < 5); if (weak.length) out.push(T(`${weak.slice(0, 3).map(x => short(x.k)).join('، ')}: ${weak.length > 1 ? 'كل منها أقل' : 'أقل'} من 5%. راجع جدواها أو خطط لتحسينها.`, `${weak.slice(0, 3).map(x => x.k).join(', ')} each contribute under 5%. Review their value or plan improvements.`)); }
+    }
+  }
+  // 3) trend
+  if (m.date >= 0) {
+    const s = m.series(rows, metric);
+    if (s.length >= 2) {
+      const a = s[s.length - 1], p = s[s.length - 2];
+      if (p.v) {
+        const ch = (a.v - p.v) / Math.abs(p.v) * 100;
+        if (ch <= -5) out.push(T(`انخفض «${ml}» ${Math.abs(ch).toFixed(0)}% في ${pLabel(a.k)} مقارنة بـ${pLabel(p.k)}. راجع الأسباب مبكرًا قبل الفترة القادمة.`, `${ml} fell ${Math.abs(ch).toFixed(0)}% in ${pLabel(a.k)} vs ${pLabel(p.k)}. Investigate early before the next period.`));
+        else if (ch >= 10) out.push(T(`ارتفع «${ml}» ${ch.toFixed(0)}% في ${pLabel(a.k)}. وثّق ما تغيّر وحافظ عليه.`, `${ml} rose ${ch.toFixed(0)}% in ${pLabel(a.k)}. Document what changed and keep it going.`));
+      }
+      if (s.length >= 6) { const best = s.reduce((x, y) => y.v > x.v ? y : x); out.push(T(`أعلى أداء كان في ${pLabel(best.k)}. خطط للحملات والموارد قبل الفترات المشابهة.`, `Peak performance was in ${pLabel(best.k)}. Plan campaigns and resources ahead of similar periods.`)); }
+    }
+  }
+  // 4) data quality hint
+  const blanks = m.cols.map((c, i) => ({ c, miss: rows.filter(r => r[i] == null || r[i] === '').length })).filter(x => !x.c.virtual && x.miss / rows.length > 0.3);
+  if (blanks.length) out.push(T(`عمود «${blanks[0].c.name}» فيه خانات فاضية كثيرة (${pct(blanks[0].miss, rows.length).toFixed(0)}%). اكتمال البيانات يحسّن دقة القراءة.`, `Column ${blanks[0].c.name} has many blanks (${pct(blanks[0].miss, rows.length).toFixed(0)}%). Completing it improves accuracy.`));
+  return out.slice(0, 5);
+}
+
 // ---------- Brand ----------
 export const FONTS = {
   'IBM Plex Sans Arabic': 'IBM+Plex+Sans+Arabic:wght@400;500;600;700',

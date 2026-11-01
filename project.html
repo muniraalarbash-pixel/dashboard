@@ -110,9 +110,21 @@
         <div class="body"><div class="tpls" id="tpls"></div><div class="field" style="margin-top:14px"><span class="label">شكل الرسوم</span><div class="vizopts" id="vizopts"></div><button type="button" class="btn btn-ghost btn-sm" id="viz-reset" style="justify-self:start">رجوع للشكل الافتراضي</button></div></div>
       </details>
 
-      <!-- 5 share -->
+      <!-- 5 recommendations -->
       <details class="sec">
-        <summary><span class="n" style="background:var(--ink)">5</span>المشاركة<span class="chev">▾</span></summary>
+        <summary><span class="n" style="background:var(--green, #0F3D3A)">5</span>التوصيات<span class="chev">▾</span></summary>
+        <div class="body">
+          <p class="muted" style="font-size:13px;margin:0">تظهر في لوحة المؤشرات وفي الرابط المنشور. ولّدها من البيانات، وعدّل أو احذف أو أضف توصياتك.</p>
+          <button type="button" class="btn btn-quiet btn-sm" id="b-recgen" style="justify-self:start">توليد توصيات من البيانات</button>
+          <ol class="reclist" id="reclist"></ol>
+          <div class="field"><span class="label">توصية جديدة</span><textarea id="f-rec" rows="2" placeholder="اكتب توصيتك هنا"></textarea><button type="button" class="btn btn-primary btn-sm" id="b-recadd" style="justify-self:start">إضافة</button></div>
+          <p class="status" id="rec-status" role="status" aria-live="polite"></p>
+        </div>
+      </details>
+
+      <!-- 6 share -->
+      <details class="sec">
+        <summary><span class="n" style="background:var(--ink)">6</span>المشاركة<span class="chev">▾</span></summary>
         <div class="body">
           <label class="switch" for="f-pub"><input type="checkbox" id="f-pub">نشر لوحة المؤشرات برابط عام (للعرض فقط)</label>
           <div class="field"><span class="label">رابط المشاركة</span><div class="share-link"><input type="text" id="f-link" readonly><button type="button" class="btn btn-quiet btn-sm" id="b-copy">نسخ</button></div></div>

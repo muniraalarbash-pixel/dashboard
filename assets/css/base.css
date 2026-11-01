@@ -410,3 +410,7 @@ html:not([lang=en]) .en-only{display:none!important}
 .vchip svg{width:18px;height:18px;fill:currentColor;color:var(--muted)}
 .vchip[aria-pressed="true"]{border-color:var(--bordo);background:var(--bordo);color:var(--on-bordo)}
 .vchip[aria-pressed="true"] svg{color:inherit}
+.reclist{list-style:none;margin:0;padding:0;display:grid;gap:8px}
+.reclist li{display:grid;grid-template-columns:1fr auto;gap:6px;align-items:start}
+.reclist li.empty{display:block;color:var(--muted);font-size:13px}
+.reclist textarea,#f-rec{width:100%;font:inherit;font-size:13.5px;line-height:1.6;padding:8px 10px;border:1.5px solid var(--line);border-radius:10px;background:var(--surface);color:var(--ink);resize:vertical}

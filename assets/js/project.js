@@ -1,7 +1,7 @@
 // Project editor: details, brand, data versions, template, sharing — with live preview.
 import { sb, $, requireUser, mountNav, setupNotice, toast } from './sb.js';
 import { mountDashboard, TEMPLATES, vizDefault } from './render.js';
-import { DEFAULT_BRAND, FONTS, extractColors, computeTotals, guessTargetCfg, esc, fmtDate } from './engine.js';
+import { DEFAULT_BRAND, FONTS, extractColors, computeTotals, guessTargetCfg, esc, fmtDate, createModel, targetStats, autoRecommendations } from './engine.js';
 import { openFile, openPasted, extractRaw, convert, TYPES } from './parse.js';
 import { wireExport } from './export.js';
 
@@ -81,7 +81,7 @@ function fill() {
   $('#c-primary').value = b.primary; $('#c-secondary').value = b.secondary; $('#c-accent').value = b.accent;
   $('#f-font').innerHTML = Object.keys(FONTS).map(f => `<option ${f === b.font ? 'selected' : ''}>${f}</option>`).join('');
   logoPreview(b.logo_url);
-  renderTemplates(); renderViz(); renderShare();
+  renderTemplates(); renderViz(); renderRecs(); renderShare();
 }
 
 /* ---------- 1 details ---------- */
@@ -298,7 +298,29 @@ $('#vizopts').addEventListener('click', e => {
 });
 $('#viz-reset').addEventListener('click', () => { const { viz, ...rest } = project.config; project.config = rest; queue({ config: project.config }); renderViz(); preview(); });
 
-/* ---------- 5 share ---------- */
+/* ---------- 5 recommendations ---------- */
+const recs = () => (project.config.recs || []);
+function saveRecs(list) { project.config = { ...project.config, recs: list }; queue({ config: project.config }); renderRecs(); preview(); }
+function renderRecs() {
+  const list = recs();
+  $('#reclist').innerHTML = list.length ? list.map((r, i) => `<li data-i="${i}"><textarea rows="2" data-edit="${i}" aria-label="توصية ${i + 1}">${esc(r.text)}</textarea><button type="button" class="btn btn-ghost btn-sm" data-del="${i}" aria-label="حذف التوصية">حذف</button></li>`).join('')
+    : '<li class="empty">لا توجد توصيات بعد.</li>';
+}
+$('#reclist').addEventListener('click', e => { const b = e.target.closest('[data-del]'); if (!b) return; const l = recs().slice(); l.splice(+b.dataset.del, 1); saveRecs(l); });
+$('#reclist').addEventListener('change', e => { const t = e.target.closest('[data-edit]'); if (!t) return; const l = recs().slice(), v = t.value.trim(); if (v) l[+t.dataset.edit] = { ...l[+t.dataset.edit], text: v }; else l.splice(+t.dataset.edit, 1); saveRecs(l); });
+$('#b-recadd').addEventListener('click', () => { const v = $('#f-rec').value.trim(); if (!v) return; $('#f-rec').value = ''; saveRecs(recs().concat([{ text: v }])); });
+$('#b-recgen').addEventListener('click', () => {
+  const { version } = currentVersion();
+  if (!version || !version.data) { $('#rec-status').textContent = 'ارفع ملف البيانات أولًا.'; return; }
+  const m = createModel(version.data);
+  const ts = version.targets ? targetStats(m, m.rows, version.targets, project.config.target, {}) : null;
+  const have = new Set(recs().map(r => r.text));
+  const fresh = autoRecommendations(m, ts).filter(t => !have.has(t)).map(text => ({ text, auto: true }));
+  $('#rec-status').textContent = fresh.length ? `أُضيفت ${fresh.length} توصيات. عدّلها أو احذف ما لا يناسب.` : 'لا توجد توصيات جديدة من هذه البيانات.';
+  if (fresh.length) saveRecs(recs().concat(fresh));
+});
+
+/* ---------- 6 share ---------- */
 const shareUrl = () => new URL('view.html?s=' + project.share_slug, location.href).href;
 function renderShare() {
   $('#f-pub').checked = project.is_published;
