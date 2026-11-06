@@ -59,7 +59,7 @@ function spark(vals) {
 export function mountDashboard(root, opts) {
   const charts = {}, maps = [];
   let geo = -1, saudi = false;
-  const st = { filters: {}, region: null, mapMode: null, metric: null, dim: null, search: '', sortCol: null, sortDir: -1, page: 0 };
+  const st = { view: 'overview', filters: {}, region: null, mapMode: null, metric: null, dim: null, search: '', sortCol: null, sortDir: -1, page: 0 };
   let o = opts, m, theme;
   // SQL behind each chart (key -> spec), rebuilt on every render
   let sqlReg = {};
@@ -102,7 +102,7 @@ export function mountDashboard(root, opts) {
     saudi = geo >= 0 && saudiOnly(m, geo);
     theme = brandTheme(o.project.brand);
     loadFont(theme.font);
-    st.filters = {}; st.region = null; st.metric = null; st.dim = null; st.page = 0; st.sortCol = null;
+    st.view = 'overview'; st.filters = {}; st.region = null; st.metric = null; st.dim = null; st.page = 0; st.sortCol = null;
   }
   // owner-chosen defaults are stored by column name so they survive new uploads
   const dflt = k => o.project.config && o.project.config.defaults && o.project.config.defaults[k];
@@ -147,9 +147,10 @@ export function mountDashboard(root, opts) {
         <div class="d-titles">${p.topic ? `<p class="d-topic">${esc(p.topic)}</p>` : ''}<h2 class="d-title">${esc(p.title || T('بدون عنوان', 'Untitled'))}</h2>${p.description ? `<p class="d-desc">${esc(p.description)}</p>` : ''}</div>
         <div class="d-meta">${(v && v.period) || p.period ? `<span class="d-chip">${esc((v && v.period) || p.period)}</span>` : ''}${v ? `<span class="d-upd"><i></i>${T('آخر تحديث', 'Updated')} ${esc(fmtDate(v.created_at))}</span>` : ''}</div>
       </div></header>
-      ${m ? `<div class="d-bar" data-bar></div><div class="d-body" data-body></div>
-      <section class="d-card d-tablecard"><div class="d-tablehead">${head(T('البيانات', 'Data'), '')}<span class="d-count" data-count></span><input type="search" class="d-search" data-search placeholder="${T('بحث في الجدول', 'Search table')}" aria-label="${T('بحث في الجدول', 'Search table')}"></div>
-        <div class="d-scroll"><table class="d-table"><thead data-thead></thead><tbody data-tbody></tbody></table></div><div class="d-pager" data-pager></div></section>`
+      ${m ? `<div class="d-layout" data-layout><nav class="d-pages no-export" data-pages aria-label="${T('صفحات اللوحة', 'Dashboard pages')}" hidden></nav><div class="d-main">
+      <div class="d-bar" data-bar></div><div class="d-body" data-body></div>
+      <section class="d-card d-tablecard" data-tablecard><div class="d-tablehead">${head(T('البيانات', 'Data'), '')}<span class="d-count" data-count></span><input type="search" class="d-search" data-search placeholder="${T('بحث في الجدول', 'Search table')}" aria-label="${T('بحث في الجدول', 'Search table')}"></div>
+        <div class="d-scroll"><table class="d-table"><thead data-thead></thead><tbody data-tbody></tbody></table></div><div class="d-pager" data-pager></div></section></div></div>`
       : `<div class="d-empty"><p>${T('لا توجد بيانات بعد.', 'No data yet.')}</p><p class="d-muted">${T('ارفع ملف Excel من صفحة المشروع لتظهر لوحة المؤشرات هنا.', 'Upload an Excel file from the project page to see the dashboard here.')}</p></div>`}
       <footer class="d-foot">${T('صُنع بـ <strong>لوحة المؤشرات</strong>', 'Made with <strong>Dashboard</strong>')}</footer>
     </div>`;
@@ -168,6 +169,7 @@ export function mountDashboard(root, opts) {
     q('[data-body]').addEventListener('keydown', e => { if ((e.key === 'Enter' || e.key === ' ') && e.target.closest('[data-mi]')) { e.preventDefault(); pick(e); } });
     q('[data-thead]').addEventListener('click', e => { const b = e.target.closest('[data-sort]'); if (!b) return; const i = +b.dataset.sort; if (st.sortCol === i) st.sortDir *= -1; else { st.sortCol = i; st.sortDir = m.cols[i].type === 'number' ? -1 : 1; } renderTable(); });
     q('[data-pager]').addEventListener('click', e => { const b = e.target.closest('[data-pg]'); if (!b) return; st.page += +b.dataset.pg; renderTable(); });
+    q('[data-pages]').addEventListener('click', e => { const b = e.target.closest('[data-view]'); if (!b) return; st.view = b.dataset.view; renderData(); const nav = q('[data-pages]'); if (nav && nav.getBoundingClientRect().top < 0) nav.scrollIntoView({ block: 'start', behavior: reduceMotion ? 'auto' : 'smooth' }); });
     q('[data-search]').addEventListener('input', e => { st.search = e.target.value; st.page = 0; renderTable(); });
     renderData();
   }
@@ -499,13 +501,63 @@ export function mountDashboard(root, opts) {
     return { html, after() { if (c.dim >= 0) chartBreakdown(c, 'hbar', vz('breakdown')); if (m.date >= 0) chartLine(c, 'line', c.metric); drawMap(c); } };
   }
 
+  // ---------- pages ----------
+  const PI = {
+    overview: '<rect x="3" y="3" width="8" height="8" rx="2"/><rect x="13" y="3" width="8" height="5" rx="2"/><rect x="13" y="10" width="8" height="11" rx="2"/><rect x="3" y="13" width="8" height="8" rx="2"/>',
+    trend: '<path d="M3 17l5-5 4 3 4-4" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/><path d="M16 11l5-4" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-dasharray="2 3"/>',
+    map: '<path d="M12 21s-7-6.2-7-11.5A7 7 0 0 1 19 9.5C19 14.8 12 21 12 21z" fill="none" stroke="currentColor" stroke-width="2.2"/><circle cx="12" cy="9.5" r="2.5"/>',
+    notes: '<path d="M5 4h14v16l-4-3H5z" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"/><path d="M8 9h8M8 12.5h5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>',
+    data: '<rect x="3" y="4" width="18" height="16" rx="2" fill="none" stroke="currentColor" stroke-width="2.2"/><path d="M3 9.5h18M3 14.5h18M9.5 4v16" stroke="currentColor" stroke-width="1.8"/>',
+    all: '<path d="M4 6h16M4 12h16M4 18h16" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/>'
+  };
+  function pages() {
+    const l = [['overview', T('نظرة عامة', 'Overview')]];
+    if (m.date >= 0 && m.series(m.rows, -1).length >= 2) l.push(['trend', fcFor({ rows: m.rows, metric: metricIdx() }) ? T('الاتجاه والتوقع', 'Trend & forecast') : T('الاتجاه', 'Trend')]);
+    if (geo >= 0) l.push(['map', T('المواقع', 'Locations')]);
+    if (recItems().length || noteItems().length) l.push(['notes', T('التوصيات والملاحظات', 'Recommendations & notes')]);
+    l.push(['data', T('البيانات', 'Data')]);
+    return l.length > 2 ? l.concat([['all', T('عرض الكل', 'Show all')]]) : null;
+  }
+  function renderNav() {
+    const nav = root.querySelector('[data-pages]'), lay = root.querySelector('[data-layout]'), tc = root.querySelector('[data-tablecard]');
+    const pl = pages();
+    if (!pl) { st.view = 'all'; nav.hidden = true; lay.classList.remove('has-pages'); tc.hidden = false; return; }
+    if (!pl.some(p => p[0] === st.view)) st.view = 'overview';
+    nav.hidden = false; lay.classList.add('has-pages');
+    nav.innerHTML = pl.map(([k, l]) => `<button type="button" data-view="${k}" class="${k === 'all' ? 'd-pall' : ''}" aria-current="${st.view === k ? 'page' : 'false'}"><svg viewBox="0 0 24 24" aria-hidden="true">${PI[k]}</svg><span>${esc(l)}</span></button>`).join('');
+    tc.hidden = !(st.view === 'data' || st.view === 'all');
+  }
+  function trendPage(c) {
+    const s = m.series(c.rows, c.metric), F = fcFor(c);
+    const rowsH = s.map((p, i) => { const pv = i ? s[i - 1].v : null, ch = pv ? (p.v - pv) / Math.abs(pv) * 100 : null; return `<tr><td>${esc(pLabel(p.k))}</td><td>${fmt(p.v)}</td><td class="${arrowCls(ch)}">${ch == null ? '—' : (ch > 0 ? '+' : ch < 0 ? '−' : '') + Math.abs(ch).toFixed(1) + '%'}</td></tr>`; }).reverse().join('');
+    const fcRows = F ? F.keys.map((k, i) => `<tr class="fc"><td>${esc(pLabel(k))} <small>${T('متوقع', 'forecast')}</small></td><td>${fmt(F.pts[i])}</td><td><small>${fmt(F.band[i][0])} – ${fmt(F.band[i][1])}</small></td></tr>`).reverse().join('') : '';
+    return { html: `<section class="d-pagegrid">
+      <article class="d-card d-trendbig">${head(F ? T('الاتجاه والتوقع', 'Trend & forecast') : T('الاتجاه', 'Trend'), c.ml + (m.monthly ? T(' · شهريًا', ' · monthly') : T(' · يوميًا', ' · daily')) + (F ? T(' · الأشهر القادمة بخط متقطع', ' · coming months dashed') : ''))}<div class="d-box"><canvas data-cv="trend" role="img" aria-label="${T('الاتجاه', 'Trend')}"></canvas></div></article>
+      <article class="d-card d-periods">${head(T('الأرقام حسب الفترة', 'By period'), T('الأحدث أولًا', 'Newest first'))}<div class="d-pscroll"><table class="d-ptbl"><thead><tr><th>${T('الفترة', 'Period')}</th><th>${esc(c.ml)}</th><th>${T('التغير', 'Change')}</th></tr></thead><tbody>${fcRows}${rowsH}</tbody></table></div></article>
+    </section>`, after() { chartLine(c, 'trend', c.metric); } };
+  }
+  function pageOf(c) {
+    const v = st.view;
+    if (v === 'trend') return trendPage(c);
+    if (v === 'map') return { html: `<section class="d-pagegrid one">${mapHTML(c, 'd-card d-mapbig')}</section>`, after() { drawMap(c); } };
+    if (v === 'notes') return { html: `<section class="d-pagegrid one">${recsHTML('d-card')}${notesHTML('d-card')}</section>`, after() {} };
+    if (v === 'data') return { html: '', after() {} };
+    return null;
+  }
+
   function renderBody() {
     Object.keys(charts).forEach(kill); killMaps(); sqlReg = {};
     const c = ctx();
     chartBase(c.ink, c.grid);
     const tpl = o.project.template === 'executive' ? tplExecutive : o.project.template === 'compact' ? tplCompact : tplTiles;
-    const t = tpl(c);
-    root.querySelector('[data-body]').innerHTML = t.html;
+    renderNav();
+    const t = pageOf(c) || tpl(c), body = root.querySelector('[data-body]');
+    body.innerHTML = t.html; body.hidden = !t.html;
+    if (st.view === 'overview') {
+      // the other pages carry these, so the overview stays short
+      body.querySelectorAll('.d-maptile, .d-recs, .d-notesx, .d-fctile').forEach(el => el.remove());
+      body.querySelectorAll('.d-mapsec, .d-recsec').forEach(el => { if (!el.children.length) el.remove(); });
+    }
     if (window.Chart) t.after(); else drawMap(c);
     addSqlButtons();
   }
