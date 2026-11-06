@@ -1,9 +1,9 @@
 // Dashboard renderer: three templates sharing one interactive model.
-import { findGeoCol, coordOf, loadLeaflet } from './geo.js';
+import { findGeoCol, coordOf, regionOf, saudiOnly, loadLeaflet } from './geo.js';
 import { buildSQL } from './sql.js';
 import { openSqlEditor } from './sqleditor.js';
 import { forecast } from './forecast.js';
-import { createModel, autoInsights, targetStats, brandTheme, loadFont, fmt, fmtPct, pLabel, fmtDate, esc, alpha, onColor, T, isEn } from './engine.js';
+import { createModel, autoInsights, targetStats, brandTheme, loadFont, mix, fmt, fmtPct, pLabel, fmtDate, esc, alpha, onColor, T, isEn } from './engine.js';
 
 export const TEMPLATES = {
   tiles: { name: 'مربعات تحليلية', en: 'Analytical tiles', desc: 'شبكة مربعات بأرقام كبيرة ونسب تغير ورسوم صغيرة' },
@@ -58,15 +58,15 @@ function spark(vals) {
 
 export function mountDashboard(root, opts) {
   const charts = {}, maps = [];
-  let geo = -1;
-  const st = { filters: {}, metric: null, dim: null, search: '', sortCol: null, sortDir: -1, page: 0 };
+  let geo = -1, saudi = false;
+  const st = { filters: {}, region: null, mapMode: null, metric: null, dim: null, search: '', sortCol: null, sortDir: -1, page: 0 };
   let o = opts, m, theme;
   // SQL behind each chart (key -> spec), rebuilt on every render
   let sqlReg = {};
   const sqlSet = (key, spec) => { sqlReg[key] = spec; };
   function sqlText(key) {
     const spec = sqlReg[key]; if (!spec) return '';
-    const f = { ...st.filters }; if (spec.exclude != null) delete f[spec.exclude];
+    const f = { ...st.filters }; if (st.region && geo >= 0 && f[geo] == null) f[geo] = regionVals(); if (spec.exclude != null) delete f[spec.exclude];
     const tc = o.project.config && o.project.config.target;
     return buildSQL(m, spec, f, tc);
   }
@@ -86,6 +86,11 @@ export function mountDashboard(root, opts) {
     ['--d-surface', '--d-surface-2', '--d-ink', '--d-muted', '--d-line', '--d-primary', '--d-on-primary', '--d-font'].forEach(v => { vars[v] = cs.getPropertyValue(v); });
     openSqlEditor({ m, tm: o.version && o.version.targets ? tModel : null, sql: txt, title: key ? T('استعلام SQL لهذا الرسم', 'SQL for this chart') : T('محرر SQL', 'SQL editor'), vars, dir: isEn() ? 'ltr' : 'rtl' });
   }
+  root.addEventListener('click', e => {
+    const mm = e.target.closest('[data-mapmode]'); if (mm && root.contains(mm)) { st.mapMode = mm.dataset.mapmode; if (st.mapMode === 'cities') st.region = null; renderData(); return; }
+    const rg = e.target.closest('[data-rg]'); if (rg && root.contains(rg) && !rg.classList.contains('nodata')) { st.region = st.region === rg.dataset.rg ? null : rg.dataset.rg; st.page = 0; renderData(); }
+  });
+  root.addEventListener('keydown', e => { if ((e.key === 'Enter' || e.key === ' ') && e.target.closest && e.target.closest('[data-rg]')) { e.preventDefault(); e.target.closest('[data-rg]').dispatchEvent(new MouseEvent('click', { bubbles: true })); } });
   root.addEventListener('click', e => { const b = e.target.closest('[data-sql]'); if (b && root.contains(b)) openSql(b.dataset.sql); else if (e.target.closest('[data-sqled]')) openSql(''); });
 
   function kill(k) { if (charts[k]) { charts[k].destroy(); delete charts[k]; } }
@@ -94,9 +99,10 @@ export function mountDashboard(root, opts) {
   function setup() {
     m = o.version ? createModel(o.version.data) : null;
     geo = m ? findGeoCol(m) : -1;
+    saudi = geo >= 0 && saudiOnly(m, geo);
     theme = brandTheme(o.project.brand);
     loadFont(theme.font);
-    st.filters = {}; st.metric = null; st.dim = null; st.page = 0; st.sortCol = null;
+    st.filters = {}; st.region = null; st.metric = null; st.dim = null; st.page = 0; st.sortCol = null;
   }
   // owner-chosen defaults are stored by column name so they survive new uploads
   const dflt = k => o.project.config && o.project.config.defaults && o.project.config.defaults[k];
@@ -118,7 +124,10 @@ export function mountDashboard(root, opts) {
   }
   function pieIdx(dim, sd) { const d = colIdx(dflt('pie')); if (d != null && m.cats.includes(d)) return d; return sd >= 0 ? sd : dim; }
   const vz = slot => { const v = o.project.config && o.project.config.viz && o.project.config.viz[slot]; return v || vizDefault(TEMPLATES[o.project.template] ? o.project.template : 'tiles', slot); };
-  const activeF = () => Object.entries(st.filters).filter(([, v]) => v != null);
+  const activeF = () => Object.entries(st.filters).filter(([, v]) => v != null).concat(st.region ? [['region', st.region]] : []);
+  // optional region filter (clicking a region on the map); applied on top of the column filters
+  const regionRows = rs => st.region && geo >= 0 ? rs.filter(r => regionOf(r[geo]) === st.region) : rs;
+  const regionVals = () => [...new Set(m.rows.map(r => r[geo]).filter(v => v != null && regionOf(v) === st.region).map(String))];
 
   function chartBase(ink, grid) {
     window.Chart.defaults.font.family = `'${theme.font}', system-ui, sans-serif`;
@@ -153,7 +162,7 @@ export function mountDashboard(root, opts) {
       else if (t.dataset.f != null) { if (t.value) st.filters[t.dataset.f] = t.value; else delete st.filters[t.dataset.f]; st.page = 0; }
       renderData();
     });
-    q('[data-bar]').addEventListener('click', e => { if (e.target.closest('[data-clear]')) { st.filters = {}; st.page = 0; renderData(); } });
+    q('[data-bar]').addEventListener('click', e => { if (e.target.closest('[data-clear]')) { st.filters = {}; st.region = null; st.page = 0; renderData(); } });
     const pick = e => { const k = e.target.closest('[data-mi]'); if (!k) return; st.metric = +k.dataset.mi; renderData(); };
     q('[data-body]').addEventListener('click', pick);
     q('[data-body]').addEventListener('keydown', e => { if ((e.key === 'Enter' || e.key === ' ') && e.target.closest('[data-mi]')) { e.preventDefault(); pick(e); } });
@@ -180,7 +189,7 @@ export function mountDashboard(root, opts) {
   }
 
   function ctx() {
-    const metric = metricIdx(), dim = dimIdx(), rows = m.filter(st.filters, '');
+    const metric = metricIdx(), dim = dimIdx(), rows = regionRows(m.filter(st.filters, ''));
     const tcfg = o.project.config && o.project.config.target;
     const tstats = o.version.targets ? targetStats(m, rows, o.version.targets, tcfg, st.filters) : null;
     const sd = sdIdx(dim), dimChosen = st.dim != null || colIdx(dflt('dim')) != null;
@@ -329,10 +338,46 @@ export function mountDashboard(root, opts) {
 
   // ---------- location map ----------
   const mapTitle = c => c.ml + T(' حسب الموقع', ' by location');
-  const mapHTML = (c, cls) => geo < 0 ? '' : `<article class="${cls} d-maptile">${head(mapTitle(c), m.cols[geo].name + T(' · اضغط دائرة للفلترة', ' · click a circle to filter'))}<div class="d-map" data-map dir="ltr" role="img" aria-label="${esc(mapTitle(c))}"></div><ol class="d-maprank" data-maprank></ol></article>`;
+  const mapMode = () => saudi ? (st.mapMode || 'regions') : 'cities';
+  const mapHTML = (c, cls) => {
+    if (geo < 0) return '';
+    const md = mapMode();
+    const tog = saudi ? `<div class="d-mapmode no-export" role="group" aria-label="${T('نوع الخريطة', 'Map type')}"><button type="button" data-mapmode="regions" aria-pressed="${md === 'regions'}">${T('المناطق', 'Regions')}</button><button type="button" data-mapmode="cities" aria-pressed="${md === 'cities'}">${T('المدن', 'Cities')}</button></div>` : '';
+    const sub = md === 'regions' ? T('المناطق الإدارية · اضغط منطقة للفلترة', 'Administrative regions · click a region to filter') : m.cols[geo].name + T(' · اضغط دائرة للفلترة', ' · click a circle to filter');
+    return `<article class="${cls} d-maptile">${head(mapTitle(c), sub)}${tog}<div class="d-map ${md === 'regions' ? 'd-rmap' : ''}" data-map dir="ltr" role="img" aria-label="${esc(mapTitle(c))}"></div><ol class="d-maprank" data-maprank></ol></article>`;
+  };
   function killMaps() { while (maps.length) { try { maps.pop().remove(); } catch (e) {} } }
+  function drawRegions(c, box) {
+    const f = { ...st.filters }; delete f[geo];
+    const rows = m.filter(f, ''), sel = st.region;
+    sqlSet('map', { kind: 'breakdown', dim: geo, metric: c.metric, exclude: geo });
+    const g = new Map(); for (const r of rows) { const rg = regionOf(r[geo]); if (!rg) continue; if (!g.has(rg)) g.set(rg, []); g.get(rg).push(r); }
+    import('./sa-regions.js').then(({ VIEWBOX, REGIONS }) => {
+      if (!box.isConnected) return;
+      const name = id => { const x = REGIONS.find(r => r.id === id); return x ? T(x.ar, x.en) : id; };
+      const vals = [...g.entries()].map(([id, rs]) => ({ id, v: m.agg(rs, c.metric) })).filter(x => x.v > 0).sort((a, b) => b.v - a.v);
+      const max = vals.length ? vals[0].v : 1, min = vals.length ? vals[vals.length - 1].v : 0, tot = vals.reduce((s, x) => s + x.v, 0);
+      const vOf = id => (vals.find(x => x.id === id) || {}).v;
+      const prim = theme.vars['--d-primary'], base = '#F1F3F5';
+      const fill = v => v == null ? base : mix('#FFFFFF', prim, .18 + .82 * (max > min ? (v - min) / (max - min) : 1));
+      const rank = root.querySelector('[data-maprank]');
+      if (rank) rank.innerHTML = vals.slice(0, 5).map((x, i) => `<li class="${sel == null || sel === x.id ? '' : 'dim'}" data-rg="${x.id}" role="button" tabindex="0"><span class="r">${i + 1}</span><bdi>${esc(name(x.id))}</bdi><b>${fmt(x.v)}</b>${!c.mean && tot ? `<i>${(x.v / tot * 100).toFixed(0)}%</i>` : ''}</li>`).join('');
+      box.innerHTML = `<svg viewBox="${VIEWBOX}" class="d-rsvg" role="group" aria-label="${esc(mapTitle(c))}">${REGIONS.map(r => { const v = vOf(r.id); return `<path d="${r.d}" data-rg="${r.id}" fill="${fill(v)}" class="${v == null ? 'nodata' : ''} ${sel && sel !== r.id ? 'dim' : ''} ${sel === r.id ? 'sel' : ''}" tabindex="${v == null ? -1 : 0}"><title>${esc(name(r.id))}: ${v == null ? T('لا توجد بيانات', 'no data') : fmt(v)}</title></path>`; }).join('')}<g class="d-rlbl"></g></svg>
+        <div class="d-rlegend"><span>${fmt(min)}</span><i style="background:linear-gradient(to right,${fill(min)},${fill(max)})"></i><span>${fmt(max)}</span></div><p class="d-rattr">© mapsvg.com · CC BY 4.0</p>`;
+      const svg = box.querySelector('svg'), lg = svg.querySelector('.d-rlbl');
+      // labels for the larger values, at each region's visual centre
+      const NUDGE = { 'mecca': [-2, -38], 'eastern-province': [20, -30], 'ryiadh': [0, 10], 'medina': [0, 0], 'asir': [6, 0], 'tabuk': [10, 10] };
+      vals.slice(0, 7).forEach(x => {
+        const p = svg.querySelector(`path[data-rg="${x.id}"]`); if (!p) return; const b = p.getBBox(); if (b.width < 30) return;
+        const [dx, dy] = NUDGE[x.id] || [0, 0], cx = b.x + b.width / 2 + dx, cy = b.y + b.height / 2 + dy;
+        const t = max > min ? (x.v - min) / (max - min) : 1, light = t > .45;
+        lg.insertAdjacentHTML('beforeend', `<text x="${cx.toFixed(1)}" y="${cy.toFixed(1)}" class="${light ? 'on' : ''}"><tspan x="${cx.toFixed(1)}" class="n">${esc(name(x.id))}</tspan><tspan x="${cx.toFixed(1)}" dy="1.25em" class="v">${fmt(x.v)}</tspan></text>`);
+      });
+    });
+  }
   function drawMap(c) {
     const box = root.querySelector('[data-map]'); if (!box || geo < 0) return;
+    if (mapMode() === 'regions') return drawRegions(c, box);
     const f = { ...st.filters }; delete f[geo];
     const rows = m.filter(f, ''), sel = st.filters[geo];
     sqlSet('map', { kind: 'breakdown', dim: geo, metric: c.metric, exclude: geo });
@@ -466,7 +511,7 @@ export function mountDashboard(root, opts) {
   }
 
   function renderTable() {
-    let rows = m.filter(st.filters, st.search);
+    let rows = regionRows(m.filter(st.filters, st.search));
     if (st.sortCol != null && st.sortCol < m.cols.length) {
       const c = st.sortCol, d = st.sortDir;
       rows = rows.slice().sort((a, b) => { const x = a[c], y = b[c]; if (x == null) return 1; if (y == null) return -1; return (typeof x === 'number' && typeof y === 'number' ? x - y : String(x).localeCompare(String(y), isEn() ? 'en' : 'ar')) * d; });

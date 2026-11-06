@@ -265,3 +265,27 @@
 .d-fchelp{margin:8px 0 0;font-size:11.5px}
 .d-fctile .d-box{height:260px}
 @media print{.d-fcnote details:not([open]) .d-fctbl{display:none}}
+/* regions map */
+.d-maptile{position:relative}
+.d-mapmode{position:absolute;inset-inline-end:16px;top:14px;display:flex;background:var(--d-surface-2);border:1px solid var(--d-line);border-radius:9px;padding:2px;z-index:2}
+.d-mapmode button{font:inherit;font-size:12px;font-weight:600;border:0;background:none;color:var(--d-muted);padding:6px 12px;border-radius:7px;cursor:pointer}
+.d-mapmode button[aria-pressed="true"]{background:var(--d-surface);color:var(--d-ink);box-shadow:0 1px 3px rgba(0,0,0,.12)}
+.d-maptile:has(.d-mapmode) .d-th h3,.d-maptile:has(.d-mapmode) .d-th p{padding-inline-end:150px}
+.d-maptile:has(.d-mapmode) .d-sqlbtn{inset-inline-end:150px}
+.d-rmap{background:var(--d-surface);display:grid;grid-template-rows:1fr auto auto;padding:8px 10px 6px}
+.d-rsvg{width:100%;height:100%;max-height:420px;display:block}
+.d-rsvg path{stroke:#fff;stroke-width:1.6;stroke-linejoin:round;cursor:pointer;transition:opacity .15s,filter .15s}
+.d-rsvg path.nodata{cursor:default}
+.d-rsvg path:not(.nodata):hover,.d-rsvg path:focus-visible{filter:brightness(1.08);outline:none;stroke:var(--d-ink);stroke-width:2.4}
+.d-rsvg path.dim{opacity:.35}
+.d-rsvg path.sel{stroke:var(--d-ink);stroke-width:3}
+.d-rlbl text{font:600 15px var(--d-font);text-anchor:middle;fill:var(--d-ink);paint-order:stroke;stroke:rgba(255,255,255,.85);stroke-width:3.5px;pointer-events:none}
+.d-rlbl text.on{fill:#fff;stroke:rgba(0,0,0,.28)}
+.d-rlbl .n{font-weight:500;font-size:13px}
+.d-rlbl .v{font-weight:700;font-size:16px}
+.d-rlegend{display:flex;align-items:center;gap:8px;justify-content:center;font-size:11px;color:var(--d-muted);direction:ltr;margin-top:4px}
+.d-rlegend i{display:block;width:140px;height:8px;border-radius:4px}
+.d-rattr{margin:2px 0 0;font-size:9px;color:var(--d-muted);text-align:end}
+.d-maprank li[data-rg]{cursor:pointer}
+@media (max-width:600px){.d-maptile:has(.d-mapmode) .d-th h3,.d-maptile:has(.d-mapmode) .d-th p{padding-inline-end:70px}.d-mapmode{position:static;justify-self:start;grid-column:1/-1;order:0}.d-maptile:has(.d-mapmode) .d-sqlbtn{inset-inline-end:0}.d-rlbl .n{font-size:16px}.d-rlbl .v{font-size:19px}}
+@media print{.d-mapmode{display:none}}

@@ -29,7 +29,9 @@ Teams share performance numbers as Excel attachments or static screenshots. Ever
 |---|---|
 | **Smart Excel import** | Reads `.xlsx` / `.csv` or a pasted table in the browser. Detects column types (date, number, category, text), understands Arabic digits and month names, “SAR / ر.س” values, and drops “Total” rows so nothing is double-counted. |
 | **Target vs actual** | Upload a target file and the app joins it to the data and computes achievement % per branch or department. |
-| **Location map** | If a column holds Saudi cities or regions (or GCC cities), in Arabic or English, a bubble map appears automatically with a top-5 ranking; click a city to filter the whole dashboard. |
+| **Forecast** | Monthly data with 6+ months gets a 3-month forecast on the trend chart with an ~80% range. Five classic methods are back-tested on the last known months and the most accurate one is used; the comparison table is shown. |
+| **SQL editor** | Each chart's SQL opens in an in-browser SQLite editor (tables `data` and `targets`); run, edit, and download results as CSV. Nothing leaves the browser. |
+| **Location map** | If a column holds Saudi cities or regions (or GCC cities), in Arabic or English, a map appears automatically with a top-5 ranking: Saudi data shows a shaded map of the 13 administrative regions (switchable to city bubbles); click a region or city to filter the whole dashboard. |
 | **Three templates** | Analytical tiles, executive report, and a mobile summary, all from the same data model. |
 | **Brand identity** | Upload a logo and its dominant colors are extracted automatically; choose from six Arabic-friendly fonts. |
 | **Interactive for viewers** | Filters, metric switcher, click-to-filter charts, sortable/searchable table, period-over-period change, auto-generated insights. |
@@ -135,7 +137,9 @@ supabase/             Database schema and migrations
 ### المميزات
 - **قراءة ذكية للملف:** يتعرف على أنواع الأعمدة، ويفهم الأرقام العربية وأسماء الأشهر و«ر.س»، ويحذف صفوف الإجمالي. الملف نفسه ما يُرفع؛ يُقرأ داخل المتصفح.
 - **المستهدف مقابل الفعلي:** نسبة الإنجاز لكل فرع أو قسم.
-- **خريطة المواقع:** إذا الملف فيه عمود مدن أو مناطق سعودية (أو مدن خليجية)، تظهر خريطة تلقائيًا بدوائر حسب القيمة وترتيب لأعلى خمسة، والضغط على المدينة يفلتر اللوحة كاملة.
+- **خريطة المواقع:** إذا الملف فيه عمود مدن أو مناطق سعودية (أو مدن خليجية)، تظهر خريطة تلقائيًا مع ترتيب لأعلى خمسة. للبيانات السعودية تظهر المناطق الإدارية الـ13 ملوّنة حسب القيمة (مع خيار عرض المدن بدوائر)، والضغط على المنطقة أو المدينة يفلتر اللوحة كاملة.
+- **التوقع:** البيانات الشهرية (6 أشهر فأكثر) يظهر لها توقع للأشهر الثلاثة القادمة مع نطاق متوقع، بعد اختبار عدة طرق واختيار الأدق.
+- **محرر SQL:** استعلام كل رسم يفتح في محرر داخل المتصفح، تشغّله وتعدّله وتنزّل النتيجة CSV.
 - **ثلاثة قوالب:** مربعات تحليلية، تقرير تنفيذي، ملخص للجوال.
 - **الهوية البصرية:** استخراج ألوان الشعار تلقائيًا واختيار الخط.
 - **تفاعلي للزائر:** فلاتر، تبديل المؤشر، فلترة بالضغط على الرسم، جدول قابل للبحث والترتيب، ملاحظات تحليلية تلقائية.

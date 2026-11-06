@@ -10,7 +10,7 @@ export function buildSQL(m, spec, filters, tcfg) {
   const alias = q(metric < 0 ? T('عدد السجلات', 'record_count') : name(metric));
   const agg = (p = '') => metric < 0 ? 'COUNT(*)' : m.isMean(metric) ? `ROUND(AVG(${p}${q(name(metric))}), 2)` : `SUM(${p}${q(name(metric))})`;
   const where = (p = '') => {
-    const w = Object.entries(filters || {}).filter(([ci, v]) => v != null && +ci !== spec.exclude && m.cols[+ci] && !m.cols[+ci].virtual).map(([ci, v]) => `${p}${q(name(+ci))} = ${lit(v)}`);
+    const w = Object.entries(filters || {}).filter(([ci, v]) => v != null && +ci !== spec.exclude && m.cols[+ci] && !m.cols[+ci].virtual).map(([ci, v]) => Array.isArray(v) ? `${p}${q(name(+ci))} IN (${v.map(lit).join(', ')})` : `${p}${q(name(+ci))} = ${lit(v)}`);
     return w.length ? '\nWHERE ' + w.join('\n  AND ') : '';
   };
   const headC = `-- SQLite · ${T('الجدول', 'table')}: data`;
