@@ -211,7 +211,7 @@
 .d-sqlbtn{position:absolute;inset-inline-end:0;top:0;border:1px solid var(--d-line);background:var(--d-surface);color:var(--d-muted);font:600 11px/1 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;padding:5px 8px;border-radius:7px;cursor:pointer;direction:ltr}
 .d-sqlbtn:hover,.d-sqlbtn:focus-visible{color:var(--d-primary);border-color:var(--d-primary)}
 .d-th h3{padding-inline-end:64px}
-.d-sqlmodal{position:fixed;inset:0;z-index:1000;background:rgba(10,12,14,.55);display:grid;place-items:center;padding:16px}
+.d-sqlmodal{position:fixed;inset:0;z-index:99999;font-family:var(--d-font,inherit);background:rgba(10,12,14,.55);display:grid;place-items:center;padding:16px}
 .d-sqlbox{width:min(680px,100%);max-height:calc(100dvh - 32px);overflow:auto;background:var(--d-surface,#fff);color:var(--d-ink,#111);border-radius:16px;padding:18px;display:grid;gap:12px;box-shadow:0 30px 80px -20px rgba(0,0,0,.5)}
 .d-sqlhead{display:grid;gap:2px}
 .d-sqlhead strong{font-size:16px}
@@ -221,3 +221,5 @@
 .d-sqlact button{font:inherit;font-size:13px;font-weight:600;padding:8px 16px;border-radius:9px;border:1px solid var(--d-line,#ddd);background:var(--d-surface-2,#f4f4f4);color:var(--d-ink,#111);cursor:pointer}
 .d-sqlact .d-sqlcopy{background:var(--d-primary,#6C151E);color:var(--d-on-primary,#fff);border-color:transparent}
 @media print{.d-sqlbtn,.d-sqlmodal{display:none!important}}
+
+@media (pointer:coarse){.d-sqlbtn{padding:8px 10px;font-size:12px}}

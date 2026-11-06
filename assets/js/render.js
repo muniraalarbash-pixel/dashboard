@@ -78,9 +78,13 @@ export function mountDashboard(root, opts) {
   }
   function openSql(key) {
     const txt = sqlText(key); if (!txt) return;
-    const old = root.querySelector('.d-sqlmodal'); if (old) old.remove();
-    root.insertAdjacentHTML('beforeend', `<div class="d-sqlmodal no-export" role="dialog" aria-modal="true" aria-label="SQL"><div class="d-sqlbox"><div class="d-sqlhead"><strong>${T('استعلام SQL لهذا الرسم', 'SQL for this chart')}</strong><span>${T('يتغيّر مع الفلاتر والمؤشر المختار', 'Updates with your filters and metric')}</span></div><pre dir="ltr"><code>${esc(txt)}</code></pre><div class="d-sqlact"><button type="button" class="d-sqlcopy">${T('نسخ', 'Copy')}</button><button type="button" class="d-sqlclose">${T('إغلاق', 'Close')}</button></div></div></div>`);
-    const md = root.querySelector('.d-sqlmodal');
+    const old = document.querySelector('.d-sqlmodal'); if (old) old.remove();
+    // mount on <body> so no clipping/transform of the dashboard container can hide it
+    document.body.insertAdjacentHTML('beforeend', `<div class="d-sqlmodal no-export" role="dialog" aria-modal="true" aria-label="SQL"><div class="d-sqlbox"><div class="d-sqlhead"><strong>${T('استعلام SQL لهذا الرسم', 'SQL for this chart')}</strong><span>${T('يتغيّر مع الفلاتر والمؤشر المختار', 'Updates with your filters and metric')}</span></div><pre dir="ltr"><code>${esc(txt)}</code></pre><div class="d-sqlact"><button type="button" class="d-sqlcopy">${T('نسخ', 'Copy')}</button><button type="button" class="d-sqlclose">${T('إغلاق', 'Close')}</button></div></div></div>`);
+    const md = document.querySelector('.d-sqlmodal');
+    const cs = getComputedStyle(root.querySelector('.dash') || root);
+    ['--d-surface', '--d-surface-2', '--d-ink', '--d-muted', '--d-line', '--d-primary', '--d-on-primary', '--d-font'].forEach(v => { const x = cs.getPropertyValue(v); if (x) md.style.setProperty(v, x); });
+    md.setAttribute('dir', document.documentElement.dir || 'rtl');
     const close = () => md.remove();
     md.addEventListener('click', e => { if (e.target === md || e.target.closest('.d-sqlclose')) close(); });
     md.querySelector('.d-sqlcopy').addEventListener('click', e => { const b = e.currentTarget; (navigator.clipboard ? navigator.clipboard.writeText(txt) : Promise.reject()).then(() => { b.textContent = T('تم النسخ', 'Copied'); }).catch(() => { const r = document.createRange(); r.selectNodeContents(md.querySelector('code')); const sel = getSelection(); sel.removeAllRanges(); sel.addRange(r); }); });
