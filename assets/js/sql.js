@@ -1,4 +1,4 @@
-// Builds the SQL (PostgreSQL) that reproduces a chart's numbers, for analysts to check or reuse.
+// Builds the SQL (SQLite dialect, runnable in the in-browser editor) that reproduces a chart's numbers.
 import { T } from './engine.js';
 
 const q = n => '"' + String(n).replace(/"/g, '""') + '"';
@@ -13,7 +13,7 @@ export function buildSQL(m, spec, filters, tcfg) {
     const w = Object.entries(filters || {}).filter(([ci, v]) => v != null && +ci !== spec.exclude && m.cols[+ci] && !m.cols[+ci].virtual).map(([ci, v]) => `${p}${q(name(+ci))} = ${lit(v)}`);
     return w.length ? '\nWHERE ' + w.join('\n  AND ') : '';
   };
-  const headC = `-- PostgreSQL · ${T('الجدول', 'table')}: data`;
+  const headC = `-- SQLite · ${T('الجدول', 'table')}: data`;
 
   if (spec.kind === 'breakdown') {
     const d = q(name(spec.dim)), sd = spec.sd != null && spec.sd >= 0 ? q(name(spec.sd)) : null;
@@ -57,7 +57,7 @@ ORDER BY ${parts.join(', ')}; -- ${T('رتّب الأشهر حسب ترتيبه�
     }
     const per = q(T('الفترة', 'period'));
     return `${headC}
-SELECT DATE_TRUNC('${m.monthly ? 'month' : 'day'}', ${q(dc.name)})::date AS ${per},
+SELECT substr(${q(dc.name)}, 1, ${m.monthly ? 7 : 10}) AS ${per},
        ${agg()} AS ${alias}
 FROM data${where()}
 GROUP BY 1

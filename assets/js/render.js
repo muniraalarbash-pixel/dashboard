@@ -1,6 +1,7 @@
 // Dashboard renderer: three templates sharing one interactive model.
 import { findGeoCol, coordOf, loadLeaflet } from './geo.js';
 import { buildSQL } from './sql.js';
+import { openSqlEditor } from './sqleditor.js';
 import { createModel, autoInsights, targetStats, brandTheme, loadFont, fmt, fmtPct, pLabel, fmtDate, esc, alpha, onColor, T, isEn } from './engine.js';
 
 export const TEMPLATES = {
@@ -73,25 +74,18 @@ export function mountDashboard(root, opts) {
       const el = key === 'map' ? root.querySelector('[data-map]') : root.querySelector(`[data-cv="${key}"]`);
       const card = el && el.closest('article'); const th = card && card.querySelector('.d-th');
       if (!th || th.querySelector('.d-sqlbtn') || !sqlText(key)) return;
-      th.insertAdjacentHTML('beforeend', `<button type="button" class="d-sqlbtn no-export" data-sql="${key}" title="${T('عرض استعلام SQL لهذا الرسم', 'Show the SQL behind this chart')}" aria-label="${T('عرض استعلام SQL', 'Show SQL')}">{ } SQL</button>`);
+      th.insertAdjacentHTML('beforeend', `<button type="button" class="d-sqlbtn no-export" data-sql="${key}" title="${T('افتح استعلام هذا الرسم في محرر SQL', 'Open this chart\'s query in the SQL editor')}" aria-label="${T('استعلام SQL', 'SQL query')}">{ } SQL</button>`);
     });
   }
+  let tModel = null, tModelFor = null;
   function openSql(key) {
-    const txt = sqlText(key); if (!txt) return;
-    const old = document.querySelector('.d-sqlmodal'); if (old) old.remove();
-    // mount on <body> so no clipping/transform of the dashboard container can hide it
-    document.body.insertAdjacentHTML('beforeend', `<div class="d-sqlmodal no-export" role="dialog" aria-modal="true" aria-label="SQL"><div class="d-sqlbox"><div class="d-sqlhead"><strong>${T('استعلام SQL لهذا الرسم', 'SQL for this chart')}</strong><span>${T('يتغيّر مع الفلاتر والمؤشر المختار', 'Updates with your filters and metric')}</span></div><pre dir="ltr"><code>${esc(txt)}</code></pre><div class="d-sqlact"><button type="button" class="d-sqlcopy">${T('نسخ', 'Copy')}</button><button type="button" class="d-sqlclose">${T('إغلاق', 'Close')}</button></div></div></div>`);
-    const md = document.querySelector('.d-sqlmodal');
-    const cs = getComputedStyle(root.querySelector('.dash') || root);
-    ['--d-surface', '--d-surface-2', '--d-ink', '--d-muted', '--d-line', '--d-primary', '--d-on-primary', '--d-font'].forEach(v => { const x = cs.getPropertyValue(v); if (x) md.style.setProperty(v, x); });
-    md.setAttribute('dir', document.documentElement.dir || 'rtl');
-    const close = () => md.remove();
-    md.addEventListener('click', e => { if (e.target === md || e.target.closest('.d-sqlclose')) close(); });
-    md.querySelector('.d-sqlcopy').addEventListener('click', e => { const b = e.currentTarget; (navigator.clipboard ? navigator.clipboard.writeText(txt) : Promise.reject()).then(() => { b.textContent = T('تم النسخ', 'Copied'); }).catch(() => { const r = document.createRange(); r.selectNodeContents(md.querySelector('code')); const sel = getSelection(); sel.removeAllRanges(); sel.addRange(r); }); });
-    md.addEventListener('keydown', e => { if (e.key === 'Escape') close(); });
-    md.querySelector('.d-sqlcopy').focus();
+    const txt = key ? sqlText(key) : ''; if (key && !txt) return;
+    if (o.version && o.version.targets && tModelFor !== o.version) { tModel = createModel(o.version.targets); tModelFor = o.version; }
+    const cs = getComputedStyle(root.querySelector('.dash') || root), vars = {};
+    ['--d-surface', '--d-surface-2', '--d-ink', '--d-muted', '--d-line', '--d-primary', '--d-on-primary', '--d-font'].forEach(v => { vars[v] = cs.getPropertyValue(v); });
+    openSqlEditor({ m, tm: o.version && o.version.targets ? tModel : null, sql: txt, title: key ? T('استعلام SQL لهذا الرسم', 'SQL for this chart') : T('محرر SQL', 'SQL editor'), vars, dir: isEn() ? 'ltr' : 'rtl' });
   }
-  root.addEventListener('click', e => { const b = e.target.closest('[data-sql]'); if (b && root.contains(b)) openSql(b.dataset.sql); });
+  root.addEventListener('click', e => { const b = e.target.closest('[data-sql]'); if (b && root.contains(b)) openSql(b.dataset.sql); else if (e.target.closest('[data-sqled]')) openSql(''); });
 
   function kill(k) { if (charts[k]) { charts[k].destroy(); delete charts[k]; } }
   function draw(k, cfg) { kill(k); const cv = root.querySelector('[data-cv="' + k + '"]'); if (cv && window.Chart) charts[k] = new Chart(cv, cfg); }
@@ -180,6 +174,7 @@ export function mountDashboard(root, opts) {
     });
     const n = activeF().length;
     if (n) h += `<button type="button" class="d-clear" data-clear>${T('مسح الفلاتر', 'Clear filters')} (${n})</button>`;
+    h += `<button type="button" class="d-sqled no-export" data-sqled title="${T('اكتب استعلامات SQL على بيانات اللوحة', 'Write SQL queries on this data')}">{ } ${T('محرر SQL', 'SQL editor')}</button>`;
     root.querySelector('[data-bar]').innerHTML = h;
   }
 

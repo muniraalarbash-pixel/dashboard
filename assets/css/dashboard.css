@@ -219,7 +219,32 @@
 .d-sqlbox pre{margin:0;background:#14181D;color:#E6EDF3;border-radius:10px;padding:14px 16px;overflow:auto;font:13px/1.65 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;text-align:left;white-space:pre}
 .d-sqlact{display:flex;gap:8px;justify-content:flex-end}
 .d-sqlact button{font:inherit;font-size:13px;font-weight:600;padding:8px 16px;border-radius:9px;border:1px solid var(--d-line,#ddd);background:var(--d-surface-2,#f4f4f4);color:var(--d-ink,#111);cursor:pointer}
-.d-sqlact .d-sqlcopy{background:var(--d-primary,#6C151E);color:var(--d-on-primary,#fff);border-color:transparent}
-@media print{.d-sqlbtn,.d-sqlmodal{display:none!important}}
+.d-sqlact{align-items:center;flex-wrap:wrap}
+.d-sqlact .d-sqlrun{background:var(--d-primary,#6C151E);color:var(--d-on-primary,#fff);border-color:transparent;padding-inline:20px}
+.d-sqlhint{font:11px ui-monospace,Menlo,Consolas,monospace;color:var(--d-muted,#666)}
+.d-sqlsp{flex:1}
+.d-sqlbox.wide{width:min(920px,100%)}
+.d-sqltbls{display:grid;gap:6px}
+.d-sqltbl{display:flex;flex-wrap:wrap;gap:5px;align-items:center;font-size:12px}
+.d-sqltbl b{font:700 12px ui-monospace,Menlo,Consolas,monospace;background:#14181D;color:#E6EDF3;padding:4px 8px;border-radius:6px}
+.d-sqltbl>span{color:var(--d-muted,#666);margin-inline-end:4px}
+.d-sqlcol{font:inherit;font-size:11.5px;border:1px solid var(--d-line,#ddd);background:var(--d-surface-2,#f4f4f4);color:var(--d-ink,#111);border-radius:20px;padding:3px 9px;cursor:pointer}
+.d-sqlcol:hover{border-color:var(--d-primary,#6C151E);color:var(--d-primary,#6C151E)}
+.d-sqlcode{width:100%;box-sizing:border-box;min-height:170px;resize:vertical;background:#14181D;color:#E6EDF3;border:0;border-radius:10px;padding:14px 16px;font:13px/1.65 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;text-align:left;white-space:pre;tab-size:2;outline:none}
+.d-sqlcode:focus{box-shadow:0 0 0 2px var(--d-primary,#6C151E)}
+.d-sqlout:empty{display:none}
+.d-sqlmsg{margin:0;font-size:13px;color:var(--d-muted,#666)}
+.d-sqlerr{margin:0;font-size:13px;background:#FDECEC;color:#8A1C1C;border-radius:9px;padding:10px 12px}
+.d-sqlmeta{display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:12.5px;color:var(--d-muted,#666);margin-bottom:6px}
+.d-sqlcsv{font:inherit;font-size:12.5px;font-weight:600;padding:6px 12px;border-radius:8px;border:1px solid var(--d-line,#ddd);background:var(--d-surface,#fff);color:var(--d-ink,#111);cursor:pointer}
+.d-sqlres{max-height:320px;overflow:auto;border:1px solid var(--d-line,#ddd);border-radius:10px}
+.d-sqlres table{border-collapse:collapse;width:100%;font-size:12.5px}
+.d-sqlres th{position:sticky;top:0;background:var(--d-surface-2,#f4f4f4);font-weight:700;text-align:start;padding:7px 10px;white-space:nowrap;border-bottom:1px solid var(--d-line,#ddd)}
+.d-sqlres td{padding:6px 10px;border-bottom:1px solid var(--d-line,#eee);white-space:nowrap}
+.d-sqlres td.n{font-variant-numeric:tabular-nums;direction:ltr;text-align:end}
+.d-sqlres .nul{color:var(--d-muted,#999);font-size:11px}
+.d-sqled{margin-inline-start:auto;align-self:end;border:1px solid var(--d-line);background:var(--d-surface);color:var(--d-ink);font:600 12.5px/1 inherit;font-family:inherit;padding:9px 12px;border-radius:9px;cursor:pointer;white-space:nowrap}
+.d-sqled:hover,.d-sqled:focus-visible{color:var(--d-primary);border-color:var(--d-primary)}
+@media print{.d-sqlbtn,.d-sqled,.d-sqlmodal{display:none!important}}
 
-@media (pointer:coarse){.d-sqlbtn{padding:8px 10px;font-size:12px}}
+@media (pointer:coarse){.d-sqlbtn{padding:8px 10px;font-size:12px}.d-sqlhint{display:none}}
