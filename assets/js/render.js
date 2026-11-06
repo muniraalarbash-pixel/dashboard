@@ -1,5 +1,6 @@
 // Dashboard renderer: three templates sharing one interactive model.
 import { findGeoCol, coordOf, loadLeaflet } from './geo.js';
+import { buildSQL } from './sql.js';
 import { createModel, autoInsights, targetStats, brandTheme, loadFont, fmt, fmtPct, pLabel, fmtDate, esc, alpha, onColor, T, isEn } from './engine.js';
 
 export const TEMPLATES = {
@@ -58,6 +59,35 @@ export function mountDashboard(root, opts) {
   let geo = -1;
   const st = { filters: {}, metric: null, dim: null, search: '', sortCol: null, sortDir: -1, page: 0 };
   let o = opts, m, theme;
+  // SQL behind each chart (key -> spec), rebuilt on every render
+  let sqlReg = {};
+  const sqlSet = (key, spec) => { sqlReg[key] = spec; };
+  function sqlText(key) {
+    const spec = sqlReg[key]; if (!spec) return '';
+    const f = { ...st.filters }; if (spec.exclude != null) delete f[spec.exclude];
+    const tc = o.project.config && o.project.config.target;
+    return buildSQL(m, spec, f, tc);
+  }
+  function addSqlButtons() {
+    Object.keys(sqlReg).forEach(key => {
+      const el = key === 'map' ? root.querySelector('[data-map]') : root.querySelector(`[data-cv="${key}"]`);
+      const card = el && el.closest('article'); const th = card && card.querySelector('.d-th');
+      if (!th || th.querySelector('.d-sqlbtn') || !sqlText(key)) return;
+      th.insertAdjacentHTML('beforeend', `<button type="button" class="d-sqlbtn no-export" data-sql="${key}" title="${T('عرض استعلام SQL لهذا الرسم', 'Show the SQL behind this chart')}" aria-label="${T('عرض استعلام SQL', 'Show SQL')}">{ } SQL</button>`);
+    });
+  }
+  function openSql(key) {
+    const txt = sqlText(key); if (!txt) return;
+    const old = root.querySelector('.d-sqlmodal'); if (old) old.remove();
+    root.insertAdjacentHTML('beforeend', `<div class="d-sqlmodal no-export" role="dialog" aria-modal="true" aria-label="SQL"><div class="d-sqlbox"><div class="d-sqlhead"><strong>${T('استعلام SQL لهذا الرسم', 'SQL for this chart')}</strong><span>${T('يتغيّر مع الفلاتر والمؤشر المختار', 'Updates with your filters and metric')}</span></div><pre dir="ltr"><code>${esc(txt)}</code></pre><div class="d-sqlact"><button type="button" class="d-sqlcopy">${T('نسخ', 'Copy')}</button><button type="button" class="d-sqlclose">${T('إغلاق', 'Close')}</button></div></div></div>`);
+    const md = root.querySelector('.d-sqlmodal');
+    const close = () => md.remove();
+    md.addEventListener('click', e => { if (e.target === md || e.target.closest('.d-sqlclose')) close(); });
+    md.querySelector('.d-sqlcopy').addEventListener('click', e => { const b = e.currentTarget; (navigator.clipboard ? navigator.clipboard.writeText(txt) : Promise.reject()).then(() => { b.textContent = T('تم النسخ', 'Copied'); }).catch(() => { const r = document.createRange(); r.selectNodeContents(md.querySelector('code')); const sel = getSelection(); sel.removeAllRanges(); sel.addRange(r); }); });
+    md.addEventListener('keydown', e => { if (e.key === 'Escape') close(); });
+    md.querySelector('.d-sqlcopy').focus();
+  }
+  root.addEventListener('click', e => { const b = e.target.closest('[data-sql]'); if (b && root.contains(b)) openSql(b.dataset.sql); });
 
   function kill(k) { if (charts[k]) { charts[k].destroy(); delete charts[k]; } }
   function draw(k, cfg) { kill(k); const cv = root.querySelector('[data-cv="' + k + '"]'); if (cv && window.Chart) charts[k] = new Chart(cv, cfg); }
@@ -180,6 +210,7 @@ export function mountDashboard(root, opts) {
     const box0 = root.querySelector(`[data-cv="${key}"]`); if (box0) box0.parentElement.style.height = '';
     if (type === 'pie' || type === 'doughnut') return chartShare(c, key, c.dim, 'doughnut', true);
     if (type === 'line') {
+      sqlSet(key, { kind: 'breakdown', dim: c.dim, metric: c.metric, limit: 12 });
       const bl = m.breakdown(c.rows, c.dim, c.metric).slice(0, 12), sel = st.filters[c.dim];
       draw(key, { type: 'line', data: { labels: bl.map(x => wrapLabel(x.k)), datasets: [{ label: c.ml, data: bl.map(x => x.v), borderColor: c.pal[0], backgroundColor: c.pal[0], tension: .3, borderWidth: 2.2, pointRadius: bl.map(x => sel === x.k ? 7 : 4), pointHoverRadius: 8, pointBackgroundColor: bl.map(x => sel == null || sel === x.k ? c.pal[0] : alpha(c.pal[0], .3)) }] },
         options: { responsive: true, maintainAspectRatio: false, animation: anim(), onClick: (e, els) => { if (!els.length) return; const k = bl[els[0].index].k; if (st.filters[c.dim] === k) delete st.filters[c.dim]; else st.filters[c.dim] = k; st.page = 0; renderData(); }, onHover: (e, els) => { if (e.native) e.native.target.style.cursor = els.length ? 'pointer' : 'default'; },
@@ -191,6 +222,7 @@ export function mountDashboard(root, opts) {
       if (bb.length > 4 && bb.reduce((a, x) => a + String(x.k).length, 0) / bb.length > 12) type = 'hbar';
     }
     const horizontal = type === 'hbar' || type === true;
+    sqlSet(key, { kind: 'breakdown', dim: c.dim, sd: !horizontal && c.sd >= 0 && !c.mean ? c.sd : null, metric: c.metric, limit: horizontal ? 10 : 8 });
     const b = m.breakdown(c.rows, c.dim, c.metric).slice(0, horizontal ? 10 : 8), sel = st.filters[c.dim];
     let ds;
     if (!horizontal && c.sd >= 0 && !c.mean) {
@@ -211,6 +243,7 @@ export function mountDashboard(root, opts) {
     }
   }
   function chartTargets(c, key) {
+    sqlSet(key, { kind: 'targets', metric: c.metric });
     const it = c.tstats.items.slice(0, 10);
     draw(key, { type: 'bar', data: { labels: it.map(x => wrapLabel(x.k)), datasets: [
       { label: T('الفعلي', 'Actual'), data: it.map(x => x.actual), backgroundColor: c.pal[0], borderRadius: 3, maxBarThickness: 30 },
@@ -220,6 +253,7 @@ export function mountDashboard(root, opts) {
         scales: { x: { grid: { display: false }, ticks: { maxRotation: 0, autoSkip: false, font: { size: 11 } } }, y: { beginAtZero: true, grid: { color: c.grid }, border: { display: false }, ticks: { callback: v => fmt(v), maxTicksLimit: 5 } } } } });
   }
   function chartShare(c, key, pd, type, clickable) {
+    sqlSet(key, { kind: 'share', dim: pd, metric: c.metric });
     const b = m.breakdown(c.rows, pd, c.metric); let t5 = b.slice(0, 5); const rest = b.slice(5).reduce((s, x) => s + x.v, 0); if (rest > 0) t5 = t5.concat([{ k: OTHER(), v: rest }]);
     const pc = [c.pal[0], c.pal[2], c.pal[1], c.pal[3], c.pal[6]], sel = st.filters[pd];
     const cols = t5.map((x, i) => { const col = x.k === OTHER() ? '#A9B4BC' : pc[i % pc.length]; return sel == null || sel === x.k ? col : alpha(col, .3); });
@@ -243,6 +277,7 @@ export function mountDashboard(root, opts) {
       options: { responsive: true, maintainAspectRatio: false, rotation: -90, circumference: 180, cutout: '70%', animation: anim(), plugins: { legend: { display: false }, tooltip: { enabled: false } } } });
   }
   function chartLine(c, key, mi) {
+    sqlSet(key, { kind: 'trend', metric: mi });
     const s = m.series(c.rows, mi), tt = vz('trend');
     if (tt === 'bar') {
       draw(key, { type: 'bar', data: { labels: s.map(p => pLabel(p.k)), datasets: [{ data: s.map(p => p.v), backgroundColor: c.pal[0], borderRadius: 3, maxBarThickness: 40 }] },
@@ -253,6 +288,7 @@ export function mountDashboard(root, opts) {
       options: { responsive: true, maintainAspectRatio: false, animation: anim(), plugins: { legend: { display: false }, tooltip: tip() }, scales: { x: { grid: { display: false }, ticks: { maxRotation: 0, autoSkip: true } }, y: { beginAtZero: true, grid: { color: c.grid }, border: { display: false }, ticks: { callback: v => fmt(v), maxTicksLimit: 5 } } } } });
   }
   function chartMini(c, key, mi) {
+    sqlSet(key, m.date >= 0 ? { kind: 'trend', metric: mi, last: 6 } : { kind: 'breakdown', dim: c.dim, metric: mi, limit: 6 });
     const pts = m.date >= 0 ? m.series(c.rows, mi).slice(-6).map(p => ({ k: pLabel(p.k), v: p.v })) : (c.dim >= 0 ? m.breakdown(c.rows, c.dim, mi).slice(0, 6) : []);
     draw(key, { type: 'bar', data: { labels: pts.map(p => p.k), datasets: [{ data: pts.map(p => p.v), backgroundColor: c.pal[0], borderRadius: 2, maxBarThickness: 24 }] }, plugins: [valueLabels],
       options: { responsive: true, maintainAspectRatio: false, animation: anim(), layout: { padding: { top: 16 } }, plugins: { legend: { display: false }, tooltip: tip(), valueLabels: { mode: 'top', color: c.ink, font: theme.font } },
@@ -276,6 +312,7 @@ export function mountDashboard(root, opts) {
     const box = root.querySelector('[data-map]'); if (!box || geo < 0) return;
     const f = { ...st.filters }; delete f[geo];
     const rows = m.filter(f, ''), sel = st.filters[geo];
+    sqlSet('map', { kind: 'breakdown', dim: geo, metric: c.metric, exclude: geo });
     const pts = m.breakdown(rows, geo, c.metric).map(x => ({ ...x, ll: coordOf(x.k) })).filter(x => x.ll && x.v > 0);
     const rank = root.querySelector('[data-maprank]'), tot = pts.reduce((s, x) => s + x.v, 0);
     if (rank) rank.innerHTML = pts.slice(0, 5).map((x, i) => `<li class="${sel == null || sel === x.k ? '' : 'dim'}"><span class="r">${i + 1}</span><bdi>${esc(x.k)}</bdi><b>${fmt(x.v)}</b>${!c.mean && tot ? `<i>${(x.v / tot * 100).toFixed(0)}%</i>` : ''}</li>`).join('');
@@ -392,13 +429,14 @@ export function mountDashboard(root, opts) {
   }
 
   function renderBody() {
-    Object.keys(charts).forEach(kill); killMaps();
+    Object.keys(charts).forEach(kill); killMaps(); sqlReg = {};
     const c = ctx();
     chartBase(c.ink, c.grid);
     const tpl = o.project.template === 'executive' ? tplExecutive : o.project.template === 'compact' ? tplCompact : tplTiles;
     const t = tpl(c);
     root.querySelector('[data-body]').innerHTML = t.html;
     if (window.Chart) t.after(); else drawMap(c);
+    addSqlButtons();
   }
 
   function renderTable() {
