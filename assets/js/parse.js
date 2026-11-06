@@ -72,7 +72,7 @@ function conv(v, t) {
 const TOTAL_RE = /^(المجموع|مجموع|المجموع الكلي|الإجمالي|الاجمالي|إجمالي|اجمالي|total|totals|grand total|sum)$/i;
 
 // Raw table (array of arrays) → cleaned headers/body
-export function extractRaw(aoa) {
+export function extractRaw(aoa, opts = {}) {
   const filled = r => r.filter(v => v != null && String(v).trim() !== '').length;
   const h = aoa.findIndex(r => filled(r) >= 2);
   if (h < 0) throw new Error('empty');
@@ -88,12 +88,22 @@ export function extractRaw(aoa) {
   const keep = headers.map((n, i) => !/^عمود \d+$/.test(n) || body.some(r => r[i] != null && String(r[i]).trim() !== ''));
   headers = headers.filter((_, i) => keep[i]);
   body = body.map(r => { const o = []; for (let i = 0; i < width; i++) if (keep[i]) o.push(r[i] ?? null); return o; });
-  const before = body.length;
-  body = body.filter(r => !r.some(v => typeof v === 'string' && TOTAL_RE.test(v.trim())));
-  const dropped = before - body.length, truncated = body.length > MAX_ROWS;
+  const emptyCols = keep.filter(k => !k).length;
+  // total rows (e.g. "الإجمالي") would double-count sums
+  const isTotal = r => r.some(v => typeof v === 'string' && TOTAL_RE.test(v.trim()));
+  const totalRows = body.filter(isTotal);
+  const totalLabels = totalRows.map(r => String(r.find(v => typeof v === 'string' && TOTAL_RE.test(v.trim()))).trim());
+  if (!opts.keepTotals) body = body.filter(r => !isTotal(r));
+  // exact duplicate rows
+  const seenRow = new Set(); let dups = 0;
+  const dedup = [];
+  for (const r of body) { const k = JSON.stringify(r.map(v => v instanceof Date ? v.getTime() : v)); if (seenRow.has(k)) { dups++; if (opts.dedupe) continue; } else seenRow.add(k); dedup.push(r); }
+  body = dedup;
+  const dropped = opts.keepTotals ? 0 : totalRows.length, truncated = body.length > MAX_ROWS;
+  const totalRowsCount = body.length;
   if (truncated) body = body.slice(0, MAX_ROWS);
   if (!body.length) throw new Error('empty');
-  return { headers, body, dropped, truncated };
+  return { headers, body, dropped, truncated, headerRow: h + 1, skippedTop: h, totalsFound: totalRows.length, totalLabels, dups, dedupe: !!opts.dedupe, keepTotals: !!opts.keepTotals, emptyCols, rowsBeforeCap: totalRowsCount };
 }
 
 export function convert(raw, overrides = {}) {
@@ -117,4 +127,14 @@ export function openPasted(text) {
   const sep = text.includes('\t') ? '\t' : ',';
   const aoa = text.replace(/\r/g, '').split('\n').filter(l => l.trim()).map(l => l.split(sep));
   return { name: 'بيانات ملصوقة', sheets: ['بيانات ملصوقة'], aoa: () => aoa };
+}
+
+// What the reader changed or noticed, for the owner to review (and undo).
+export function cleanReport(raw, data) {
+  const cols = data.columns, n = raw.body.length;
+  const blanks = cols.map((c, i) => ({ i, name: c.name, miss: raw.body.filter(r => r[i] == null || String(r[i]).trim() === '').length })).filter(x => x.miss > 0).sort((a, b) => b.miss - a.miss);
+  let textNums = 0;
+  cols.forEach((c, i) => { if (c.type === 'number') raw.body.forEach(r => { if (typeof r[i] === 'string' && r[i].trim() !== '' && Number.isFinite(toNum(r[i]))) textNums++; }); });
+  const asText = cols.map((c, i) => ({ i, name: c.name, type: c.type })).filter(x => x.type === 'text' && raw.body.filter(r => r[x.i] != null && r[x.i] !== '').length > 0 && raw.body.filter(r => r[x.i] != null && r[x.i] !== '' && Number.isFinite(toNum(r[x.i]))).length / raw.body.filter(r => r[x.i] != null && r[x.i] !== '').length >= 0.8);
+  return { rows: n, blanks, textNums, asText };
 }

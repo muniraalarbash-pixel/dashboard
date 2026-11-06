@@ -428,3 +428,11 @@ html:not([lang=en]) .en-only{display:none!important}
 .ntag{font-weight:700;font-size:12px;padding:2px 10px;border-radius:99px;background:var(--line);color:var(--ink)}
 .ntag.nt-decision{background:var(--bordo);color:var(--on-bordo)}
 .ntag.nt-action{background:#C98A1B;color:#fff}
+.cleanrep{border:1.5px solid var(--line);border-radius:12px;padding:12px;background:var(--surface)}
+.cleanrep ul{list-style:none;margin:0;padding:0;display:grid;gap:8px}
+.cleanrep li{display:grid;grid-template-columns:18px 1fr auto;gap:8px;align-items:start;font-size:13px;line-height:1.6}
+.cleanrep .btn{padding:2px 10px;font-size:12px}
+.ci{width:16px;height:16px;border-radius:50%;margin-top:3px;display:grid;place-items:center}
+.ci-done{background:#2F9E6E}.ci-done:after{content:"✓";color:#fff;font-size:10px;font-weight:700}
+.ci-warn{background:#C98A1B}.ci-warn:after{content:"!";color:#fff;font-size:11px;font-weight:700}
+.ci-info{background:var(--line)}.ci-info:after{content:"i";color:var(--ink);font-size:10px;font-weight:700}

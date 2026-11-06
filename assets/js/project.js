@@ -2,7 +2,7 @@
 import { sb, $, requireUser, mountNav, setupNotice, toast } from './sb.js';
 import { mountDashboard, TEMPLATES, vizDefault } from './render.js';
 import { DEFAULT_BRAND, FONTS, extractColors, computeTotals, guessTargetCfg, esc, fmtDate, createModel, targetStats, autoRecommendations } from './engine.js';
-import { openFile, openPasted, extractRaw, convert, TYPES } from './parse.js';
+import { openFile, openPasted, extractRaw, convert, TYPES, cleanReport, MAX_ROWS } from './parse.js';
 import { wireExport } from './export.js';
 
 if (setupNotice($('#setup'))) throw new Error('not configured');
@@ -142,12 +142,12 @@ function rebuild() {
   const msgs = [];
   for (const kind of ['actual', 'target']) {
     const p = pending && pending[kind]; if (!p || !p.src) continue;
-    const raw = extractRaw(p.src.aoa(p.sheet));
-    p.data = convert(raw, p.overrides);
-    if (kind === 'actual') msgs.push(`تمت قراءة ${p.data.rows.length.toLocaleString('en-US')} صف و${p.data.columns.length} عمود من «${p.src.name}».` + (raw.dropped ? ` حُذف ${raw.dropped} صف إجمالي لتجنب تكرار الجمع.` : '') + (raw.truncated ? ' تم الاكتفاء بأول 10,000 صف.' : ''));
+    const raw = extractRaw(p.src.aoa(p.sheet), kind === 'actual' ? { keepTotals: p.keepTotals, dedupe: p.dedupe } : {});
+    p.data = convert(raw, p.overrides); p.raw = raw;
+    if (kind === 'actual') msgs.push(`تمت قراءة ${p.data.rows.length.toLocaleString('en-US')} صف و${p.data.columns.length} عمود من «${p.src.name}».`);
     else msgs.push(`ملف المستهدف: ${p.data.rows.length} صف.`);
   }
-  renderCols(); renderMap();
+  renderCols(); renderClean(); renderMap();
   $('#pub-box').hidden = !(pending && pending.actual);
   dstatus(msgs.join(' ') + (pending && pending.actual ? ' راجع المعاينة ثم اضغط «نشر التحديث».' : ''));
   preview();
@@ -157,6 +157,36 @@ function renderCols() {
   if (!p) { $('#cols').innerHTML = ''; return; }
   $('#cols').innerHTML = '<p class="label" style="margin-bottom:6px">هكذا فُهمت الأعمدة. غيّر النوع إذا كان غير صحيح.</p><div class="chips">' + p.data.columns.map((c, i) => `<label class="chip"><span>${esc(c.name)}</span><select data-col="${i}" aria-label="نوع ${esc(c.name)}">${Object.entries(TYPES).map(([k, v]) => `<option value="${k}" ${c.type === k ? 'selected' : ''}>${v}</option>`).join('')}</select></label>`).join('') + '</div>';
 }
+/* cleaning report: what was changed or noticed, with undo */
+function renderClean() {
+  const box = $('#clean-report'), p = pending && pending.actual;
+  if (!p || !p.raw) { box.hidden = true; box.innerHTML = ''; return; }
+  const raw = p.raw, rep = cleanReport(raw, p.data), items = [];
+  const li = (icon, text, act) => `<li><span class="ci ci-${icon}" aria-hidden="true"></span><span class="ct">${text}</span>${act || ''}</li>`;
+  const btn = (a, l) => `<button type="button" class="btn btn-ghost btn-sm" data-clean="${a}">${l}</button>`;
+  if (raw.skippedTop) items.push(li('info', `تجاهلنا ${raw.skippedTop} ${raw.skippedTop === 1 ? 'صف' : 'صفوف'} فوق الجدول (عنوان أو ملاحظات)، وبدأنا من صف العناوين.`));
+  if (raw.totalsFound) items.push(raw.keepTotals
+    ? li('warn', `أبقينا ${raw.totalsFound} ${raw.totalsFound === 1 ? 'صف إجمالي' : 'صفوف إجمالي'} (${esc(raw.totalLabels.slice(0, 2).join('، '))}). قد ينحسب المجموع مرتين.`, btn('dropTotals', 'حذفها'))
+    : li('done', `حذفنا ${raw.totalsFound} ${raw.totalsFound === 1 ? 'صف إجمالي' : 'صفوف إجمالي'} (${esc(raw.totalLabels.slice(0, 2).join('، '))}) عشان ما ينحسب المجموع مرتين.`, btn('keepTotals', 'تراجع')));
+  if (raw.dups) items.push(raw.dedupe
+    ? li('done', `حذفنا ${raw.dups} ${raw.dups === 1 ? 'صف مكرر' : 'صفوف مكررة'} (متطابقة في كل الأعمدة).`, btn('undedupe', 'تراجع'))
+    : li('warn', `لقينا ${raw.dups} ${raw.dups === 1 ? 'صف مكرر' : 'صفوف مكررة'} بالضبط. إذا كانت تكرار بالغلط احذفها.`, btn('dedupe', 'حذف المكرر')));
+  rep.asText.forEach(c => items.push(li('done', `عمود «${esc(c.name)}» فيه أرقام، بس اعتبرناه ترقيم/نص فما ينجمع.`, btn('num:' + c.i, 'اعتبره رقم'))));
+  if (rep.textNums) items.push(li('done', `حوّلنا ${rep.textNums.toLocaleString('en-US')} قيمة مكتوبة كنص (مثل «1,200 ر.س» أو أرقام عربية) إلى أرقام.`));
+  if (raw.emptyCols) items.push(li('info', `تجاهلنا ${raw.emptyCols} ${raw.emptyCols === 1 ? 'عمود فاضي' : 'أعمدة فاضية'} بدون عنوان.`));
+  rep.blanks.slice(0, 3).forEach(b => items.push(li(b.miss / rep.rows > 0.3 ? 'warn' : 'info', `عمود «${esc(b.name)}» فيه ${b.miss.toLocaleString('en-US')} ${b.miss === 1 ? 'خانة فاضية' : 'خانات فاضية'} (${Math.round(b.miss / rep.rows * 100)}%). ما عدّلناها.`)));
+  if (raw.truncated) items.push(li('warn', `الملف فيه ${raw.rowsBeforeCap.toLocaleString('en-US')} صف؛ استخدمنا أول ${MAX_ROWS.toLocaleString('en-US')} صف فقط.`));
+  box.hidden = false;
+  box.innerHTML = `<p class="label" style="margin:0 0 6px">تقرير التنظيف</p>` + (items.length ? `<ul>${items.join('')}</ul>` : '<p class="muted" style="margin:0;font-size:13px">البيانات نظيفة، ما احتجنا نغيّر شي.</p>');
+}
+$('#clean-report').addEventListener('click', e => {
+  const b = e.target.closest('[data-clean]'); if (!b || !pending || !pending.actual) return;
+  const a = b.dataset.clean, p = pending.actual;
+  if (a === 'keepTotals') p.keepTotals = true; else if (a === 'dropTotals') p.keepTotals = false;
+  else if (a === 'dedupe') p.dedupe = true; else if (a === 'undedupe') p.dedupe = false;
+  else if (a.startsWith('num:')) p.overrides[a.slice(4)] = 'number';
+  safe(rebuild);
+});
 $('#cols').addEventListener('change', e => { const i = e.target.dataset.col; if (i == null || !pending) return; pending.actual.overrides[i] = e.target.value; safe(rebuild); });
 
 // first sheet that holds a readable table (skips summary/cover sheets)
@@ -192,7 +222,7 @@ function readError(e) {
 const okExt = f => /\.(xlsx|xlsm|xls|csv)$/i.test(f.name);
 $('#f-data').addEventListener('change', e => { const f = e.target.files[0]; e.target.value = ''; if (!f) return; if (!okExt(f)) { dstatus('اختر ملفًا بصيغة xlsx أو xls أو csv.', true); return; } takeActual(openFile(f)); });
 $('#b-paste').addEventListener('click', () => { const t = $('#f-paste').value; if (!t.trim()) { dstatus('الصق الجدول أولًا.', true); return; } takeActual(Promise.resolve(openPasted(t))); });
-$('#f-sheet').addEventListener('change', e => { pending.actual.sheet = e.target.value; pending.actual.overrides = {}; safe(rebuild); });
+$('#f-sheet').addEventListener('change', e => { Object.assign(pending.actual, { sheet: e.target.value, overrides: {}, keepTotals: false, dedupe: false }); safe(rebuild); });
 
 $('#f-target').addEventListener('change', async e => {
   const f = e.target.files[0]; e.target.value = ''; if (!f) return;
@@ -236,7 +266,7 @@ function renderMap() {
 $('#f-vperiod').addEventListener('input', preview);
 
 function resetData() {
-  pending = null; $('#pub-box').hidden = true; $('#cols').innerHTML = ''; $('#map').hidden = true; $('#sheet-wrap').hidden = true; $('#tsheet-wrap').hidden = true;
+  pending = null; $('#pub-box').hidden = true; $('#cols').innerHTML = ''; $('#clean-report').hidden = true; $('#map').hidden = true; $('#sheet-wrap').hidden = true; $('#tsheet-wrap').hidden = true;
   $('#drop-data').classList.remove('done'); $('#drop-target').classList.remove('done'); $('#f-paste').value = '';
 }
 $('#b-discard').addEventListener('click', () => { resetData(); dstatus('تم تجاهل التحديث.'); preview(); });
