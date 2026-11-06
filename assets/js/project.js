@@ -82,7 +82,7 @@ function fill() {
   $('#c-primary').value = b.primary; $('#c-secondary').value = b.secondary; $('#c-accent').value = b.accent;
   $('#f-font').innerHTML = Object.keys(FONTS).map(f => `<option ${f === b.font ? 'selected' : ''}>${f}</option>`).join('');
   logoPreview(b.logo_url);
-  renderTemplates(); renderViz(); renderRecs(); renderShare();
+  renderTemplates(); renderViz(); renderRecs(); renderNotes(); renderShare();
 }
 
 /* ---------- 1 details ---------- */
@@ -348,7 +348,21 @@ $('#b-recgen').addEventListener('click', () => {
   if (fresh.length) saveRecs(recs().concat(fresh));
 });
 
-/* ---------- 6 share ---------- */
+/* ---------- 6 notes & decisions ---------- */
+const NT = { note: 'ملاحظة', decision: 'قرار', action: 'إجراء مطلوب' };
+let ntype = 'note';
+const notes = () => (project.config.notes || []);
+function saveNotes(list) { project.config = { ...project.config, notes: list }; queue({ config: project.config }); renderNotes(); preview(); }
+function renderNotes() {
+  const l = notes();
+  $('#notelist').innerHTML = l.length ? l.map((n, i) => `<li><div class="nhead"><span class="ntag nt-${n.type}">${NT[n.type] || NT.note}</span><span class="muted">${esc(fmtDate(n.date))}</span><button type="button" class="btn btn-ghost btn-sm" data-ndel="${i}" aria-label="حذف">حذف</button></div><textarea rows="2" data-nedit="${i}" aria-label="نص الملاحظة">${esc(n.text)}</textarea></li>`).join('') : '<li class="empty">لا توجد ملاحظات بعد.</li>';
+}
+$('#ntypes').addEventListener('click', e => { const b = e.target.closest('[data-nt]'); if (!b) return; ntype = b.dataset.nt; $('#ntypes').querySelectorAll('[data-nt]').forEach(x => x.setAttribute('aria-pressed', x === b)); });
+$('#b-noteadd').addEventListener('click', () => { const v = $('#f-note').value.trim(); if (!v) return; $('#f-note').value = ''; saveNotes([{ type: ntype, text: v, date: new Date().toISOString() }].concat(notes())); });
+$('#notelist').addEventListener('click', e => { const b = e.target.closest('[data-ndel]'); if (!b) return; const l = notes().slice(); l.splice(+b.dataset.ndel, 1); saveNotes(l); });
+$('#notelist').addEventListener('change', e => { const t = e.target.closest('[data-nedit]'); if (!t) return; const l = notes().slice(), v = t.value.trim(); if (v) l[+t.dataset.nedit] = { ...l[+t.dataset.nedit], text: v }; else l.splice(+t.dataset.nedit, 1); saveNotes(l); });
+
+/* ---------- 7 share ---------- */
 const shareUrl = () => new URL('view.html?s=' + project.share_slug, location.href).href;
 function renderShare() {
   $('#f-pub').checked = project.is_published;

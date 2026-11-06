@@ -263,6 +263,11 @@ export function mountDashboard(root, opts) {
   const recItems = () => ((o.project.config && o.project.config.recs) || []).filter(r => r && r.text && String(r.text).trim());
   const recsHTML = cls => { const l = recItems(); return l.length ? `<article class="${cls} d-recs">${head(T('التوصيات', 'Recommendations'), '')}<ol class="d-reclist">${l.map(r => `<li><span class="d-recn" aria-hidden="true"></span><span>${esc(r.text)}</span></li>`).join('')}</ol></article>` : ''; };
 
+  // ---------- notes & decisions (owner-written, read-only for viewers) ----------
+  const noteItems = () => ((o.project.config && o.project.config.notes) || []).filter(n => n && n.text && String(n.text).trim());
+  const NTL = { note: T('ملاحظة', 'Note'), decision: T('قرار', 'Decision'), action: T('إجراء مطلوب', 'Action') };
+  const notesHTML = cls => { const l = noteItems(); return l.length ? `<article class="${cls} d-notesx">${head(T('الملاحظات والقرارات', 'Notes & decisions'), '')}<ol class="d-notelist">${l.map(n => `<li class="nt-${esc(n.type || 'note')}"><div class="d-nmeta"><span class="d-ntag">${NTL[n.type] || NTL.note}</span>${n.date ? `<time>${esc(fmtDate(n.date))}</time>` : ''}</div><p>${esc(n.text)}</p></li>`).join('')}</ol></article>` : ''; };
+
   // ---------- location map ----------
   const mapTitle = c => c.ml + T(' حسب الموقع', ' by location');
   const mapHTML = (c, cls) => geo < 0 ? '' : `<article class="${cls} d-maptile">${head(mapTitle(c), m.cols[geo].name + T(' · اضغط دائرة للفلترة', ' · click a circle to filter'))}<div class="d-map" data-map dir="ltr" role="img" aria-label="${esc(mapTitle(c))}"></div><ol class="d-maprank" data-maprank></ol></article>`;
@@ -331,7 +336,7 @@ export function mountDashboard(root, opts) {
     if (m.date >= 0) { const s = m.series(c.rows, c.metric); const avg = s.length ? s.reduce((a, x) => a + x.v, 0) / s.length : 0; hl = `<p class="d-big">${fmt(avg)}</p><p class="d-hlt">${T(`${esc(c.ml)} ${m.monthly ? 'شهريًا' : 'يوميًا'} في المتوسط`, `Average ${m.monthly ? 'monthly' : 'daily'} ${esc(c.ml)}`)}</p>`; }
     else hl = `<p class="d-big">${c.rows.length.toLocaleString('en-US')}</p><p class="d-hlt">${T('سجل في البيانات', 'records')}</p>`;
     const html = `<section class="d-top ${gauge ? 'has-gauge' : ''} ${pd >= 0 && !c.mean ? 'has-pie' : ''}">${top}</section>${geo >= 0 ? `<section class="d-mapsec">${mapHTML(c, 'd-tile')}</section>` : ''}
-      <section class="d-bottom" style="--n:${n + 1}">${chg.slice(0, mid).join('')}<article class="d-tile d-hl" style="--mo:0">${hl}</article>${chg.slice(mid).join('')}${mini.slice(0, mid).join('')}<article class="d-tile d-notes" style="--mo:99">${head(T('ملاحظات', 'Insights'), '')}${insList(c)}</article>${mini.slice(mid).join('')}</section>${recItems().length ? `<section class="d-recsec">${recsHTML('d-tile')}</section>` : ''}`;
+      <section class="d-bottom" style="--n:${n + 1}">${chg.slice(0, mid).join('')}<article class="d-tile d-hl" style="--mo:0">${hl}</article>${chg.slice(mid).join('')}${mini.slice(0, mid).join('')}<article class="d-tile d-notes" style="--mo:99">${head(T('ملاحظات', 'Insights'), '')}${insList(c)}</article>${mini.slice(mid).join('')}</section>${recItems().length ? `<section class="d-recsec">${recsHTML('d-tile')}</section>` : ''}${noteItems().length ? `<section class="d-recsec">${notesHTML('d-tile')}</section>` : ''}`;
     return { html, after() {
       if (gauge && kv === 'gauge') chartGauge(c, 'gauge', gauge.v, gauge.max);
       if (c.showT) chartTargets(c, 'bar'); else if (c.dim >= 0) chartBreakdown(c, 'bar', vz('breakdown')); else if (m.date >= 0) chartLine(c, 'line', c.metric);
@@ -357,6 +362,7 @@ export function mountDashboard(root, opts) {
         <article class="d-card ${hasLine ? 'd-span4' : 'd-span12'} d-notes-ex">${head(T('أبرز الملاحظات', 'Key insights'), '')}${insList(c)}</article>
         ${mapHTML(c, 'd-card d-span12')}
         ${recsHTML('d-card d-span12')}
+        ${notesHTML('d-card d-span12')}
         ${c.dim >= 0 ? `<article class="d-card d-span6">${head(c.ml + T(' حسب ', ' by ') + m.cols[c.dim].name, T('اضغط أي شريط للفلترة', 'Click a bar to filter'))}<div class="d-box d-hbox"><canvas data-cv="hbar" role="img" aria-label="${T('الترتيب', 'Ranking')}"></canvas></div></article>` : ''}
         ${c.tstats ? `<article class="d-card d-span6">${head(T('الفعلي مقابل المستهدف', 'Actual vs target'), T('حسب ', 'by ') + c.tstats.keyName)}<div class="d-box"><canvas data-cv="tbar" role="img" aria-label="${T('الفعلي مقابل المستهدف', 'Actual vs target')}"></canvas></div></article>`
           : (c.pie >= 0 && !c.mean ? `<article class="d-card d-span6">${head(T('توزيع ', '') + c.ml + T(' حسب ', ' by ') + m.cols[c.pie].name, '')}<div class="d-box"><canvas data-cv="pie" role="img" aria-label="${T('الحصص', 'Shares')}"></canvas></div></article>` : '')}
@@ -381,7 +387,7 @@ export function mountDashboard(root, opts) {
       ${c.dim >= 0 ? `<article class="d-card">${head(c.ml + T(' حسب ', ' by ') + m.cols[c.dim].name, '')}<div class="d-box d-hbox"><canvas data-cv="hbar" role="img" aria-label="${T('الترتيب', 'Ranking')}"></canvas></div></article>` : ''}
       ${mapHTML(c, 'd-card')}
       ${m.date >= 0 ? `<article class="d-card">${head(c.ml + T(' عبر الزمن', ' over time'), '')}<div class="d-box d-sbox"><canvas data-cv="line" role="img" aria-label="${T('الاتجاه', 'Trend')}"></canvas></div></article>` : ''}
-      <article class="d-card">${head(T('ملاحظات', 'Insights'), '')}${insList(c)}</article>${recsHTML('d-card')}</section>`;
+      <article class="d-card">${head(T('ملاحظات', 'Insights'), '')}${insList(c)}</article>${recsHTML('d-card')}${notesHTML('d-card')}</section>`;
     return { html, after() { if (c.dim >= 0) chartBreakdown(c, 'hbar', vz('breakdown')); if (m.date >= 0) chartLine(c, 'line', c.metric); drawMap(c); } };
   }
 

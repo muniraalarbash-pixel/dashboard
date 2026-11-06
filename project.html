@@ -123,9 +123,25 @@
         </div>
       </details>
 
-      <!-- 6 share -->
+      <!-- 6 notes & decisions -->
       <details class="sec">
-        <summary><span class="n" style="background:var(--ink)">6</span>المشاركة<span class="chev">▾</span></summary>
+        <summary><span class="n" style="background:#A26E48">6</span>الملاحظات والقرارات<span class="chev">▾</span></summary>
+        <div class="body">
+          <p class="muted" style="font-size:13px;margin:0">سجّل ملاحظاتك وقراراتك على هذه البيانات. تظهر في اللوحة والرابط للقراءة فقط.</p>
+          <div class="ntypes" role="group" aria-label="نوع الملاحظة" id="ntypes">
+            <button type="button" class="vchip" data-nt="note" aria-pressed="true">ملاحظة</button>
+            <button type="button" class="vchip" data-nt="decision" aria-pressed="false">قرار</button>
+            <button type="button" class="vchip" data-nt="action" aria-pressed="false">إجراء مطلوب</button>
+          </div>
+          <textarea id="f-note" rows="3" placeholder="مثال: نوقف حملة الفرع الشمالي ونحوّل الميزانية لجدة من الشهر القادم."></textarea>
+          <button type="button" class="btn btn-primary btn-sm" id="b-noteadd" style="justify-self:start">إضافة</button>
+          <ol class="notelist" id="notelist"></ol>
+        </div>
+      </details>
+
+      <!-- 7 share -->
+      <details class="sec">
+        <summary><span class="n" style="background:var(--ink)">7</span>المشاركة<span class="chev">▾</span></summary>
         <div class="body">
           <label class="switch" for="f-pub"><input type="checkbox" id="f-pub">نشر لوحة المؤشرات برابط عام (للعرض فقط)</label>
           <div class="field"><span class="label">رابط المشاركة</span><div class="share-link"><input type="text" id="f-link" readonly><button type="button" class="btn btn-quiet btn-sm" id="b-copy">نسخ</button></div></div>

@@ -417,3 +417,14 @@ html:not([lang=en]) .en-only{display:none!important}
 .defgrid{display:grid;grid-template-columns:1fr 1fr;gap:8px 10px}
 .defgrid .field{gap:4px}
 @media (max-width:520px){.defgrid{grid-template-columns:1fr}}
+.ntypes{display:flex;flex-wrap:wrap;gap:6px}
+#f-note{width:100%;font:inherit;font-size:13.5px;line-height:1.6;padding:8px 10px;border:1.5px solid var(--line);border-radius:10px;background:var(--surface);color:var(--ink);resize:vertical}
+.notelist{list-style:none;margin:0;padding:0;display:grid;gap:10px}
+.notelist li{display:grid;gap:6px}
+.notelist li.empty{color:var(--muted);font-size:13px}
+.notelist .nhead{display:flex;align-items:center;gap:8px;font-size:12px}
+.notelist .nhead .btn{margin-inline-start:auto}
+.notelist textarea{width:100%;font:inherit;font-size:13.5px;line-height:1.6;padding:8px 10px;border:1.5px solid var(--line);border-radius:10px;background:var(--surface);color:var(--ink);resize:vertical}
+.ntag{font-weight:700;font-size:12px;padding:2px 10px;border-radius:99px;background:var(--line);color:var(--ink)}
+.ntag.nt-decision{background:var(--bordo);color:var(--on-bordo)}
+.ntag.nt-action{background:#C98A1B;color:#fff}
