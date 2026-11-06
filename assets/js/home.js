@@ -220,7 +220,7 @@ function viewProjects() {
       ${list.map(p => { const v = vByP.get(p.id), c = color(p); return `<a class="pcard3" href="project.html?id=${p.id}" style="background:color-mix(in srgb, ${esc(c)} 24%, var(--surface))">
         <div class="top"><span class="chipx">${ICON.file.replace('<svg', '<svg width="14" height="14"')}${esc(p.topic || 'بدون تصنيف')}</span><span class="pill ${p.is_published ? 'live' : ''}">${p.is_published ? 'منشور' : 'مسودة'}</span></div>
         <h3>${esc(p.title)}</h3>
-        <div class="bot"><span>${v ? Number(v.row_count).toLocaleString('en-US') + ' سجل' : 'بدون بيانات'}${p.is_published && 'view_count' in p ? ' · 👁 ' + Number(p.view_count || 0).toLocaleString('en-US') : ''}</span><span>${esc(rel(p.updated_at))}</span></div></a>`; }).join('')}
+        <div class="bot"><span>${v ? Number(v.row_count || 0).toLocaleString('en-US') + ' سجل' : 'بدون بيانات'}${p.is_published && 'view_count' in p ? ' · 👁 ' + Number(p.view_count || 0).toLocaleString('en-US') : ''}</span><span>${esc(rel(p.updated_at))}</span></div></a>`; }).join('')}
       <button type="button" class="pcard3 newcard" data-new><span class="ic c1">${ICON.plus}</span><b>مشروع جديد</b><span>ارفع ملف Excel وابدأ</span></button>
     </div>
     ${!list.length && S.projects.length ? '<p class="muted">لا توجد مشاريع تطابق البحث.</p>' : ''}`;
@@ -241,7 +241,7 @@ function viewLinks() {
 function viewHistory() {
   return `<header class="vhead"><div><h1>سجل التحديثات</h1><p class="muted">كل ملف رفعتيه، من الأحدث للأقدم.</p></div></header>
     <section class="card2">${S.versions.length ? `<div class="htable-wrap"><table class="htable"><thead><tr><th scope="col">التاريخ</th><th scope="col">المشروع</th><th scope="col">الملف</th><th scope="col">الفترة</th><th scope="col">السجلات</th></tr></thead><tbody>
-      ${S.versions.map(v => { const p = projById(v.project_id), d = new Date(v.created_at); return `<tr><td class="num">${d.getDate()} ${AR_M[d.getMonth()]} ${d.getFullYear()} · ${pad(d.getHours())}:${pad(d.getMinutes())}</td><td>${p ? `<a href="project.html?id=${p.id}">${esc(p.title)}</a>` : '—'}</td><td>${esc(v.file_name || '—')}</td><td>${esc(v.period || '—')}</td><td class="num">${Number(v.row_count).toLocaleString('en-US')}</td></tr>`; }).join('')}
+      ${S.versions.map(v => { const p = projById(v.project_id), d = new Date(v.created_at); return `<tr><td class="num">${d.getDate()} ${AR_M[d.getMonth()]} ${d.getFullYear()} · ${pad(d.getHours())}:${pad(d.getMinutes())}</td><td>${p ? `<a href="project.html?id=${p.id}">${esc(p.title)}</a>` : '—'}</td><td>${esc(v.file_name || '—')}</td><td>${esc(v.period || '—')}</td><td class="num">${Number(v.row_count || 0).toLocaleString('en-US')}</td></tr>`; }).join('')}
       </tbody></table></div>` : '<div class="empty2"><span>لا توجد تحديثات بعد.</span></div>'}</section>`;
 }
 

@@ -69,8 +69,25 @@ export function mountDashboard(root, opts) {
     loadFont(theme.font);
     st.filters = {}; st.metric = null; st.dim = null; st.page = 0; st.sortCol = null;
   }
-  function metricIdx() { return (st.metric != null && (st.metric === -1 || m.nums.includes(st.metric))) ? st.metric : (m.nums.length ? m.nums[0] : -1); }
-  function dimIdx() { return (st.dim != null && m.cats.includes(st.dim)) ? st.dim : (m.dims.length ? m.dims[0] : -1); }
+  // owner-chosen defaults are stored by column name so they survive new uploads
+  const dflt = k => o.project.config && o.project.config.defaults && o.project.config.defaults[k];
+  const colIdx = name => { if (!name) return null; if (name === '__count') return -1; if (name === '__none') return -2; const i = m.cols.findIndex(c => c.name === name); return i >= 0 ? i : null; };
+  function metricIdx() {
+    if (st.metric != null && (st.metric === -1 || m.nums.includes(st.metric))) return st.metric;
+    const d = colIdx(dflt('metric')); if (d === -1 || (d != null && m.nums.includes(d))) return d;
+    return m.nums.length ? m.nums[0] : -1;
+  }
+  function dimIdx() {
+    if (st.dim != null && m.cats.includes(st.dim)) return st.dim;
+    const d = colIdx(dflt('dim')); if (d != null && m.cats.includes(d)) return d;
+    return m.dims.length ? m.dims[0] : -1;
+  }
+  function sdIdx(dim) {
+    const d = colIdx(dflt('sd')); if (d === -2) return -1;
+    if (d != null && d !== dim && m.cats.includes(d)) return d;
+    return m.dims.find(c => c !== dim && c !== m.monthCol && m.uniq(c) >= 2) ?? -1;
+  }
+  function pieIdx(dim, sd) { const d = colIdx(dflt('pie')); if (d != null && m.cats.includes(d)) return d; return sd >= 0 ? sd : dim; }
   const vz = slot => { const v = o.project.config && o.project.config.viz && o.project.config.viz[slot]; return v || vizDefault(TEMPLATES[o.project.template] ? o.project.template : 'tiles', slot); };
   const activeF = () => Object.entries(st.filters).filter(([, v]) => v != null);
 
@@ -136,9 +153,11 @@ export function mountDashboard(root, opts) {
     const metric = metricIdx(), dim = dimIdx(), rows = m.filter(st.filters, '');
     const tcfg = o.project.config && o.project.config.target;
     const tstats = o.version.targets ? targetStats(m, rows, o.version.targets, tcfg, st.filters) : null;
+    const sd = sdIdx(dim), dimChosen = st.dim != null || colIdx(dflt('dim')) != null;
     return {
-      metric, dim, rows, tstats,
-      sd: m.dims.find(c => c !== dim && c !== m.monthCol && m.uniq(c) >= 2) ?? -1,
+      metric, dim, rows, tstats, sd, pie: pieIdx(dim, sd),
+      // in the tiles layout the big chart shows targets unless another split was chosen
+      showT: !!tstats && (!dimChosen || (dim >= 0 && m.cols[dim].name === tstats.keyName)),
       ml: m.label(metric), mean: m.isMean(metric), hasF: activeF().length > 0,
       pal: theme.palette, ink: theme.vars['--d-muted'], grid: theme.vars['--d-line'],
       prev: o.previous && o.previous.totals,
@@ -296,10 +315,10 @@ export function mountDashboard(root, opts) {
         : `<div class="d-gbox"><canvas data-cv="gauge" role="img" aria-label="${esc(gauge.title)}"></canvas><p class="d-gval">${gauge.label}</p></div><div class="d-gscale"><span>${gauge.lo}</span><span>${gauge.hi}</span></div>`;
       top += `<article class="d-tile d-gauge">${head(gauge.title, gauge.sub)}${inner}</article>`;
     }
-    if (c.tstats) top += `<article class="d-tile d-wide d-bartile">${head(T('الفعلي مقابل المستهدف', 'Actual vs target'), T('حسب ', 'by ') + c.tstats.keyName)}<div class="d-box"><canvas data-cv="bar" role="img" aria-label="${T('الفعلي مقابل المستهدف', 'Actual vs target')}"></canvas></div></article>`;
+    if (c.showT) top += `<article class="d-tile d-wide d-bartile">${head(T('الفعلي مقابل المستهدف', 'Actual vs target'), T('حسب ', 'by ') + c.tstats.keyName)}<div class="d-box"><canvas data-cv="bar" role="img" aria-label="${T('الفعلي مقابل المستهدف', 'Actual vs target')}"></canvas></div></article>`;
     else if (c.dim >= 0) top += `<article class="d-tile d-wide d-bartile">${head(c.ml + T(' حسب ', ' by ') + m.cols[c.dim].name, c.sd >= 0 && !c.mean ? T('مقسّم حسب ', 'Split by ') + m.cols[c.sd].name + T(' · اضغط عمودًا للفلترة', ' · click a bar to filter') : T('اضغط عمودًا للفلترة', 'Click a bar to filter'))}<div class="d-box"><canvas data-cv="bar" role="img" aria-label="${T('التوزيع', 'Breakdown')}"></canvas></div></article>`;
     else if (m.date >= 0) top += `<article class="d-tile d-wide d-bartile">${head(c.ml + T(' عبر الزمن', ' over time'), m.monthly ? T('شهريًا', 'Monthly') : T('يوميًا', 'Daily'))}<div class="d-box"><canvas data-cv="line" role="img" aria-label="${T('الاتجاه', 'Trend')}"></canvas></div></article>`;
-    const pd = c.sd >= 0 ? c.sd : c.dim;
+    const pd = c.pie;
     if (pd >= 0 && !c.mean) top += `<article class="d-tile d-wide d-pietile">${head(T('توزيع ', '') + c.ml + T(' حسب ', ' by ') + m.cols[pd].name, T('أكبر خمس قيم والباقي في «أخرى»', 'Top five, the rest in “Other”'))}<div class="d-box"><canvas data-cv="pie" role="img" aria-label="${T('الحصص', 'Shares')}"></canvas></div></article>`;
 
     const metrics = m.nums.length ? m.nums.slice(0, 4) : [-1], n = metrics.length, mid = Math.floor(n / 2), chg = [], mini = [];
@@ -315,7 +334,7 @@ export function mountDashboard(root, opts) {
       <section class="d-bottom" style="--n:${n + 1}">${chg.slice(0, mid).join('')}<article class="d-tile d-hl" style="--mo:0">${hl}</article>${chg.slice(mid).join('')}${mini.slice(0, mid).join('')}<article class="d-tile d-notes" style="--mo:99">${head(T('ملاحظات', 'Insights'), '')}${insList(c)}</article>${mini.slice(mid).join('')}</section>${recItems().length ? `<section class="d-recsec">${recsHTML('d-tile')}</section>` : ''}`;
     return { html, after() {
       if (gauge && kv === 'gauge') chartGauge(c, 'gauge', gauge.v, gauge.max);
-      if (c.tstats) chartTargets(c, 'bar'); else if (c.dim >= 0) chartBreakdown(c, 'bar', vz('breakdown')); else if (m.date >= 0) chartLine(c, 'line', c.metric);
+      if (c.showT) chartTargets(c, 'bar'); else if (c.dim >= 0) chartBreakdown(c, 'bar', vz('breakdown')); else if (m.date >= 0) chartLine(c, 'line', c.metric);
       if (pd >= 0 && !c.mean) chartPie(c, 'pie', pd);
       metrics.forEach((mi, idx) => chartMini(c, 'mini' + idx, mi));
       drawMap(c);
@@ -340,12 +359,12 @@ export function mountDashboard(root, opts) {
         ${recsHTML('d-card d-span12')}
         ${c.dim >= 0 ? `<article class="d-card d-span6">${head(c.ml + T(' حسب ', ' by ') + m.cols[c.dim].name, T('اضغط أي شريط للفلترة', 'Click a bar to filter'))}<div class="d-box d-hbox"><canvas data-cv="hbar" role="img" aria-label="${T('الترتيب', 'Ranking')}"></canvas></div></article>` : ''}
         ${c.tstats ? `<article class="d-card d-span6">${head(T('الفعلي مقابل المستهدف', 'Actual vs target'), T('حسب ', 'by ') + c.tstats.keyName)}<div class="d-box"><canvas data-cv="tbar" role="img" aria-label="${T('الفعلي مقابل المستهدف', 'Actual vs target')}"></canvas></div></article>`
-          : (c.sd >= 0 && !c.mean ? `<article class="d-card d-span6">${head(T('توزيع ', '') + c.ml + T(' حسب ', ' by ') + m.cols[c.sd].name, '')}<div class="d-box"><canvas data-cv="pie" role="img" aria-label="${T('الحصص', 'Shares')}"></canvas></div></article>` : '')}
+          : (c.pie >= 0 && !c.mean ? `<article class="d-card d-span6">${head(T('توزيع ', '') + c.ml + T(' حسب ', ' by ') + m.cols[c.pie].name, '')}<div class="d-box"><canvas data-cv="pie" role="img" aria-label="${T('الحصص', 'Shares')}"></canvas></div></article>` : '')}
       </section>`;
     return { html, after() {
       if (hasLine) chartLine(c, 'line', c.metric);
       if (c.dim >= 0) chartBreakdown(c, 'hbar', vz('breakdown'));
-      if (c.tstats) chartTargets(c, 'tbar'); else if (c.sd >= 0 && !c.mean) chartPie(c, 'pie', c.sd);
+      if (c.tstats) chartTargets(c, 'tbar'); else if (c.pie >= 0 && !c.mean) chartPie(c, 'pie', c.pie);
       drawMap(c);
     } };
   }

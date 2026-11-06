@@ -47,6 +47,7 @@ function preview() {
     const { version, previous } = currentVersion();
     const opts = { project: { ...project }, version, previous };
     if (!dash) dash = mountDashboard($('#preview'), opts); else dash.update(opts);
+    renderDefaults();
     $('#preview-note').textContent = pending ? 'معاينة تحديث غير منشور' : (latest ? '' : 'لا توجد بيانات بعد');
   }, 200);
 }
@@ -134,8 +135,8 @@ $('#swatches').addEventListener('click', e => { const b = e.target.closest('[dat
 /* ---------- 3 data ---------- */
 const dstatus = (msg, err) => { const s = $('#data-status'); s.textContent = msg || ''; s.classList.toggle('err', !!err); };
 function renderVersions() {
-  $('#cur-version').textContent = latest ? `البيانات الحالية: ${latest.file_name || '—'} · ${Number(latest.row_count).toLocaleString('en-US')} صف · ${fmtDate(latest.created_at)}` : 'لا توجد بيانات بعد. ارفع أول ملف.';
-  $('#vlist').innerHTML = versions.length ? versions.map((v, i) => `<li><span class="vtag ${i === 0 ? 'now' : ''}">${i === 0 ? 'الحالي' : 'v' + (versions.length - i)}</span><strong>${esc(v.period || v.file_name)}</strong><span class="muted">${esc(v.file_name)}${v.target_file_name ? ' + ' + esc(v.target_file_name) : ''} · ${Number(v.row_count).toLocaleString('en-US')} صف · ${esc(fmtDate(v.created_at))}</span></li>`).join('') : '<li class="muted">لا يوجد</li>';
+  $('#cur-version').textContent = latest ? `البيانات الحالية: ${latest.file_name || '—'} · ${Number(latest.row_count || 0).toLocaleString('en-US')} صف · ${fmtDate(latest.created_at)}` : 'لا توجد بيانات بعد. ارفع أول ملف.';
+  $('#vlist').innerHTML = versions.length ? versions.map((v, i) => `<li><span class="vtag ${i === 0 ? 'now' : ''}">${i === 0 ? 'الحالي' : 'v' + (versions.length - i)}</span><strong>${esc(v.period || v.file_name)}</strong><span class="muted">${esc(v.file_name)}${v.target_file_name ? ' + ' + esc(v.target_file_name) : ''} · ${Number(v.row_count || 0).toLocaleString('en-US')} صف · ${esc(fmtDate(v.created_at))}</span></li>`).join('') : '<li class="muted">لا يوجد</li>';
 }
 function rebuild() {
   const msgs = [];
@@ -267,6 +268,33 @@ function renderTemplates() {
   $('#tpls').innerHTML = Object.entries(TEMPLATES).map(([k, t]) => `<button type="button" class="tpl" data-t="${k}" aria-pressed="${project.template === k}"><svg viewBox="0 0 76 52" aria-hidden="true">${SCHEMA[k]}</svg><span><strong>${t.name}</strong><span>${t.desc}</span></span></button>`).join('');
 }
 $('#tpls').addEventListener('click', e => { const b = e.target.closest('[data-t]'); if (!b) return; project.template = b.dataset.t; renderTemplates(); renderViz(); queue({ template: project.template }); preview(); });
+
+/* what the charts show (stored by column name) */
+let defsVid = null;
+function renderDefaults(force) {
+  const { version } = currentVersion();
+  const box = $('#defs'); if (!box) return;
+  const vid = version ? (version.id || version.file_name || 'pending') + ':' + (version.data && version.data.columns ? version.data.columns.length : 0) : null;
+  if (!force && vid === defsVid) return; defsVid = vid;
+  if (!version || !version.data) { box.innerHTML = '<p class="muted" style="font-size:13px;margin:0">ارفع البيانات أولًا.</p>'; return; }
+  const m = createModel(version.data), d = project.config.defaults || {};
+  const opt = (v, l, cur) => `<option value="${esc(v)}" ${cur === v ? 'selected' : ''}>${esc(l)}</option>`;
+  const cats = m.cats.map(i => m.cols[i].name);
+  const rows = [
+    ['metric', 'المؤشر (الرقم)', [['', 'تلقائي'], ...m.nums.map(i => [m.cols[i].name, m.cols[i].name]), ['__count', 'عدد السجلات']]],
+    ['dim', 'التقسيم الأساسي', [['', 'تلقائي'], ...cats.map(n => [n, n])]],
+    ['sd', 'التقسيم الثاني (ألوان الأعمدة)', [['', 'تلقائي'], ['__none', 'بدون'], ...cats.map(n => [n, n])]],
+    ['pie', 'الرسم الدائري حسب', [['', 'تلقائي'], ...cats.map(n => [n, n])]]
+  ];
+  box.innerHTML = rows.map(([k, l, os]) => `<label class="field"><span class="label" style="font-size:12.5px">${l}</span><select data-def="${k}">${os.map(([v, t]) => opt(v, t, d[k] || '')).join('')}</select></label>`).join('');
+}
+$('#defs').addEventListener('change', e => {
+  const s = e.target.closest('[data-def]'); if (!s) return;
+  const d = { ...(project.config.defaults || {}) };
+  if (s.value) d[s.dataset.def] = s.value; else delete d[s.dataset.def];
+  project.config = { ...project.config, defaults: d };
+  queue({ config: project.config }); preview();
+});
 
 /* chart type per slot */
 const VI = {

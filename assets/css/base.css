@@ -414,3 +414,6 @@ html:not([lang=en]) .en-only{display:none!important}
 .reclist li{display:grid;grid-template-columns:1fr auto;gap:6px;align-items:start}
 .reclist li.empty{display:block;color:var(--muted);font-size:13px}
 .reclist textarea,#f-rec{width:100%;font:inherit;font-size:13.5px;line-height:1.6;padding:8px 10px;border:1.5px solid var(--line);border-radius:10px;background:var(--surface);color:var(--ink);resize:vertical}
+.defgrid{display:grid;grid-template-columns:1fr 1fr;gap:8px 10px}
+.defgrid .field{gap:4px}
+@media (max-width:520px){.defgrid{grid-template-columns:1fr}}
