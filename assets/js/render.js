@@ -2,6 +2,7 @@
 import { findGeoCol, coordOf, loadLeaflet } from './geo.js';
 import { buildSQL } from './sql.js';
 import { openSqlEditor } from './sqleditor.js';
+import { forecast } from './forecast.js';
 import { createModel, autoInsights, targetStats, brandTheme, loadFont, fmt, fmtPct, pLabel, fmtDate, esc, alpha, onColor, T, isEn } from './engine.js';
 
 export const TEMPLATES = {
@@ -12,9 +13,9 @@ export const TEMPLATES = {
 
 // chart type per slot; the owner can override in project.config.viz
 const VIZ_DEFAULT = {
-  tiles: { breakdown: 'bar', share: 'doughnut', trend: 'area', kpi: 'gauge' },
-  executive: { breakdown: 'hbar', share: 'doughnut', trend: 'area', kpi: 'bar' },
-  compact: { breakdown: 'hbar', share: 'doughnut', trend: 'area', kpi: 'bar' }
+  tiles: { breakdown: 'bar', share: 'doughnut', trend: 'area', kpi: 'gauge', forecast: 'on' },
+  executive: { breakdown: 'hbar', share: 'doughnut', trend: 'area', kpi: 'bar', forecast: 'on' },
+  compact: { breakdown: 'hbar', share: 'doughnut', trend: 'area', kpi: 'bar', forecast: 'on' }
 };
 export const vizDefault = (tpl, slot) => (VIZ_DEFAULT[tpl] || VIZ_DEFAULT.tiles)[slot];
 
@@ -74,7 +75,7 @@ export function mountDashboard(root, opts) {
       const el = key === 'map' ? root.querySelector('[data-map]') : root.querySelector(`[data-cv="${key}"]`);
       const card = el && el.closest('article'); const th = card && card.querySelector('.d-th');
       if (!th || th.querySelector('.d-sqlbtn') || !sqlText(key)) return;
-      th.insertAdjacentHTML('beforeend', `<button type="button" class="d-sqlbtn no-export" data-sql="${key}" title="${T('افتح استعلام هذا الرسم في محرر SQL', 'Open this chart\'s query in the SQL editor')}" aria-label="${T('استعلام SQL', 'SQL query')}">{ } SQL</button>`);
+      th.insertAdjacentHTML('beforeend', `<button type="button" class="d-sqlbtn no-export" data-sql="${key}" title="${T('افتح استعلام هذا الرسم في محرر SQL', 'Open this chart\'s query in the SQL editor')}" aria-label="${T('استعلام SQL', 'SQL query')}"><span dir="ltr">{ } SQL</span></button>`);
     });
   }
   let tModel = null, tModelFor = null;
@@ -275,16 +276,39 @@ export function mountDashboard(root, opts) {
     draw(key, { type: 'doughnut', data: { datasets: [{ data: [Math.min(value, max), Math.max(0, max - value)], backgroundColor: [c.pal[0], theme.vars['--d-surface-2']], borderWidth: 0 }] },
       options: { responsive: true, maintainAspectRatio: false, rotation: -90, circumference: 180, cutout: '70%', animation: anim(), plugins: { legend: { display: false }, tooltip: { enabled: false } } } });
   }
+  // forecast for the trend chart (monthly data, 6+ months, owner can switch it off)
+  const fcFor = c => (m.date >= 0 && m.monthly && vz('forecast') !== 'off') ? forecast(m.series(c.rows, c.metric), 3) : null;
+  function fcNote(key, F, c) {
+    const cv = root.querySelector(`[data-cv="${key}"]`), card = cv && cv.closest('article'); if (!card) return;
+    let el = card.querySelector('.d-fcnote'); if (!el) { el = document.createElement('div'); el.className = 'd-fcnote'; card.appendChild(el); }
+    if (!F) { el.remove(); return; }
+    const acc = F.accuracy == null ? '' : ` · ${T('الدقة', 'accuracy')} ~${F.accuracy.toFixed(0)}%`;
+    el.innerHTML = `<p class="d-fcvals"><span class="d-fckey" aria-hidden="true"></span>${T('التوقع', 'Forecast')}: ${F.keys.map((k, i) => `<span><bdi>${esc(pLabel(k))}</bdi> <b>${fmt(F.pts[i])}</b></span>`).join('<i>·</i>')}</p>
+      <details><summary>${T('الطريقة', 'Method')}: ${esc(F.best.name)}${acc} <small>(${T(F.test === 2 ? 'اختُبرت على آخر شهرين معروفين' : F.test === 1 ? 'اختُبرت على آخر شهر معروف' : `اختُبرت على آخر ${F.test} أشهر معروفة`, `tested on the last ${F.test} known months`)})</small></summary>
+      <table class="d-fctbl"><thead><tr><th>${T('الطريقة', 'Method')}</th><th>${T('الدقة', 'Accuracy')}</th><th>${T('متوسط الخطأ', 'Avg. error')}</th></tr></thead><tbody>${F.ranking.map((r, i) => `<tr class="${i ? '' : 'on'}"><td>${esc(r.name)}${i ? '' : ' ✓'}</td><td>${r.mape == null ? '—' : Math.max(0, 100 - r.mape).toFixed(1) + '%'}</td><td>${fmt(r.rmse)}</td></tr>`).join('')}</tbody></table>
+      <p class="d-fchelp">${T('النطاق المظلل يوضّح المدى المتوقع بثقة ~80%. التوقع مبني على الأرقام السابقة فقط ولا يعرف عن أي حدث قادم.', 'The shaded band is the ~80% expected range. The forecast uses past numbers only and knows nothing about upcoming events.')}</p></details>`;
+  }
   function chartLine(c, key, mi) {
     sqlSet(key, { kind: 'trend', metric: mi });
     const s = m.series(c.rows, mi), tt = vz('trend');
+    const F = mi === c.metric ? fcFor(c) : null, n = s.length, fl = F ? F.keys.length : 0;
+    const labels = s.map(p => pLabel(p.k)).concat(F ? F.keys.map(pLabel) : []);
+    const pad = (arr) => arr.concat(Array(fl).fill(null));
+    const fcCol = c.pal[1] || c.pal[0];
+    const fcSets = !F ? [] : tt === 'bar'
+      ? [{ label: T('التوقع', 'Forecast'), data: Array(n).fill(null).concat(F.pts), backgroundColor: alpha(fcCol, .45), borderColor: fcCol, borderWidth: 1.5, borderDash: [4, 3], borderRadius: 3, maxBarThickness: 40, grouped: false }]
+      : [{ label: T('التوقع', 'Forecast'), data: Array(n - 1).fill(null).concat([s[n - 1].v], F.pts), borderColor: fcCol, backgroundColor: fcCol, borderDash: [6, 4], borderWidth: 2.2, tension: .3, pointRadius: Array(n - 1).fill(0).concat([0], F.pts.map(() => 3)), pointBackgroundColor: fcCol, fill: false },
+         { label: 'lo', band: true, data: Array(n - 1).fill(null).concat([s[n - 1].v], F.band.map(b => b[0])), borderWidth: 0, pointRadius: 0, fill: false, tension: .3 },
+         { label: 'hi', band: true, data: Array(n - 1).fill(null).concat([s[n - 1].v], F.band.map(b => b[1])), borderWidth: 0, pointRadius: 0, fill: '-1', backgroundColor: alpha(fcCol, .16), tension: .3 }];
+    const tp = { ...tip(), filter: it => !it.dataset.band };
     if (tt === 'bar') {
-      draw(key, { type: 'bar', data: { labels: s.map(p => pLabel(p.k)), datasets: [{ data: s.map(p => p.v), backgroundColor: c.pal[0], borderRadius: 3, maxBarThickness: 40 }] },
-        options: { responsive: true, maintainAspectRatio: false, animation: anim(), plugins: { legend: { display: false }, tooltip: tip() }, scales: { x: { reverse: !isEn(), grid: { display: false }, ticks: { maxRotation: 0, autoSkip: true } }, y: { position: isEn() ? 'left' : 'right', beginAtZero: true, grid: { color: c.grid }, border: { display: false }, ticks: { callback: v => fmt(v), maxTicksLimit: 5 } } } } });
-      return;
+      draw(key, { type: 'bar', data: { labels, datasets: [{ label: F ? c.ml : '', data: pad(s.map(p => p.v)), backgroundColor: c.pal[0], borderRadius: 3, maxBarThickness: 40, grouped: false }].concat(fcSets) },
+        options: { responsive: true, maintainAspectRatio: false, animation: anim(), plugins: { legend: { display: false }, tooltip: tp }, scales: { x: { reverse: !isEn(), grid: { display: false }, ticks: { maxRotation: 0, autoSkip: true } }, y: { position: isEn() ? 'left' : 'right', beginAtZero: true, grid: { color: c.grid }, border: { display: false }, ticks: { callback: v => fmt(v), maxTicksLimit: 5 } } } } });
+    } else {
+      draw(key, { type: 'line', data: { labels, datasets: [{ label: F ? c.ml : '', data: pad(s.map(p => p.v)), borderColor: c.pal[0], backgroundColor: alpha(c.pal[0], .14), fill: tt !== 'line', tension: .3, borderWidth: 2.2, pointRadius: n > 40 ? 0 : 3, pointBackgroundColor: c.pal[0] }].concat(fcSets) },
+        options: { responsive: true, maintainAspectRatio: false, animation: anim(), interaction: { mode: 'index', intersect: false }, plugins: { legend: { display: false }, tooltip: tp }, scales: { x: { grid: { display: false }, ticks: { maxRotation: 0, autoSkip: true } }, y: { beginAtZero: true, grid: { color: c.grid }, border: { display: false }, ticks: { callback: v => fmt(v), maxTicksLimit: 5 } } } } });
     }
-    draw(key, { type: 'line', data: { labels: s.map(p => pLabel(p.k)), datasets: [{ data: s.map(p => p.v), borderColor: c.pal[0], backgroundColor: alpha(c.pal[0], .14), fill: tt !== 'line', tension: .3, borderWidth: 2.2, pointRadius: s.length > 40 ? 0 : 3, pointBackgroundColor: c.pal[0] }] },
-      options: { responsive: true, maintainAspectRatio: false, animation: anim(), plugins: { legend: { display: false }, tooltip: tip() }, scales: { x: { grid: { display: false }, ticks: { maxRotation: 0, autoSkip: true } }, y: { beginAtZero: true, grid: { color: c.grid }, border: { display: false }, ticks: { callback: v => fmt(v), maxTicksLimit: 5 } } } } });
+    fcNote(key, F, c);
   }
   function chartMini(c, key, mi) {
     sqlSet(key, m.date >= 0 ? { kind: 'trend', metric: mi, last: 6 } : { kind: 'breakdown', dim: c.dim, metric: mi, limit: 6 });
@@ -371,12 +395,15 @@ export function mountDashboard(root, opts) {
     let hl;
     if (m.date >= 0) { const s = m.series(c.rows, c.metric); const avg = s.length ? s.reduce((a, x) => a + x.v, 0) / s.length : 0; hl = `<p class="d-big">${fmt(avg)}</p><p class="d-hlt">${T(`${esc(c.ml)} ${m.monthly ? 'شهريًا' : 'يوميًا'} في المتوسط`, `Average ${m.monthly ? 'monthly' : 'daily'} ${esc(c.ml)}`)}</p>`; }
     else hl = `<p class="d-big">${c.rows.length.toLocaleString('en-US')}</p><p class="d-hlt">${T('سجل في البيانات', 'records')}</p>`;
-    const html = `<section class="d-top ${gauge ? 'has-gauge' : ''} ${pd >= 0 && !c.mean ? 'has-pie' : ''}">${top}</section>${geo >= 0 ? `<section class="d-mapsec">${mapHTML(c, 'd-tile')}</section>` : ''}
+    const lineTop = !c.showT && c.dim < 0 && m.date >= 0, fcTile = !lineTop && !!fcFor(c);
+    const fcHTML = fcTile ? `<section class="d-recsec"><article class="d-tile d-fctile">${head(T('الاتجاه والتوقع', 'Trend & forecast'), c.ml + T(' · الأشهر القادمة بخط متقطع', ' · coming months dashed'))}<div class="d-box"><canvas data-cv="line" role="img" aria-label="${T('الاتجاه والتوقع', 'Trend and forecast')}"></canvas></div></article></section>` : '';
+    const html = `<section class="d-top ${gauge ? 'has-gauge' : ''} ${pd >= 0 && !c.mean ? 'has-pie' : ''}">${top}</section>${fcHTML}${geo >= 0 ? `<section class="d-mapsec">${mapHTML(c, 'd-tile')}</section>` : ''}
       <section class="d-bottom" style="--n:${n + 1}">${chg.slice(0, mid).join('')}<article class="d-tile d-hl" style="--mo:0">${hl}</article>${chg.slice(mid).join('')}${mini.slice(0, mid).join('')}<article class="d-tile d-notes" style="--mo:99">${head(T('ملاحظات', 'Insights'), '')}${insList(c)}</article>${mini.slice(mid).join('')}</section>${recItems().length ? `<section class="d-recsec">${recsHTML('d-tile')}</section>` : ''}${noteItems().length ? `<section class="d-recsec">${notesHTML('d-tile')}</section>` : ''}`;
     return { html, after() {
       if (gauge && kv === 'gauge') chartGauge(c, 'gauge', gauge.v, gauge.max);
       if (c.showT) chartTargets(c, 'bar'); else if (c.dim >= 0) chartBreakdown(c, 'bar', vz('breakdown')); else if (m.date >= 0) chartLine(c, 'line', c.metric);
       if (pd >= 0 && !c.mean) chartPie(c, 'pie', pd);
+      if (fcTile) chartLine(c, 'line', c.metric);
       metrics.forEach((mi, idx) => chartMini(c, 'mini' + idx, mi));
       drawMap(c);
     } };

@@ -208,7 +208,7 @@
 
 /* SQL behind a chart */
 .d-th{position:relative}
-.d-sqlbtn{position:absolute;inset-inline-end:0;top:0;border:1px solid var(--d-line);background:var(--d-surface);color:var(--d-muted);font:600 11px/1 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;padding:5px 8px;border-radius:7px;cursor:pointer;direction:ltr}
+.d-sqlbtn{position:absolute;inset-inline-end:0;top:0;border:1px solid var(--d-line);background:var(--d-surface);color:var(--d-muted);font:600 11px/1 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;padding:5px 8px;border-radius:7px;cursor:pointer}
 .d-sqlbtn:hover,.d-sqlbtn:focus-visible{color:var(--d-primary);border-color:var(--d-primary)}
 .d-th h3{padding-inline-end:64px}
 .d-sqlmodal{position:fixed;inset:0;z-index:99999;font-family:var(--d-font,inherit);background:rgba(10,12,14,.55);display:grid;place-items:center;padding:16px}
@@ -248,3 +248,20 @@
 @media print{.d-sqlbtn,.d-sqled,.d-sqlmodal{display:none!important}}
 
 @media (pointer:coarse){.d-sqlbtn{padding:8px 10px;font-size:12px}.d-sqlhint{display:none}}
+/* forecast */
+.d-fcnote{margin-top:10px;border-top:1px dashed var(--d-line);padding-top:10px;font-size:12.5px;color:var(--d-muted)}
+.d-fcvals{margin:0;display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.d-fcvals b{color:var(--d-ink);font-variant-numeric:tabular-nums}
+.d-fcvals i{font-style:normal;opacity:.5}
+.d-fckey{display:inline-block;width:18px;height:0;border-top:2.5px dashed var(--d-secondary,var(--d-primary));margin-inline-end:2px}
+.d-fcnote details{margin-top:6px}
+.d-fcnote summary{cursor:pointer;font-weight:600;color:var(--d-ink)}
+.d-fcnote summary small{font-weight:400;color:var(--d-muted)}
+.d-fctbl{border-collapse:collapse;width:100%;max-width:520px;margin-top:8px;font-size:12px}
+.d-fctbl th,.d-fctbl td{text-align:start;padding:5px 8px;border-bottom:1px solid var(--d-line)}
+.d-fctbl td:not(:first-child){font-variant-numeric:tabular-nums;direction:ltr;text-align:end}
+.d-fctbl th:not(:first-child){text-align:end}
+.d-fctbl tr.on td{color:var(--d-ink);font-weight:700}
+.d-fchelp{margin:8px 0 0;font-size:11.5px}
+.d-fctile .d-box{height:260px}
+@media print{.d-fcnote details:not([open]) .d-fctbl{display:none}}

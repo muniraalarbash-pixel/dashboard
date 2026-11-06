@@ -328,6 +328,8 @@ $('#defs').addEventListener('change', e => {
 
 /* chart type per slot */
 const VI = {
+  fcon: '<path d="M3 17l5-5 4 3 3-3" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/><path d="M15 12l6-5" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-dasharray="2 3"/>',
+  fcoff: '<path d="M3 17l5-5 4 3 8-8" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>',
   bar: '<rect x="3" y="12" width="4" height="9"/><rect x="10" y="6" width="4" height="15"/><rect x="17" y="9" width="4" height="12"/>',
   hbar: '<rect x="3" y="3" width="15" height="4"/><rect x="3" y="10" width="11" height="4"/><rect x="3" y="17" width="18" height="4"/>',
   line: '<path d="M3 18l5-6 4 3 8-9" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>',
@@ -342,7 +344,8 @@ const VIZ_OPTS = [
   { slot: 'breakdown', label: 'التوزيع حسب الفئة', opts: [['bar', 'أعمدة'], ['hbar', 'أفقي'], ['line', 'خطي'], ['pie', 'دائري', 'doughnut']] },
   { slot: 'share', label: 'الحصص', opts: [['doughnut', 'حلقي'], ['pie', 'دائري'], ['bar', 'أعمدة'], ['hbar', 'أفقي']] },
   { slot: 'trend', label: 'الاتجاه عبر الزمن', opts: [['area', 'مساحة'], ['line', 'خطي'], ['bar', 'أعمدة']] },
-  { slot: 'kpi', label: 'نسبة الإنجاز', opts: [['gauge', 'عداد'], ['bar', 'شريط', 'kbar'], ['number', 'رقم']] }
+  { slot: 'kpi', label: 'نسبة الإنجاز', opts: [['gauge', 'عداد'], ['bar', 'شريط', 'kbar'], ['number', 'رقم']] },
+  { slot: 'forecast', label: 'توقع الأشهر القادمة', opts: [['on', 'إظهار', 'fcon'], ['off', 'إخفاء', 'fcoff']] }
 ];
 function renderViz() {
   const cur = slot => (project.config.viz && project.config.viz[slot]) || vizDefault(project.template, slot);
