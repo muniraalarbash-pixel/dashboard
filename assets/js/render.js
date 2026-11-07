@@ -3,6 +3,7 @@ import { findGeoCol, coordOf, regionOf, saudiOnly, loadLeaflet } from './geo.js'
 import { buildSQL } from './sql.js';
 import { openSqlEditor } from './sqleditor.js';
 import { forecast } from './forecast.js';
+import { askQuestions } from './ask.js';
 import { createModel, autoInsights, targetStats, brandTheme, loadFont, mix, fmt, fmtPct, pLabel, fmtDate, esc, alpha, onColor, T, isEn } from './engine.js';
 
 export const TEMPLATES = {
@@ -59,13 +60,13 @@ function spark(vals) {
 export function mountDashboard(root, opts) {
   const charts = {}, maps = [];
   let geo = -1, saudi = false;
-  const st = { view: 'overview', filters: {}, region: null, mapMode: null, metric: null, dim: null, search: '', sortCol: null, sortDir: -1, page: 0 };
+  const st = { view: 'overview', ask: null, filters: {}, region: null, mapMode: null, metric: null, dim: null, search: '', sortCol: null, sortDir: -1, page: 0 };
   let o = opts, m, theme;
   // SQL behind each chart (key -> spec), rebuilt on every render
   let sqlReg = {};
   const sqlSet = (key, spec) => { sqlReg[key] = spec; };
-  function sqlText(key) {
-    const spec = sqlReg[key]; if (!spec) return '';
+  function sqlText(key) { const spec = sqlReg[key]; return spec ? sqlFor(spec) : ''; }
+  function sqlFor(spec) {
     const f = { ...st.filters }; if (st.region && geo >= 0 && f[geo] == null) f[geo] = regionVals(); if (spec.exclude != null) delete f[spec.exclude];
     const tc = o.project.config && o.project.config.target;
     return buildSQL(m, spec, f, tc);
@@ -79,15 +80,17 @@ export function mountDashboard(root, opts) {
     });
   }
   let tModel = null, tModelFor = null;
-  function openSql(key) {
-    const txt = key ? sqlText(key) : ''; if (key && !txt) return;
+  function openSql(key, given, gtitle) {
+    const txt = given || (key ? sqlText(key) : ''); if (key && !txt) return;
     if (o.version && o.version.targets && tModelFor !== o.version) { tModel = createModel(o.version.targets); tModelFor = o.version; }
     const cs = getComputedStyle(root.querySelector('.dash') || root), vars = {};
     ['--d-surface', '--d-surface-2', '--d-ink', '--d-muted', '--d-line', '--d-primary', '--d-on-primary', '--d-font'].forEach(v => { vars[v] = cs.getPropertyValue(v); });
-    openSqlEditor({ m, tm: o.version && o.version.targets ? tModel : null, sql: txt, title: key ? T('استعلام SQL لهذا الرسم', 'SQL for this chart') : T('محرر SQL', 'SQL editor'), vars, dir: isEn() ? 'ltr' : 'rtl' });
+    openSqlEditor({ m, tm: o.version && o.version.targets ? tModel : null, sql: txt, title: gtitle || (key ? T('استعلام SQL لهذا الرسم', 'SQL for this chart') : T('محرر SQL', 'SQL editor')), vars, dir: isEn() ? 'ltr' : 'rtl' });
   }
   root.addEventListener('click', e => {
     const mm = e.target.closest('[data-mapmode]'); if (mm && root.contains(mm)) { st.mapMode = mm.dataset.mapmode; if (st.mapMode === 'cities') st.region = null; renderData(); return; }
+    const aq = e.target.closest('[data-ask]'); if (aq && root.contains(aq)) { st.ask = aq.dataset.ask; renderAsk(); return; }
+    const as = e.target.closest('[data-asksql]'); if (as && root.contains(as) && lastAnswer) { openSql('', lastAnswer.sql, lastAnswer.q); return; }
     const rg = e.target.closest('[data-rg]'); if (rg && root.contains(rg) && !rg.classList.contains('nodata')) { st.region = st.region === rg.dataset.rg ? null : rg.dataset.rg; st.page = 0; renderData(); }
   });
   root.addEventListener('keydown', e => { if ((e.key === 'Enter' || e.key === ' ') && e.target.closest && e.target.closest('[data-rg]')) { e.preventDefault(); e.target.closest('[data-rg]').dispatchEvent(new MouseEvent('click', { bubbles: true })); } });
@@ -501,17 +504,35 @@ export function mountDashboard(root, opts) {
     return { html, after() { if (c.dim >= 0) chartBreakdown(c, 'hbar', vz('breakdown')); if (m.date >= 0) chartLine(c, 'line', c.metric); drawMap(c); } };
   }
 
+  // ---------- ask the data ----------
+  let askCtx = null, lastAnswer = null;
+  function renderAsk() {
+    const qb = root.querySelector('[data-askq]'), ab = root.querySelector('[data-askans]'); if (!qb || !askCtx) return;
+    const qs = askQuestions({ m, c: askCtx, F: fcFor(askCtx), sqlFor });
+    if (!qs.length) { qb.innerHTML = ''; ab.innerHTML = `<p class="d-muted">${T('لا توجد بيانات كافية للأسئلة مع الفلاتر الحالية.', 'Not enough data for questions with the current filters.')}</p>`; return; }
+    if (!qs.some(x => x.id === st.ask)) st.ask = qs[0].id;
+    qb.innerHTML = qs.map(x => `<button type="button" data-ask="${x.id}" aria-pressed="${x.id === st.ask}">${esc(x.q)}</button>`).join('');
+    const q = qs.find(x => x.id === st.ask), a = q.a();
+    lastAnswer = { sql: a.sql, q: q.q };
+    const safe = h => esc(h).replace(/&lt;(\/?)b&gt;/g, '<$1b>').replace(/([+−-]?\d[\d.,]*%)/g, '<bdi dir="ltr">$1</bdi>');
+    ab.innerHTML = `<div class="d-askhead"><span class="d-askicon" aria-hidden="true">💡</span><p>${safe(a.head)}</p></div>
+      ${a.items && a.items.length ? `${a.itemsTitle ? `<p class="d-askst">${esc(a.itemsTitle)}</p>` : ''}<ul class="d-askbars">${a.items.map(i => `<li class="${i.cls || ''}"><span class="k"><bdi>${esc(i.k)}</bdi></span><span class="bar"><i style="width:${Math.max(2, Math.round((i.w || 0) * 100))}%"></i>${a.avgLine != null ? `<em style="inset-inline-start:${Math.round(a.avgLine * 100)}%" title="${T('المتوسط', 'Average')}"></em>` : ''}</span><b><bdi dir="ltr">${i.signed && i.v > 0 ? '+' : ''}${fmt(i.v).replace(/^-/, '−')}</bdi></b><small>${esc(i.sub || '')}</small></li>`).join('')}</ul>` : ''}
+      ${a.note ? `<p class="d-asknote">${esc(a.note)}</p>` : ''}
+      ${a.sql ? `<button type="button" class="d-asksql no-export" data-asksql><span dir="ltr">{ } SQL</span> ${T('شوف الاستعلام وشغّله', 'See and run the query')}</button>` : ''}`;
+  }
+
   // ---------- pages ----------
   const PI = {
     overview: '<rect x="3" y="3" width="8" height="8" rx="2"/><rect x="13" y="3" width="8" height="5" rx="2"/><rect x="13" y="10" width="8" height="11" rx="2"/><rect x="3" y="13" width="8" height="8" rx="2"/>',
     trend: '<path d="M3 17l5-5 4 3 4-4" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/><path d="M16 11l5-4" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-dasharray="2 3"/>',
     map: '<path d="M12 21s-7-6.2-7-11.5A7 7 0 0 1 19 9.5C19 14.8 12 21 12 21z" fill="none" stroke="currentColor" stroke-width="2.2"/><circle cx="12" cy="9.5" r="2.5"/>',
     notes: '<path d="M5 4h14v16l-4-3H5z" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"/><path d="M8 9h8M8 12.5h5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>',
+    ask: '<path d="M4 5h16v11H9l-5 4z" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"/><path d="M10 9.2a2 2 0 1 1 2.6 1.9c-.4.2-.6.5-.6.9" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><circle cx="12" cy="13.6" r="1"/>',
     data: '<rect x="3" y="4" width="18" height="16" rx="2" fill="none" stroke="currentColor" stroke-width="2.2"/><path d="M3 9.5h18M3 14.5h18M9.5 4v16" stroke="currentColor" stroke-width="1.8"/>',
     all: '<path d="M4 6h16M4 12h16M4 18h16" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/>'
   };
   function pages() {
-    const l = [['overview', T('نظرة عامة', 'Overview')]];
+    const l = [['overview', T('نظرة عامة', 'Overview')], ['ask', T('اسأل البيانات', 'Ask the data')]];
     if (m.date >= 0 && m.series(m.rows, -1).length >= 2) l.push(['trend', fcFor({ rows: m.rows, metric: metricIdx() }) ? T('الاتجاه والتوقع', 'Trend & forecast') : T('الاتجاه', 'Trend')]);
     if (geo >= 0) l.push(['map', T('المواقع', 'Locations')]);
     if (recItems().length || noteItems().length) l.push(['notes', T('التوصيات والملاحظات', 'Recommendations & notes')]);
@@ -542,6 +563,7 @@ export function mountDashboard(root, opts) {
     if (v === 'map') return { html: `<section class="d-pagegrid one">${mapHTML(c, 'd-card d-mapbig')}</section>`, after() { drawMap(c); } };
     if (v === 'notes') return { html: `<section class="d-pagegrid one">${recsHTML('d-card')}${notesHTML('d-card')}</section>`, after() {} };
     if (v === 'data') return { html: '', after() {} };
+    if (v === 'ask') return { html: `<section class="d-pagegrid one"><article class="d-card d-ask">${head(T('اسأل البيانات', 'Ask the data'), T('اختر سؤالًا، والإجابة تُحسب مباشرة من بياناتك حسب الفلاتر الحالية', 'Pick a question — answered instantly from your data and current filters'))}<div class="d-askq" data-askq role="group"></div><div class="d-askans" data-askans aria-live="polite"></div></article></section>`, after() { askCtx = c; renderAsk(); } };
     return null;
   }
 

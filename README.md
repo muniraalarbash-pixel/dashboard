@@ -30,6 +30,8 @@ Teams share performance numbers as Excel attachments or static screenshots. Ever
 | **Smart Excel import** | Reads `.xlsx` / `.csv` or a pasted table in the browser. Detects column types (date, number, category, text), understands Arabic digits and month names, “SAR / ر.س” values, and drops “Total” rows so nothing is double-counted. |
 | **Target vs actual** | Upload a target file and the app joins it to the data and computes achievement % per branch or department. |
 | **Forecast** | Monthly data with 6+ months gets a 3-month forecast on the trend chart with an ~80% range. Five classic methods are back-tested on the last known months and the most accurate one is used; the comparison table is shown. |
+| **Ask the data** | Ready-made questions built from the file's columns (top/bottom, top-3 share, month-on-month change with biggest movers, best/worst month, who missed target, above/below average, leader within each group, next-month forecast), answered instantly from the filtered rows — no AI. Each answer links to its SQL. |
+| **Pages** | Overview, Ask the data, Trend & forecast, Locations, Notes, Data, and Show all — a sidebar on wide screens, tabs on mobile. |
 | **SQL editor** | Each chart's SQL opens in an in-browser SQLite editor (tables `data` and `targets`); run, edit, and download results as CSV. Nothing leaves the browser. |
 | **Location map** | If a column holds Saudi cities or regions (or GCC cities), in Arabic or English, a map appears automatically with a top-5 ranking: Saudi data shows a shaded map of the 13 administrative regions (switchable to city bubbles); click a region or city to filter the whole dashboard. |
 | **Three templates** | Analytical tiles, executive report, and a mobile summary, all from the same data model. |
@@ -139,6 +141,8 @@ supabase/             Database schema and migrations
 - **المستهدف مقابل الفعلي:** نسبة الإنجاز لكل فرع أو قسم.
 - **خريطة المواقع:** إذا الملف فيه عمود مدن أو مناطق سعودية (أو مدن خليجية)، تظهر خريطة تلقائيًا مع ترتيب لأعلى خمسة. للبيانات السعودية تظهر المناطق الإدارية الـ13 ملوّنة حسب القيمة (مع خيار عرض المدن بدوائر)، والضغط على المنطقة أو المدينة يفلتر اللوحة كاملة.
 - **التوقع:** البيانات الشهرية (6 أشهر فأكثر) يظهر لها توقع للأشهر الثلاثة القادمة مع نطاق متوقع، بعد اختبار عدة طرق واختيار الأدق.
+- **اسأل البيانات:** أسئلة جاهزة تُبنى من أعمدة الملف (الأعلى والأقل، التغير عن الشهر السابق، من لم يحقق المستهدف، وغيرها) والإجابة تُحسب فورًا بدون ذكاء اصطناعي.
+- **الصفحات:** نظرة عامة، اسأل البيانات، الاتجاه والتوقع، المواقع، الملاحظات، البيانات، وعرض الكل.
 - **محرر SQL:** استعلام كل رسم يفتح في محرر داخل المتصفح، تشغّله وتعدّله وتنزّل النتيجة CSV.
 - **ثلاثة قوالب:** مربعات تحليلية، تقرير تنفيذي، ملخص للجوال.
 - **الهوية البصرية:** استخراج ألوان الشعار تلقائيًا واختيار الخط.
