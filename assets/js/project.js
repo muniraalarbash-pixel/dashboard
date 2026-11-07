@@ -79,7 +79,7 @@ function fill() {
   document.title = project.title + ' | لوحة المؤشرات';
   $('#f-title').value = project.title; $('#f-topic').value = project.topic; $('#f-desc').value = project.description; $('#f-period').value = project.period;
   const b = project.brand;
-  $('#c-primary').value = b.primary; $('#c-secondary').value = b.secondary; $('#c-accent').value = b.accent;
+  $('#c-primary').value = b.primary; $('#c-secondary').value = b.secondary; $('#c-accent').value = b.accent; syncHex();
   $('#f-font').innerHTML = Object.keys(FONTS).map(f => `<option ${f === b.font ? 'selected' : ''}>${f}</option>`).join('');
   logoPreview(b.logo_url);
   renderTemplates(); renderViz(); renderRecs(); renderNotes(); renderShare();
@@ -96,7 +96,16 @@ function fill() {
 
 /* ---------- 2 brand ---------- */
 function setBrand(p) { project.brand = { ...project.brand, ...p }; queue({ brand: project.brand }); preview(); }
-['primary', 'secondary', 'accent'].forEach(k => $('#c-' + k).addEventListener('input', e => setBrand({ [k]: e.target.value.toUpperCase() })));
+// colour code fields (#RRGGBB) stay in sync with the colour pickers
+const syncHex = () => ['primary', 'secondary', 'accent'].forEach(k => { const h = $('#h-' + k); if (h && document.activeElement !== h) { h.value = $('#c-' + k).value.toUpperCase(); h.classList.remove('bad'); } });
+const hexOk = v => { v = v.trim().replace(/^#?/, '#'); if (/^#[0-9a-f]{3}$/i.test(v)) v = '#' + v.slice(1).split('').map(x => x + x).join(''); return /^#[0-9a-f]{6}$/i.test(v) ? v.toUpperCase() : null; };
+['primary', 'secondary', 'accent'].forEach(k => {
+  $('#c-' + k).addEventListener('input', e => { setBrand({ [k]: e.target.value.toUpperCase() }); syncHex(); });
+  const h = $('#h-' + k);
+  h.addEventListener('input', () => { const v = hexOk(h.value); h.classList.toggle('bad', !v && h.value.trim().length >= 4); if (v) { $('#c-' + k).value = v.toLowerCase(); setBrand({ [k]: v }); } });
+  h.addEventListener('blur', () => { const v = hexOk(h.value); if (v) h.value = v; syncHex(); });
+  h.addEventListener('paste', () => setTimeout(() => h.dispatchEvent(new Event('input')), 0));
+});
 $('#f-font').addEventListener('change', e => setBrand({ font: e.target.value }));
 function logoPreview(url) {
   $('#logo-prev').innerHTML = url ? `<img src="${esc(url)}" alt="">` : '';
@@ -117,7 +126,7 @@ $('#f-logo').addEventListener('change', async e => {
       $('#swatches').innerHTML = cs.map(c => `<button type="button" style="background:${c}" data-c="${c}" title="${c}" aria-label="استخدام ${c} كلون رئيسي"></button>`).join('');
       $('#sw-wrap').hidden = false;
       const p = { primary: cs[0] }; if (cs[1]) p.secondary = cs[1]; if (cs[2]) p.accent = cs[2];
-      $('#c-primary').value = p.primary; if (p.secondary) $('#c-secondary').value = p.secondary; if (p.accent) $('#c-accent').value = p.accent;
+      $('#c-primary').value = p.primary; if (p.secondary) $('#c-secondary').value = p.secondary; if (p.accent) $('#c-accent').value = p.accent; syncHex();
       setBrand(p);
     }
   };
@@ -130,7 +139,7 @@ $('#f-logo').addEventListener('change', async e => {
   const { data } = sb.storage.from('logos').getPublicUrl(path);
   setBrand({ logo_url: data.publicUrl });
 });
-$('#swatches').addEventListener('click', e => { const b = e.target.closest('[data-c]'); if (!b) return; $('#c-primary').value = b.dataset.c; setBrand({ primary: b.dataset.c }); });
+$('#swatches').addEventListener('click', e => { const b = e.target.closest('[data-c]'); if (!b) return; $('#c-primary').value = b.dataset.c; setBrand({ primary: b.dataset.c }); syncHex(); });
 
 /* ---------- 3 data ---------- */
 const dstatus = (msg, err) => { const s = $('#data-status'); s.textContent = msg || ''; s.classList.toggle('err', !!err); };
