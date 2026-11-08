@@ -64,7 +64,17 @@ export function createModel(data) {
       date = cols.length - 1;
     }
   }
-  cols.forEach((c, i) => { if (c.type === 'number' && i !== monthCol) nums.push(i); else if (c.type === 'category' || (i === monthCol)) cats.push(i); });
+  // numeric period parts (Month_Number 1–12, Week 1–53, Year 2026) are labels, never metrics to sum
+  const PART_RE = /^((the[\s_-]*)?(month|week|quarter|day|wk|qtr)[\s_-]*(num(ber)?|no\.?|n|#|idx|index|of[\s_-]*year)?|(رقم[\s_-]*)?(ال)?(شهر|اسبوع|أسبوع|ربع|يوم))$/i;
+  const periodPart = (c, i) => {
+    if (c.type !== 'number') return null;
+    const vs = rows.map(r => r[i]).filter(v => v != null && v !== '');
+    if (!vs.length || !vs.every(v => Number.isInteger(+v))) return null;
+    if (YEAR_RE.test(c.name) && vs.every(v => +v >= 1900 && +v <= 2100)) return 'year';
+    if (PART_RE.test(c.name) && vs.every(v => +v >= 1 && +v <= 53)) return 'part';
+    return null;
+  };
+  cols.forEach((c, i) => { const pp = periodPart(c, i); if (pp === 'year') cats.push(i); else if (pp) return; else if (c.type === 'number' && i !== monthCol) nums.push(i); else if (c.type === 'category' || (i === monthCol)) cats.push(i); });
   let monthly = false;
   if (date >= 0) { const ms = new Set(); for (const r of rows) { if (r[date]) ms.add(String(r[date]).slice(0, 7)); if (ms.size > 1) break; } monthly = ms.size > 1; }
   // Rank category columns for default "split by": 2–15 distinct values first, time-like columns last.

@@ -51,6 +51,7 @@ export function detect(name, vals) {
     if (/^(#|م|ت|no\.?|n°|s\.?n\.?|serial|seq|index|تسلسل|التسلسل|الرقم)$/i.test(String(name).trim())) return 'text';
     const ns = nn.map(toNum); if (ns.length >= 5 && ns.every((v, i) => v === ns[0] + i)) return 'text';
     if (/(year|سنة|عام)/i.test(name) && uniq <= 30) return 'category';
+    if (/^((the[\s_-]*)?(month|week|quarter|day|wk|qtr)[\s_-]*(num(ber)?|no\.?|n|#|idx|index|of[\s_-]*year)?|(رقم[\s_-]*)?(ال)?(شهر|اسبوع|أسبوع|ربع|يوم))$/i.test(String(name).trim()) && nn.every(v => { const x = toNum(v); return Number.isInteger(x) && x >= 1 && x <= 53; })) return /(num|no\b|number|idx|index|_n$|order|ترتيب)/i.test(name) ? 'text' : 'category';
     return 'number';
   }
   const avgLen = nn.reduce((a, v) => a + String(v).length, 0) / nn.length;
