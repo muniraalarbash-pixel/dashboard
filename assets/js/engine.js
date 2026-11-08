@@ -66,6 +66,18 @@ export function createModel(data, opts = {}) {
       date = cols.length - 1;
     }
   }
+  // calculated measures (owner-defined): A ÷ B, A − B, A + B, A × B — aggregated as op(agg(A), agg(B)), never row-by-row
+  const measures = [];
+  for (const ms of (opts.measures || [])) {
+    if (!ms || !ms.name || cols.some(c => c.name === ms.name)) continue;
+    const a = cols.findIndex(c => c.name === ms.a), b = cols.findIndex(c => c.name === ms.b);
+    if (a < 0 || b < 0 || !['/', '-', '+', '*'].includes(ms.op)) continue;
+    const k = ms.op === '/' && ms.pct ? 100 : 1;
+    const calc = (x, y) => typeof x !== 'number' || typeof y !== 'number' ? null : ms.op === '/' ? (y ? x / y * k : null) : ms.op === '-' ? x - y : ms.op === '+' ? x + y : x * y;
+    cols = cols.concat([{ name: ms.name, type: 'number', virtual: true, measure: { a, b, op: ms.op, calc } }]);
+    rows = rows.map(r => r.concat([calc(r[a], r[b])]));
+    measures.push(cols.length - 1);
+  }
   // numeric period parts (Month_Number 1–12, Week 1–53, Year 2026) are labels, never metrics to sum
   const PART_RE = /^((the[\s_-]*)?(month|week|quarter|day|wk|qtr)[\s_-]*(num(ber)?|no\.?|n|#|idx|index|of[\s_-]*year)?|(رقم[\s_-]*)?(ال)?(شهر|اسبوع|أسبوع|ربع|يوم))$/i;
   const periodPart = (c, i) => {
@@ -90,12 +102,15 @@ export function createModel(data, opts = {}) {
     cols, rows, nums, cats, dims, date, monthly, monthCol, uniq,
     idx: name => cols.findIndex(c => c.name === name),
     // how a number column is summarised: owner's choice, else average for rates/percentages, else sum
-    aggOf: mi => { if (mi < 0 || !cols[mi]) return 'count'; const o = aggCfg[cols[mi].name]; return AGG_MODES.includes(o) ? o : (MEAN_RE.test(cols[mi].name) ? 'avg' : 'sum'); },
+    measures,
+    aggOf: mi => { if (mi < 0 || !cols[mi]) return 'count'; if (cols[mi].measure) return ['/', '*'].includes(cols[mi].measure.op) ? 'ratio' : 'sum'; const o = aggCfg[cols[mi].name]; return AGG_MODES.includes(o) ? o : (MEAN_RE.test(cols[mi].name) ? 'avg' : 'sum'); },
     autoAgg: mi => mi >= 0 && !!cols[mi] && MEAN_RE.test(cols[mi].name) ? 'avg' : 'sum',
     isMean: mi => m.aggOf(mi) === 'avg',
     label: mi => mi < 0 ? T('عدد السجلات', 'Record count') : cols[mi].name + ({ max: T(' (الأعلى)', ' (max)'), min: T(' (الأدنى)', ' (min)') }[m.aggOf(mi)] || ''),
     agg(rs, mi) {
       if (mi < 0) return rs.length;
+      const ms = cols[mi] && cols[mi].measure;
+      if (ms) { const v = ms.calc(m.agg(rs, ms.a), m.agg(rs, ms.b)); return v == null || !isFinite(v) ? 0 : v; }
       const mode = m.aggOf(mi);
       let s = 0, c = 0, hi = -Infinity, lo = Infinity; for (const r of rs) { const v = r[mi]; if (typeof v === 'number' && isFinite(v)) { s += v; c++; if (v > hi) hi = v; if (v < lo) lo = v; } }
       if (!c) return 0;

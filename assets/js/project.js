@@ -4,6 +4,7 @@ import { mountDashboard, TEMPLATES, vizDefault } from './render.js';
 import { DEFAULT_BRAND, FONTS, extractColors, computeTotals, guessTargetCfg, esc, fmtDate, createModel, targetStats, autoRecommendations } from './engine.js';
 import { openFile, openPasted, extractRaw, convert, TYPES, cleanReport, MAX_ROWS } from './parse.js';
 import { wireExport } from './export.js';
+const mopts = () => ({ agg: project.config.agg, measures: project.config.measures });
 import { startI18n } from './i18n.js';
 
 if (setupNotice($('#setup'))) throw new Error('not configured');
@@ -290,7 +291,7 @@ $('#b-version').addEventListener('click', async () => {
     project_id: id, period: $('#f-vperiod').value.trim(), label: '',
     file_name: pending.actual.reuse ? (pending.actual.name || '') : pending.actual.src.name,
     target_file_name: pending.target ? (pending.target.src ? pending.target.src.name : (latest && latest.target_file_name) || 'مستهدف') : null,
-    data, targets, totals: computeTotals(data, { agg: project.config.agg }), row_count: data.rows.length
+    data, targets, totals: computeTotals(data, mopts()), row_count: data.rows.length
   };
   const { error } = await sb.from('versions').insert(row);
   btn.disabled = false;
@@ -318,7 +319,7 @@ function renderDefaults(force) {
   const vid = version ? (version.id || version.file_name || 'pending') + ':' + (version.data && version.data.columns ? version.data.columns.length : 0) : null;
   if (!force && vid === defsVid) return; defsVid = vid;
   if (!version || !version.data) { box.innerHTML = '<p class="muted" style="font-size:13px;margin:0">ارفع البيانات أولًا.</p>'; return; }
-  const m = createModel(version.data, { agg: project.config.agg }), d = project.config.defaults || {};
+  const m = createModel(version.data, mopts()), d = project.config.defaults || {};
   const opt = (v, l, cur) => `<option value="${esc(v)}" ${cur === v ? 'selected' : ''}>${esc(l)}</option>`;
   const cats = m.cats.map(i => m.cols[i].name);
   const rows = [
@@ -328,18 +329,33 @@ function renderDefaults(force) {
     ['pie', 'الرسم الدائري حسب', [['', 'تلقائي'], ...cats.map(n => [n, n])]]
   ];
   box.innerHTML = rows.map(([k, l, os]) => `<label class="field"><span class="label" style="font-size:12.5px">${l}</span><select data-def="${k}">${os.map(([v, t]) => opt(v, t, d[k] || '')).join('')}</select></label>`).join('')
-    + aggHTML(m);
+    + aggHTML(m) + measuresHTML(m);
+}
+/* calculated measures: A ÷ B, A − B, A + B, A × B */
+const OPS = [['/', '÷ قسمة'], ['-', '− طرح'], ['+', '+ جمع'], ['*', '× ضرب']], OPSYM = { '/': '÷', '-': '−', '+': '+', '*': '×' };
+function measuresHTML(m) {
+  const list = project.config.measures || [], base = m.nums.filter(i => !m.cols[i].measure).map(i => m.cols[i].name);
+  if (base.length < 1) return '';
+  const opt = n => `<option value="${esc(n)}">${esc(n)}</option>`;
+  const items = list.map((x, i) => `<li><span><b><bdi>${esc(x.name)}</bdi></b> = <bdi>${esc(x.a)}</bdi> ${OPSYM[x.op]} <bdi>${esc(x.b)}</bdi>${x.pct ? ' × 100' : ''}${m.idx(x.name) < 0 ? ' <em class="ms-bad">(العمود غير موجود في البيانات الحالية)</em>' : ''}</span><button type="button" class="ms-del" data-msdel="${i}" aria-label="حذف">✕</button></li>`).join('');
+  return `<details class="agg-box ms-box" ${list.length ? 'open' : ''}><summary>مقاييس محسوبة${list.length ? ` <span class="agg-c">${list.length}</span>` : ''}</summary>
+    <p class="muted" style="font-size:12px;margin:6px 0 8px">مثل CTR = النقرات ÷ الظهور، أو الربح = الإيراد − التكلفة. تنحسب من الإجماليات (مو متوسط الصفوف) وتطلع في قائمة «المؤشر».</p>
+    ${items ? `<ul class="ms-list">${items}</ul>` : ''}
+    <div class="ms-form"><input id="ms-name" placeholder="اسم المقياس (مثل: CTR %)" maxlength="40">
+      <select id="ms-a">${base.map(opt).join('')}</select><select id="ms-op">${OPS.map(([v, l]) => `<option value="${v}">${l}</option>`).join('')}</select><select id="ms-b">${base.map(opt).join('')}</select>
+      <label class="ms-pct"><input type="checkbox" id="ms-pct" checked> اعرضها كنسبة % (× 100)</label>
+      <button type="button" class="btn btn-primary btn-sm" id="ms-add">إضافة المقياس</button><p class="ms-msg" id="ms-msg" role="status"></p></div></details>`;
 }
 /* how each number column is summarised (Sum / Average / Max / Min) */
 const AGG_L = { sum: 'مجموع', avg: 'متوسط', max: 'أعلى قيمة', min: 'أدنى قيمة' };
 function aggHTML(m) {
   if (!m.nums.length) return '';
   const a = project.config.agg || {}, changed = m.nums.filter(i => a[m.cols[i].name]).length;
-  const rowsH = m.nums.map(i => { const n = m.cols[i].name, cur = a[n] || '';
+  const rowsH = m.nums.filter(i => !m.cols[i].measure).map(i => { const n = m.cols[i].name, cur = a[n] || '';
     return `<label class="agg-row"><span class="agg-n" title="${esc(n)}"><bdi>${esc(n)}</bdi></span><select data-agg="${esc(n)}"><option value="" ${cur ? '' : 'selected'}>تلقائي (${AGG_L[m.autoAgg(i)]})</option>${['sum', 'avg', 'max', 'min'].map(v => `<option value="${v}" ${cur === v ? 'selected' : ''}>${AGG_L[v]}</option>`).join('')}</select></label>`; }).join('');
   return `<details class="agg-box" ${changed ? 'open' : ''}><summary>طريقة تجميع الأرقام${changed ? ` <span class="agg-c">${changed}</span>` : ''}</summary><p class="muted" style="font-size:12px;margin:6px 0 8px">النسب والمعدلات (مثل CTR أو نسبة الإنجاز) تنحسب «متوسط» تلقائيًا، وباقي الأرقام «مجموع». غيّرها إذا العمود يحتاج غير كذا.</p>${rowsH}</details>`;
 }
-$('#defs').addEventListener('change', e => {
+$('#defs').addEventListener('change', e => { if (e.target.id === 'ms-op') { const pc = $('#ms-pct'); if (pc) pc.closest('label').hidden = e.target.value !== '/'; }
   const ag = e.target.closest('[data-agg]');
   if (ag) {
     const a = { ...(project.config.agg || {}) };
@@ -352,6 +368,20 @@ $('#defs').addEventListener('change', e => {
   if (s.value) d[s.dataset.def] = s.value; else delete d[s.dataset.def];
   project.config = { ...project.config, defaults: d };
   queue({ config: project.config }); preview();
+});
+
+$('#defs').addEventListener('click', e => {
+  const del = e.target.closest('[data-msdel]');
+  const save = list => { project.config = { ...project.config, measures: list }; queue({ config: project.config }); renderDefaults(true); preview(); };
+  if (del) { const list = (project.config.measures || []).slice(); const [gone] = list.splice(+del.dataset.msdel, 1); const d = { ...(project.config.defaults || {}) }; if (gone && d.metric === gone.name) { delete d.metric; project.config = { ...project.config, defaults: d }; } save(list); return; }
+  if (!e.target.closest('#ms-add')) return;
+  const name = $('#ms-name').value.trim(), a = $('#ms-a').value, op = $('#ms-op').value, b = $('#ms-b').value, pct = op === '/' && $('#ms-pct').checked, msg = $('#ms-msg');
+  const { version } = currentVersion(); const cols = version && version.data ? version.data.columns.map(c => c.name) : [];
+  const list = project.config.measures || [];
+  if (!name) { msg.textContent = 'اكتب اسم المقياس.'; return; }
+  if (cols.includes(name) || list.some(x => x.name === name)) { msg.textContent = 'فيه عمود أو مقياس بنفس الاسم، اختر اسم ثاني.'; return; }
+  if (a === b && op === '/') { msg.textContent = 'اختر عمودين مختلفين للقسمة.'; return; }
+  save(list.concat([{ name, a, op, b, pct }]));
 });
 
 /* chart type per slot */
@@ -401,7 +431,7 @@ $('#b-recadd').addEventListener('click', () => { const v = $('#f-rec').value.tri
 $('#b-recgen').addEventListener('click', () => {
   const { version } = currentVersion();
   if (!version || !version.data) { $('#rec-status').textContent = 'ارفع ملف البيانات أولًا.'; return; }
-  const m = createModel(version.data, { agg: project.config.agg });
+  const m = createModel(version.data, mopts());
   const ts = version.targets ? targetStats(m, m.rows, version.targets, project.config.target, {}) : null;
   const have = new Set(recs().map(r => r.text));
   const fresh = autoRecommendations(m, ts, (project.config.defaults || {}).metric).filter(t => !have.has(t)).map(text => ({ text, auto: true }));

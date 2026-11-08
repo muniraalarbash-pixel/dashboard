@@ -100,7 +100,7 @@ export function mountDashboard(root, opts) {
   function draw(k, cfg) { kill(k); const cv = root.querySelector('[data-cv="' + k + '"]'); if (cv && window.Chart) charts[k] = new Chart(cv, cfg); }
 
   function setup() {
-    m = o.version ? createModel(o.version.data, { agg: ((o.project && o.project.config) || {}).agg }) : null;
+    m = o.version ? createModel(o.version.data, (({ agg, measures }) => ({ agg, measures }))((o.project && o.project.config) || {})) : null;
     geo = m ? findGeoCol(m) : -1;
     saudi = geo >= 0 && saudiOnly(m, geo);
     theme = brandTheme(o.project.brand);
@@ -423,7 +423,7 @@ export function mountDashboard(root, opts) {
   // ---------- template: tiles ----------
   function tplTiles(c) {
     const total = m.agg(c.rows, c.metric);
-    let top = `<article class="d-tile d-num">${head(c.ml, m.aggOf(c.metric) === 'max' ? T('أعلى قيمة', 'Highest value') : m.aggOf(c.metric) === 'min' ? T('أدنى قيمة', 'Lowest value') : c.mean ? T('المتوسط', 'Average') : (c.hasF ? T('الإجمالي حسب الفلاتر', 'Filtered total') : T('الإجمالي', 'Total')))}<p class="d-big">${fmt(total)}</p>${c.tstats && m.cols[c.metric] && m.cols[c.metric].name === c.tstats.valName ? `<p class="d-sub">${T('المستهدف', 'Target')} ${fmt(c.tstats.target)}</p>` : ''}</article>`;
+    let top = `<article class="d-tile d-num">${head(c.ml, m.aggOf(c.metric) === 'max' ? T('أعلى قيمة', 'Highest value') : m.aggOf(c.metric) === 'min' ? T('أدنى قيمة', 'Lowest value') : m.aggOf(c.metric) === 'ratio' ? T('مقياس محسوب', 'Calculated measure') : c.mean ? T('المتوسط', 'Average') : (c.hasF ? T('الإجمالي حسب الفلاتر', 'Filtered total') : T('الإجمالي', 'Total')))}<p class="d-big">${fmt(total)}</p>${c.tstats && m.cols[c.metric] && m.cols[c.metric].name === c.tstats.valName ? `<p class="d-sub">${T('المستهدف', 'Target')} ${fmt(c.tstats.target)}</p>` : ''}</article>`;
     let gauge = null;
     if (c.tstats && c.tstats.pct != null) gauge = { title: T('نسبة الإنجاز', 'Achievement'), sub: c.tstats.valName + T(' مقابل المستهدف', ' vs target'), v: c.tstats.pct, max: 100, label: fmtPct(c.tstats.pct, 1), lo: '0%', hi: '100%' };
     else if (c.dim >= 0 && !c.mean && c.rows.length) { const b = m.breakdown(c.rows, c.dim, c.metric), t = b.reduce((s, x) => s + x.v, 0); if (b.length >= 2 && t > 0) gauge = { title: T('حصة ', 'Share of ') + b[0].k, sub: T('من إجمالي ', 'of total ') + c.ml, v: b[0].v, max: t, label: fmt(b[0].v), lo: '0', hi: fmt(t) }; }
