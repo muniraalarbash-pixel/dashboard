@@ -48,7 +48,7 @@ function preview() {
   clearTimeout(pvTimer);
   pvTimer = setTimeout(() => {
     const { version, previous } = currentVersion();
-    const opts = { project: { ...project }, version, previous };
+    const opts = { project: { ...project }, version, previous, editable: true, shareUrl: project.is_published ? shareUrl() : null, onBookmarks: list => { project.config = { ...project.config, bookmarks: list }; queue({ config: project.config }); preview(); } };
     if (!dash) dash = mountDashboard($('#preview'), opts); else dash.update(opts);
     renderDefaults();
     $('#preview-note').textContent = pending ? 'معاينة تحديث غير منشور' : (latest ? '' : 'لا توجد بيانات بعد');

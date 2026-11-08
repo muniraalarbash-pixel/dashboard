@@ -89,7 +89,8 @@ if (qs.get('demo')) {
       $('#gate').hidden = true;
       const stamp = (data.version && data.version.created_at) + '|' + data.project.updated_at;
       if (stamp === lastStamp) return;
-      const opts = { project: data.project, version: data.version, previous: data.previous };
+      let state = null; try { const h = new URLSearchParams(location.hash.slice(1)).get('v'); if (h) state = JSON.parse(decodeURIComponent(escape(atob(h)))); } catch (e) {}
+      const opts = { project: data.project, version: data.version, previous: data.previous, state, shareUrl: location.href.split('#')[0] };
       document.title = data.project.title + T(' | لوحة المؤشرات', ' | Dashboard');
       $('#lang-share').innerHTML = langToggleHTML();
       if (!dash) dash = mountDashboard($('#dash'), opts); else { dash.update(opts); toast(T('تم تحديث البيانات', 'Data updated')); }

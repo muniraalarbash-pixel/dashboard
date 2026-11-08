@@ -166,7 +166,7 @@ export function mountDashboard(root, opts) {
         <div class="d-meta">${(v && v.period) || p.period ? `<span class="d-chip">${esc((v && v.period) || p.period)}</span>` : ''}${v ? `<span class="d-upd"><i></i>${T('آخر تحديث', 'Updated')} ${esc(fmtDate(v.created_at))}</span>` : ''}</div>
       </div></header>
       ${m ? `<div class="d-layout" data-layout><nav class="d-pages no-export" data-pages aria-label="${T('صفحات اللوحة', 'Dashboard pages')}" hidden></nav><div class="d-main">
-      <div class="d-bar" data-bar></div><div class="d-body" data-body></div>
+      <div class="d-bms no-export" data-bms hidden></div><div class="d-bar" data-bar></div><div class="d-body" data-body></div>
       <section class="d-card d-tablecard" data-tablecard><div class="d-tablehead">${head(T('البيانات', 'Data'), '')}<span class="d-count" data-count></span><input type="search" class="d-search" data-search placeholder="${T('بحث في الجدول', 'Search table')}" aria-label="${T('بحث في الجدول', 'Search table')}"></div>
         <div class="d-scroll"><table class="d-table"><thead data-thead></thead><tbody data-tbody></tbody></table></div><div class="d-pager" data-pager></div></section></div></div>`
       : `<div class="d-empty"><p>${T('لا توجد بيانات بعد.', 'No data yet.')}</p><p class="d-muted">${T('ارفع ملف Excel من صفحة المشروع لتظهر لوحة المؤشرات هنا.', 'Upload an Excel file from the project page to see the dashboard here.')}</p></div>`}
@@ -710,11 +710,67 @@ export function mountDashboard(root, opts) {
     q('[data-pager]').innerHTML = pages > 1 ? `<button type="button" data-pg="-1" ${st.page === 0 ? 'disabled' : ''}>${T('السابق', 'Previous')}</button><span>${st.page + 1} / ${pages}</span><button type="button" data-pg="1" ${st.page >= pages - 1 ? 'disabled' : ''}>${T('التالي', 'Next')}</button>` : '';
   }
 
-  function renderData() { renderBar(); renderBody(); renderTable(); }
+  // ---------- saved views (bookmarks) and view links ----------
+  function capture() {
+    const nm = i => m.cols[i] ? m.cols[i].name : null, s = {};
+    if (st.view && st.view !== 'overview') s.v = st.view;
+    if (st.metric != null) s.mt = st.metric === -1 ? '__count' : nm(st.metric);
+    if (st.dim != null) s.d = nm(st.dim);
+    const f = {}; Object.entries(st.filters).forEach(([ci, v]) => { if (v != null && nm(+ci)) f[nm(+ci)] = v; }); if (Object.keys(f).length) s.f = f;
+    if (st.range) s.r = st.range; if (st.region) s.rg = st.region;
+    return s;
+  }
+  function applyState(s) {
+    if (!s || !m) return;
+    st.view = s.v || 'overview';
+    st.metric = s.mt == null ? null : s.mt === '__count' ? -1 : (m.idx(s.mt) >= 0 ? m.idx(s.mt) : null);
+    st.dim = s.d && m.idx(s.d) >= 0 ? m.idx(s.d) : null;
+    st.filters = {}; Object.entries(s.f || {}).forEach(([n, v]) => { const i = m.idx(n); if (i >= 0) st.filters[i] = v; });
+    st.range = s.r || null; st.region = s.rg || null; st.page = 0; st.openMs = null;
+  }
+  const sameState = (a, b) => JSON.stringify(a) === JSON.stringify(b);
+  const enc = s => { try { return btoa(unescape(encodeURIComponent(JSON.stringify(s)))).replace(/=+$/, ''); } catch (e) { return ''; } };
+  const bms = () => (o.project.config && o.project.config.bookmarks) || [];
+  let bmForm = false;
+  function renderBms() {
+    const box = root.querySelector('[data-bms]'); if (!box) return;
+    const list = bms(), cur = capture(), ed = !!o.editable;
+    if (!list.length && !ed && !o.shareUrl) { box.hidden = true; return; }
+    box.hidden = false;
+    const chips = list.length ? [`<button type="button" class="d-bm ${sameState(cur, {}) ? 'on' : ''}" data-bm="-1" aria-pressed="${sameState(cur, {})}">${T('العرض الأساسي', 'Default view')}</button>`]
+      .concat(list.map((b, i) => `<span class="d-bmw"><button type="button" class="d-bm ${sameState(cur, b.state || {}) ? 'on' : ''}" data-bm="${i}" aria-pressed="${sameState(cur, b.state || {})}"><bdi>${esc(b.name)}</bdi></button>${ed ? `<button type="button" class="d-bmx" data-bmdel="${i}" aria-label="${T('حذف', 'Delete')} ${esc(b.name)}">✕</button>` : ''}</span>`)) : [];
+    const add = ed ? (bmForm ? `<span class="d-bmform"><input data-bmname maxlength="30" placeholder="${T('اسم العرض (مثل: Meta آخر 3 أشهر)', 'View name (e.g. Meta, last 3 months)')}" aria-label="${T('اسم العرض', 'View name')}"><button type="button" class="d-bm on" data-bmsave>${T('حفظ', 'Save')}</button><button type="button" class="d-bm" data-bmcancel>${T('إلغاء', 'Cancel')}</button></span>`
+      : `<button type="button" class="d-bm d-bmadd" data-bmadd>+ ${T('احفظ هذا العرض', 'Save this view')}</button>`) : '';
+    const link = o.shareUrl ? `<button type="button" class="d-bm d-bmlink" data-bmlink title="${T('انسخ رابط يفتح اللوحة بنفس الفلاتر والصفحة', 'Copy a link that opens the dashboard with these filters and page')}">🔗 ${T('رابط هذا العرض', 'Link to this view')}</button>` : '';
+    box.innerHTML = `${list.length ? `<span class="d-bml">${T('المشاهد:', 'Views:')}</span>` : ''}${chips.join('')}${add}${link}<span class="d-bmmsg" data-bmmsg role="status"></span>`;
+    if (bmForm) { const i = box.querySelector('[data-bmname]'); if (i) i.focus(); }
+  }
+  root.addEventListener('click', async e => {
+    const t = e.target; if (!root.contains(t) || !t.closest('[data-bms]')) return;
+    const b = t.closest('[data-bm]'); if (b) { const i = +b.dataset.bm; applyState(i < 0 ? {} : (bms()[i] || {}).state); renderData(); return; }
+    if (t.closest('[data-bmadd]')) { bmForm = true; renderBms(); return; }
+    if (t.closest('[data-bmcancel]')) { bmForm = false; renderBms(); return; }
+    const del = t.closest('[data-bmdel]'); if (del && o.onBookmarks) { const l = bms().slice(); l.splice(+del.dataset.bmdel, 1); o.onBookmarks(l); return; }
+    if (t.closest('[data-bmsave]')) {
+      const inp = root.querySelector('[data-bmname]'), name = inp && inp.value.trim(), msg = root.querySelector('[data-bmmsg]');
+      if (!name) { if (msg) msg.textContent = T('اكتب اسم للعرض.', 'Type a name for the view.'); return; }
+      bmForm = false; if (o.onBookmarks) o.onBookmarks(bms().filter(x => x.name !== name).concat([{ name, state: capture() }])); return;
+    }
+    if (t.closest('[data-bmlink]')) {
+      const st0 = capture(), url = o.shareUrl.split('#')[0] + (Object.keys(st0).length ? '#v=' + enc(st0) : ''), msg = root.querySelector('[data-bmmsg]');
+      try { await navigator.clipboard.writeText(url); if (msg) msg.textContent = T('تم نسخ الرابط ✓', 'Link copied ✓'); }
+      catch (err) { if (msg) msg.innerHTML = `<input readonly value="${esc(url)}" onfocus="this.select()" aria-label="${T('الرابط', 'Link')}">`; }
+      return;
+    }
+  });
+  root.addEventListener('keydown', e => { if (e.target.matches && e.target.matches('[data-bmname]') && e.key === 'Enter') { e.preventDefault(); root.querySelector('[data-bmsave]').click(); } });
 
-  setup(); frame();
+  function renderData() { renderBms(); renderBar(); renderBody(); renderTable(); }
+
+  setup(); if (o.state) applyState(o.state); frame();
   return {
-    update(next) { killMaps(); o = { ...o, ...next }; setup(); frame(); },
+    // keep the viewer's filters/page across data refreshes and editor changes
+    update(next) { killMaps(); const keep = m ? capture() : null; o = { ...o, ...next }; setup(); if (keep) applyState(keep); frame(); },
     setTemplate(t) { killMaps(); o.project = { ...o.project, template: t }; frame(); },
     destroy() { Object.keys(charts).forEach(kill); killMaps(); root.innerHTML = ''; }
   };
