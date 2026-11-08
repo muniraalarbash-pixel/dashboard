@@ -190,8 +190,10 @@ export function autoInsights(m, rows, metric, dim, tstats, max = 3) {
 }
 
 // ---------- Recommendations (rule-based, editable by the owner) ----------
-export function autoRecommendations(m, tstats) {
-  const rows = m.rows, out = [], metric = m.nums.length ? m.nums[0] : -1, ml = m.label(metric), mean = m.isMean(metric);
+export function autoRecommendations(m, tstats, prefer) {
+  // the owner's chosen metric, else the outcome column (revenue/sales), else the first number
+  const pick = () => { const i = prefer ? m.idx(prefer) : -1; if (i >= 0 && m.nums.includes(i)) return i; const r = m.nums.find(j => /(إيراد|الإيراد|ايراد|مبيعات|المبيعات|revenue|sales)/i.test(m.cols[j].name)); return r != null ? r : (m.nums.length ? m.nums[0] : -1); };
+  const rows = m.rows, out = [], metric = pick(), ml = m.label(metric), mean = m.isMean(metric);
   if (!rows.length) return out;
   const pct = (a, b) => b ? (a / b * 100) : 0;
   const short = k => { k = String(k); return k.length > 28 ? k.slice(0, 26).trim() + '…' : k; };
@@ -212,7 +214,7 @@ export function autoRecommendations(m, tstats) {
       const sh = pct(b[0].v, tot);
       if (sh >= 40) out.push(T(`${short(b[0].k)} يمثل ${sh.toFixed(0)}% من «${ml}». الاعتماد الكبير على عنصر واحد في «${dn}» مخاطرة؛ نوّع لتقليلها.`, `${b[0].k} accounts for ${sh.toFixed(0)}% of ${ml}. Heavy reliance on one ${dn} is a risk; diversify to reduce it.`));
       else out.push(T(`${short(b[0].k)} الأعلى في «${ml}» (${sh.toFixed(0)}%). ادرس عوامل نجاحه وطبّقها على بقية عناصر «${dn}».`, `${b[0].k} leads ${ml} (${sh.toFixed(0)}%). Study what drives it and apply it across other ${dn} values.`));
-      if (b.length >= 4) { const weak = b.filter(x => pct(x.v, tot) < 5); if (weak.length) out.push(T(`${weak.slice(0, 3).map(x => short(x.k)).join('، ')}: ${weak.length > 1 ? 'كل منها أقل' : 'أقل'} من 5%. راجع جدواها أو خطط لتحسينها.`, `${weak.slice(0, 3).map(x => x.k).join(', ')} each contribute under 5%. Review their value or plan improvements.`)); }
+      if (b.length >= 4) { const zero = b.filter(x => x.v === 0), weak = b.filter(x => x.v !== 0 && pct(x.v, tot) < 5); if (zero.length) out.push(T(`${zero.slice(0, 3).map(x => short(x.k)).join('، ')}: بدون أي «${ml}». راجع هل تستمر فيها.`, `${zero.slice(0, 3).map(x => x.k).join(', ')}: no ${ml} at all. Review whether to continue.`)); if (weak.length) out.push(T(`${weak.slice(0, 3).map(x => short(x.k)).join('، ')}: ${weak.length > 1 ? 'كل منها أقل' : 'أقل'} من 5%. راجع جدواها أو خطط لتحسينها.`, `${weak.slice(0, 3).map(x => x.k).join(', ')} each contribute under 5%. Review their value or plan improvements.`)); }
     }
   }
   // 3) trend

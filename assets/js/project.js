@@ -385,7 +385,7 @@ $('#b-recgen').addEventListener('click', () => {
   const m = createModel(version.data);
   const ts = version.targets ? targetStats(m, m.rows, version.targets, project.config.target, {}) : null;
   const have = new Set(recs().map(r => r.text));
-  const fresh = autoRecommendations(m, ts).filter(t => !have.has(t)).map(text => ({ text, auto: true }));
+  const fresh = autoRecommendations(m, ts, (project.config.defaults || {}).metric).filter(t => !have.has(t)).map(text => ({ text, auto: true }));
   $('#rec-status').textContent = fresh.length ? `أُضيفت ${fresh.length} توصيات. عدّلها أو احذف ما لا يناسب.` : 'لا توجد توصيات جديدة من هذه البيانات.';
   if (fresh.length) saveRecs(recs().concat(fresh));
 });
