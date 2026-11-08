@@ -480,3 +480,5 @@ html[dir=ltr] #cal-prev svg,html[dir=ltr] #cal-next svg,html[dir=ltr] .pwrap .ic
 .fn-act button:disabled{opacity:.3;cursor:default}
 .fn-form{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
 .fn-form select{font:inherit;font-size:12.5px;padding:6px 8px;flex:1;min-width:140px}
+.src-live{display:flex;gap:8px;align-items:center;font-size:13px}
+.src-live input:disabled+*{opacity:.5}

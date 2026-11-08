@@ -2,7 +2,7 @@
 import { sb, $, requireUser, mountNav, setupNotice, toast } from './sb.js';
 import { mountDashboard, TEMPLATES, vizDefault } from './render.js';
 import { DEFAULT_BRAND, FONTS, extractColors, computeTotals, guessTargetCfg, esc, fmtDate, createModel, targetStats, autoRecommendations } from './engine.js';
-import { openFile, openPasted, extractRaw, convert, TYPES, cleanReport, MAX_ROWS } from './parse.js';
+import { openFile, openPasted, openUrl, extractRaw, convert, TYPES, cleanReport, MAX_ROWS } from './parse.js';
 import { wireExport } from './export.js';
 const mopts = () => ({ agg: project.config.agg, measures: project.config.measures, fmt: project.config.fmt });
 import { startI18n } from './i18n.js';
@@ -85,7 +85,7 @@ function fill() {
   $('#c-primary').value = b.primary; $('#c-secondary').value = b.secondary; $('#c-accent').value = b.accent; syncHex();
   $('#f-font').innerHTML = Object.keys(FONTS).map(f => `<option ${f === b.font ? 'selected' : ''}>${f}</option>`).join('');
   logoPreview(b.logo_url);
-  renderTemplates(); renderViz(); renderRecs(); renderNotes(); renderShare();
+  renderTemplates(); renderViz(); renderRecs(); renderNotes(); renderShare(); renderSrc();
 }
 
 /* ---------- 1 details ---------- */
@@ -228,10 +228,23 @@ function readError(e) {
   const m = String((e && e.message) || e);
   if (m === 'xlsx_load') return 'تعذّر تحميل أداة قراءة Excel. تحقق من الاتصال بالإنترنت، أو جرّب من شبكة ثانية (بعض شبكات العمل تحجبها).';
   if (/password|encrypt|ECMA-376|CFB/i.test(m)) return 'الملف محمي بكلمة مرور أو بتصنيف حماية من الشركة. افتحه في Excel واحفظ نسخة جديدة بدون حماية، أو انسخ الجدول والصقه في خانة اللصق.';
+  if (m === 'url') return 'الرابط لازم يبدأ بـ https://';
+  if (m === 'fetch') return 'تعذّر الوصول للرابط. تأكد إن الشيت مشارك «أي شخص لديه الرابط»، أو إن الموقع يسمح بقراءة الملف من المتصفح.';
+  if (m === 'html' || m === 'http_401' || m === 'http_403') return 'الشيت مو مشارك للعامة. في Google Sheets اضغط «مشاركة» واختر «أي شخص لديه الرابط».';
+  if (/^http_/.test(m)) return 'الرابط رجّع خطأ (' + m.slice(5) + '). تأكد منه وجرّب مرة ثانية.';
   if (m === 'empty') return 'الملف فاضي أو ما فيه صف عناوين. تأكد أن أول صف في الجدول فيه أسماء الأعمدة.';
   return 'تعذّرت قراءة الملف (' + m.slice(0, 80) + '). جرّب تحفظه بصيغة .xlsx أو انسخ الجدول والصقه في خانة اللصق.';
 }
 const okExt = f => /\.(xlsx|xlsm|xls|csv)$/i.test(f.name);
+/* live data source (Google Sheets / CSV link) */
+const srcCfg = () => project.config.source || {};
+function renderSrc() { const c = srcCfg(); $('#f-src').value = c.url || ''; $('#f-srclive').checked = !!c.live; $('#f-srclive').disabled = !c.url; if (c.url) $('#src-box').open = true; }
+$('#b-src').addEventListener('click', () => {
+  const u = $('#f-src').value.trim(); if (!u) { dstatus('الصق رابط الشيت أولًا.', true); return; }
+  project.config = { ...project.config, source: { ...srcCfg(), url: u } }; queue({ config: project.config }); $('#f-srclive').disabled = false;
+  takeActual(openUrl(u).then(src => { src.name = /google\.com/.test(u) ? 'Google Sheets' : 'رابط البيانات'; src.fromSource = true; return src; }));
+});
+$('#f-srclive').addEventListener('change', e => { project.config = { ...project.config, source: { ...srcCfg(), live: e.target.checked } }; queue({ config: project.config }); toast(e.target.checked ? 'رابط المشاركة صار يقرأ من المصدر مباشرة' : 'رجع رابط المشاركة يعرض آخر نسخة منشورة'); });
 $('#f-data').addEventListener('change', e => { const f = e.target.files[0]; e.target.value = ''; if (!f) return; if (!okExt(f)) { dstatus('اختر ملفًا بصيغة xlsx أو xls أو csv.', true); return; } takeActual(openFile(f)); });
 $('#b-paste').addEventListener('click', () => { const t = $('#f-paste').value; if (!t.trim()) { dstatus('الصق الجدول أولًا.', true); return; } takeActual(Promise.resolve(openPasted(t))); });
 $('#f-sheet').addEventListener('change', e => { Object.assign(pending.actual, { sheet: e.target.value, overrides: {}, keepTotals: false, dedupe: false }); safe(rebuild); });
@@ -287,6 +300,7 @@ $('#b-version').addEventListener('click', async () => {
   const btn = $('#b-version'); btn.disabled = true; dstatus('جاري النشر…');
   await flush();
   const data = pending.actual.data, targets = pending.target ? pending.target.data : null;
+  if (pending.actual.src && pending.actual.src.fromSource) { project.config = { ...project.config, source: { ...srcCfg(), sheet: pending.actual.sheet } }; queue({ config: project.config }); await flush(); }
   const row = {
     project_id: id, period: $('#f-vperiod').value.trim(), label: '',
     file_name: pending.actual.reuse ? (pending.actual.name || '') : pending.actual.src.name,

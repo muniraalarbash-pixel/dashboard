@@ -80,6 +80,14 @@
           <details><summary class="label" style="cursor:pointer">أو الصق الجدول من Excel</summary>
             <div class="field" style="margin-top:8px"><textarea id="f-paste" dir="ltr" placeholder="انسخ الجدول مع صف العناوين والصقه هنا"></textarea><button type="button" class="btn btn-quiet btn-sm" id="b-paste" style="justify-self:start">استخدام البيانات الملصوقة</button></div>
           </details>
+          <details id="src-box"><summary class="label" style="cursor:pointer">أو اربط رابط Google Sheets (يتحدث تلقائيًا)</summary>
+            <div class="field" style="margin-top:8px">
+              <input id="f-src" dir="ltr" inputmode="url" placeholder="https://docs.google.com/spreadsheets/d/…" aria-label="رابط مصدر البيانات">
+              <button type="button" class="btn btn-quiet btn-sm" id="b-src" style="justify-self:start">جلب البيانات من الرابط</button>
+              <label class="src-live"><input type="checkbox" id="f-srclive"> حدّث رابط المشاركة تلقائيًا من هذا المصدر</label>
+              <p class="muted" style="font-size:12px;margin:0">في Google Sheets: «مشاركة» ← «أي شخص لديه الرابط» (عارض)، وانسخ الرابط هنا. إذا فعّلت التحديث التلقائي، اللي يفتح اللوحة يشوف آخر أرقام في الشيت مباشرة بدون ما ترفع ملف، والرابط يكون معروف لأي أحد يفتح اللوحة.</p>
+            </div>
+          </details>
           <label class="field" id="sheet-wrap" hidden><span class="label">الورقة</span><select id="f-sheet"></select></label>
           <div id="cols"></div>
           <div class="cleanrep" id="clean-report" hidden></div>

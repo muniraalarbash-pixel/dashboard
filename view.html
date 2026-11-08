@@ -55,7 +55,7 @@ wireExport(() => ({ el: document.querySelector('#dash .dash'), title: curTitle }
 import { mountDashboard, TEMPLATES } from './assets/js/render.js';
 
 const qs = new URLSearchParams(location.search);
-let dash = null, lastStamp = null, pass = null;
+let dash = null, lastStamp = null, pass = null, curLiveAt = null;
 
 function gate(title, msg, withForm) {
   $('#gate').hidden = false; $('#gate-title').textContent = title; $('#gate-msg').textContent = msg; $('#gate-form').hidden = !withForm;
@@ -87,7 +87,22 @@ if (qs.get('demo')) {
         return;
       }
       $('#gate').hidden = true;
-      const stamp = (data.version && data.version.created_at) + '|' + data.project.updated_at;
+      // live source: read the latest numbers straight from the linked sheet (falls back to the stored version)
+      let liveSig = '';
+      const src = data.project.config && data.project.config.source;
+      if (src && src.live && src.url && data.version) {
+        try {
+          const P = await import('./assets/js/parse.js');
+          const f = await P.openUrl(src.url), raw = P.extractRaw(f.aoa(f.sheets.includes(src.sheet) ? src.sheet : f.sheets[0]));
+          const known = new Map((data.version.data.columns || []).map(c => [c.name, c.type])), ov = {};
+          raw.headers.forEach((h, i) => { if (known.has(h)) ov[i] = known.get(h); });
+          const live = P.convert(raw, ov);
+          liveSig = live.rows.length + ':' + JSON.stringify(live.rows).length;
+          data.version = { ...data.version, data: live, live: true, row_count: live.rows.length, created_at: lastStamp && lastStamp.includes(liveSig) ? (dash && curLiveAt) || new Date().toISOString() : new Date().toISOString() };
+          curLiveAt = data.version.created_at;
+        } catch (e) { console.warn('live source failed', e); }
+      }
+      const stamp = (data.version && data.version.created_at) + '|' + data.project.updated_at + '|' + liveSig;
       if (stamp === lastStamp) return;
       let state = null; try { const h = new URLSearchParams(location.hash.slice(1)).get('v'); if (h) state = JSON.parse(decodeURIComponent(escape(atob(h)))); } catch (e) {}
       const opts = { project: data.project, version: data.version, previous: data.previous, state, shareUrl: location.href.split('#')[0] };

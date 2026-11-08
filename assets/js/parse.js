@@ -124,6 +124,28 @@ export async function openFile(file) {
   return { name: file.name, sheets, aoa: s => XLSX.utils.sheet_to_json(wb.Sheets[s], { header: 1, raw: true, defval: null, blankrows: false }) };
 }
 
+// A link to live data: Google Sheets (shared "anyone with the link", or published to the web) or a direct CSV / Excel URL.
+export function sourceUrl(u) {
+  u = String(u || '').trim(); if (!/^https:\/\//i.test(u)) throw new Error('url');
+  const g = u.match(/docs\.google\.com\/spreadsheets\/d\/(e\/)?([\w-]+)/);
+  if (g) {
+    // the Excel export keeps real dates, numbers and every sheet (CSV would follow the sheet's locale)
+    if (g[1]) return `https://docs.google.com/spreadsheets/d/e/${g[2]}/pub?output=xlsx`;
+    return `https://docs.google.com/spreadsheets/d/${g[2]}/export?format=xlsx`;
+  }
+  return u;
+}
+export async function openUrl(u) {
+  const url = sourceUrl(u);
+  let res; try { res = await fetch(url, { cache: 'no-store', credentials: 'omit' }); } catch (e) { throw new Error('fetch'); }
+  if (!res.ok) throw new Error('http_' + res.status);
+  const ct = res.headers.get('content-type') || '', buf = await res.arrayBuffer();
+  const csv = /csv|text\/plain/i.test(ct) || (!/sheet|excel|octet/i.test(ct) && /\.csv(\?|$)/i.test(url));
+  if (/text\/html/i.test(ct)) throw new Error('html'); // a sign-in page: the sheet is not shared publicly
+  const name = csv ? 'source.csv' : 'source.xlsx';
+  return openFile(new File([buf], name));
+}
+
 export function openPasted(text) {
   const sep = text.includes('\t') ? '\t' : ',';
   const aoa = text.replace(/\r/g, '').split('\n').filter(l => l.trim()).map(l => l.split(sep));

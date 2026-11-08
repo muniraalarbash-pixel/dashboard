@@ -412,3 +412,6 @@
 .d-bmform input,.d-bmmsg input{font:inherit;font-size:12.5px;color:var(--d-ink);background:var(--d-surface);border:1px solid var(--d-line);border-radius:999px;padding:5px 12px;min-width:200px}
 .d-bmmsg{font-size:12px;color:var(--d-muted)}
 @media (max-width:640px){.d-bms{flex-wrap:nowrap;overflow-x:auto;padding-bottom:4px}.d-bmlink{margin-inline-start:0}}
+.d-upd.live i{animation:d-pulse 1.6s ease-in-out infinite}
+@keyframes d-pulse{0%,100%{opacity:1}50%{opacity:.3}}
+@media (prefers-reduced-motion:reduce){.d-upd.live i{animation:none}}
