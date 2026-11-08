@@ -453,3 +453,11 @@ $('#b-del2').addEventListener('click', async () => {
 
 wireExport(() => ({ el: document.querySelector('#preview .dash'), title: project && project.title }), m => { $('#xst').textContent = m; });
 load();
+
+// full-screen preview while editing
+{
+  const pv = document.querySelector('.preview'), bx = $('#b-expand');
+  const setX = on => { pv.classList.toggle('expanded', on); document.body.classList.toggle('pv-open', on); bx.setAttribute('aria-pressed', on); bx.textContent = on ? '✕ تصغير' : '⛶ تكبير'; window.dispatchEvent(new Event('resize')); };
+  bx.addEventListener('click', () => setX(!pv.classList.contains('expanded')));
+  document.addEventListener('keydown', e => { if (e.key === 'Escape' && pv.classList.contains('expanded') && !document.querySelector('.d-sqlmodal')) setX(false); });
+}
