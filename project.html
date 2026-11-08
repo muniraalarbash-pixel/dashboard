@@ -2,6 +2,7 @@
 <html lang="ar" dir="rtl">
 <head>
 <meta charset="utf-8">
+<script>try{var q=new URLSearchParams(location.search).get("lang");if(q==="en"||q==="ar")localStorage.setItem("dash-lang",q);var l=q||localStorage.getItem("dash-lang");if(l==="en"){document.documentElement.lang="en";document.documentElement.dir="ltr"}}catch(e){}</script>
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>المشروع | لوحة المؤشرات</title>
 <script>try{document.documentElement.dataset.mode=localStorage.getItem("dash-mode")||"bordo"}catch(e){document.documentElement.dataset.mode="bordo"}</script>
@@ -33,7 +34,7 @@
 <main class="wrap">
   <div id="setup" class="notice" hidden style="margin-top:16px"></div>
   <div class="page-head" style="padding-block:20px 0">
-    <div><a href="app.html" class="btn-ghost btn" style="padding-inline:0">→ مشاريعي</a><h1 id="h-title">…</h1></div>
+    <div><a href="app.html" class="btn-ghost btn" style="padding-inline:0">→ مشاريعي</a><h1 id="h-title" data-no-i18n>…</h1></div>
     <div class="row"><span class="save-chip" id="save-chip" role="status" aria-live="polite"></span><a class="btn btn-quiet btn-sm" id="open-link" href="#" target="_blank" rel="noopener" hidden>فتح رابط المشاركة</a></div>
   </div>
 

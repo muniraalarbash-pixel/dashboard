@@ -1,9 +1,11 @@
 // Personal home: greeting, date tiles, project chart, quick stats, activity, projects, calendar + secondary views.
-import { sb, $, requireUser, setupNotice, toast, signOut, modeSwitchHTML, MODES, getMode, setMode } from './sb.js';
+import { sb, $, requireUser, setupNotice, toast, signOut, modeSwitchHTML, MODES, getMode, setMode, langToggleHTML } from './sb.js';
+import { startI18n } from './i18n.js';
 import { esc, fmt, fmtDate, pLabel, createModel, DEFAULT_BRAND, FONTS, AR_M } from './engine.js';
 
 if (setupNotice($('#setup'))) throw new Error('not configured');
 const user = await requireUser();
+startI18n();
 let meta = user.user_metadata || {};
 
 const S = { projects: [], versions: [], selected: null, view: 'home', calY: 0, calM: 0, calDay: null, filter: 'all', q: '', metric: null };
@@ -78,8 +80,8 @@ function renderNav() {
   $('#me-name').textContent = name();
   $('#me-email').textContent = user.email;
   document.querySelectorAll('.navlink[data-view]').forEach(a => { if (a.dataset.view === S.view) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current'); });
-  $('#modes-side').innerHTML = modeSwitchHTML();
-  $('#modes-top').innerHTML = modeSwitchHTML();
+  $('#modes-side').innerHTML = modeSwitchHTML() + `<div class="lang-side">${langToggleHTML()}</div>`;
+  $('#modes-top').innerHTML = langToggleHTML() + modeSwitchHTML();
 }
 
 /* ---------- right panel ---------- */

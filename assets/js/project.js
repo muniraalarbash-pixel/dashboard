@@ -4,10 +4,12 @@ import { mountDashboard, TEMPLATES, vizDefault } from './render.js';
 import { DEFAULT_BRAND, FONTS, extractColors, computeTotals, guessTargetCfg, esc, fmtDate, createModel, targetStats, autoRecommendations } from './engine.js';
 import { openFile, openPasted, extractRaw, convert, TYPES, cleanReport, MAX_ROWS } from './parse.js';
 import { wireExport } from './export.js';
+import { startI18n } from './i18n.js';
 
 if (setupNotice($('#setup'))) throw new Error('not configured');
 const user = await requireUser();
-mountNav(user);
+mountNav(user, { lang: true });
+startI18n();
 const id = new URLSearchParams(location.search).get('id');
 if (!id) location.href = 'app.html';
 

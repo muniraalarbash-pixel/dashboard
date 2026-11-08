@@ -444,3 +444,7 @@ html:not([lang=en]) .en-only{display:none!important}
 .ci-done{background:#2F9E6E}.ci-done:after{content:"✓";color:#fff;font-size:10px;font-weight:700}
 .ci-warn{background:#C98A1B}.ci-warn:after{content:"!";color:#fff;font-size:11px;font-weight:700}
 .ci-info{background:var(--line)}.ci-info:after{content:"i";color:var(--ink);font-size:10px;font-weight:700}
+
+#modes-top{display:flex;gap:8px;align-items:center}
+html[dir=ltr] #cal-prev svg,html[dir=ltr] #cal-next svg,html[dir=ltr] .pwrap .iconbtn svg{transform:scaleX(-1)}
+.lang-side{display:flex;justify-content:center;margin-top:8px}
