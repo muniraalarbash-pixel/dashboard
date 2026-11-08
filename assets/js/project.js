@@ -4,7 +4,7 @@ import { mountDashboard, TEMPLATES, vizDefault } from './render.js';
 import { DEFAULT_BRAND, FONTS, extractColors, computeTotals, guessTargetCfg, esc, fmtDate, createModel, targetStats, autoRecommendations } from './engine.js';
 import { openFile, openPasted, extractRaw, convert, TYPES, cleanReport, MAX_ROWS } from './parse.js';
 import { wireExport } from './export.js';
-const mopts = () => ({ agg: project.config.agg, measures: project.config.measures });
+const mopts = () => ({ agg: project.config.agg, measures: project.config.measures, fmt: project.config.fmt });
 import { startI18n } from './i18n.js';
 
 if (setupNotice($('#setup'))) throw new Error('not configured');
@@ -365,14 +365,29 @@ function funnelEdHTML(m) {
 }
 /* how each number column is summarised (Sum / Average / Max / Min) */
 const AGG_L = { sum: 'مجموع', avg: 'متوسط', max: 'أعلى قيمة', min: 'أدنى قيمة' };
+const FMT_L = [['auto', 'تلقائي'], ['full', 'رقم كامل'], ['compact', 'مختصر (K / M)'], ['cur', 'عملة'], ['pct', 'نسبة % (القيمة جاهزة)'], ['frac', 'كسر ← نسبة (0.85 = 85%)']];
 function aggHTML(m) {
   if (!m.nums.length) return '';
-  const a = project.config.agg || {}, changed = m.nums.filter(i => a[m.cols[i].name]).length;
-  const rowsH = m.nums.filter(i => !m.cols[i].measure).map(i => { const n = m.cols[i].name, cur = a[n] || '';
-    return `<label class="agg-row"><span class="agg-n" title="${esc(n)}"><bdi>${esc(n)}</bdi></span><select data-agg="${esc(n)}"><option value="" ${cur ? '' : 'selected'}>تلقائي (${AGG_L[m.autoAgg(i)]})</option>${['sum', 'avg', 'max', 'min'].map(v => `<option value="${v}" ${cur === v ? 'selected' : ''}>${AGG_L[v]}</option>`).join('')}</select></label>`; }).join('');
-  return `<details class="agg-box" ${changed ? 'open' : ''}><summary>طريقة تجميع الأرقام${changed ? ` <span class="agg-c">${changed}</span>` : ''}</summary><p class="muted" style="font-size:12px;margin:6px 0 8px">النسب والمعدلات (مثل CTR أو نسبة الإنجاز) تنحسب «متوسط» تلقائيًا، وباقي الأرقام «مجموع». غيّرها إذا العمود يحتاج غير كذا.</p>${rowsH}</details>`;
+  const a = project.config.agg || {}, f = project.config.fmt || {};
+  const changed = m.nums.filter(i => a[m.cols[i].name] || (f[m.cols[i].name] && (f[m.cols[i].name].style || f[m.cols[i].name].dec !== undefined))).length;
+  const rowsH = m.nums.map(i => { const n = m.cols[i].name, cur = a[n] || '', fs = f[n] || {}, isM = !!m.cols[i].measure;
+    const aggSel = isM ? `<span class="agg-fixed">${m.aggOf(i) === 'ratio' ? 'مقياس محسوب' : 'مجموع'}</span>` : `<select data-agg="${esc(n)}" aria-label="طريقة التجميع"><option value="" ${cur ? '' : 'selected'}>تلقائي (${AGG_L[m.autoAgg(i)]})</option>${['sum', 'avg', 'max', 'min'].map(v => `<option value="${v}" ${cur === v ? 'selected' : ''}>${AGG_L[v]}</option>`).join('')}</select>`;
+    const fmtSel = `<select data-fmt="${esc(n)}" data-fk="style" aria-label="التنسيق">${FMT_L.map(([v, l]) => `<option value="${v}" ${(fs.style || 'auto') === v ? 'selected' : ''}>${l}</option>`).join('')}</select>`;
+    const decSel = `<select data-fmt="${esc(n)}" data-fk="dec" aria-label="الكسور العشرية"><option value="" ${fs.dec == null || fs.dec === '' ? 'selected' : ''}>كسور: تلقائي</option>${[0, 1, 2].map(d => `<option value="${d}" ${String(fs.dec) === String(d) ? 'selected' : ''}>${d} ${d === 0 ? 'بدون كسور' : 'خانة'}</option>`).join('')}</select>`;
+    const unit = fs.style === 'cur' ? `<input data-fmt="${esc(n)}" data-fk="unit" value="${esc(fs.unit || '')}" placeholder="ر.س" maxlength="8" aria-label="رمز العملة">` : '';
+    const ex = m.fmtOf(i)(m.agg(m.rows, i));
+    return `<div class="agg-row"><span class="agg-n" title="${esc(n)}"><bdi>${esc(n)}</bdi><small class="agg-ex">مثال: <bdi>${esc(ex)}</bdi></small></span><div class="agg-sels">${aggSel}${fmtSel}${decSel}${unit}</div></div>`; }).join('');
+  return `<details class="agg-box" ${changed ? 'open' : ''}><summary>الأرقام: التجميع والتنسيق${changed ? ` <span class="agg-c">${changed}</span>` : ''}</summary><p class="muted" style="font-size:12px;margin:6px 0 8px">النسب والمعدلات (مثل CTR أو نسبة الإنجاز) تنحسب «متوسط» تلقائيًا، وباقي الأرقام «مجموع». وتقدر تختار شكل الرقم: عملة، نسبة، مختصر، وعدد الكسور.</p>${rowsH}</details>`;
 }
 $('#defs').addEventListener('change', e => { if (e.target.id === 'ms-op') { const pc = $('#ms-pct'); if (pc) pc.closest('label').hidden = e.target.value !== '/'; }
+  const fm = e.target.closest('[data-fmt]');
+  if (fm) {
+    const all = { ...(project.config.fmt || {}) }, n = fm.dataset.fmt, cur = { ...(all[n] || {}) };
+    cur[fm.dataset.fk] = fm.value; if (cur.style === 'auto') delete cur.style; if (cur.dec === '') delete cur.dec; if (!cur.unit) delete cur.unit; if (cur.style !== 'cur') delete cur.unit;
+    if (Object.keys(cur).length) all[n] = cur; else delete all[n];
+    project.config = { ...project.config, fmt: all };
+    queue({ config: project.config }); renderDefaults(true); preview(); return;
+  }
   const ag = e.target.closest('[data-agg]');
   if (ag) {
     const a = { ...(project.config.agg || {}) };

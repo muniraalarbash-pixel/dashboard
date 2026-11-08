@@ -4,7 +4,7 @@ import { buildSQL } from './sql.js';
 import { openSqlEditor } from './sqleditor.js';
 import { forecast } from './forecast.js';
 import { askQuestions } from './ask.js';
-import { createModel, autoInsights, targetStats, brandTheme, loadFont, mix, fmt, fmtPct, pLabel, fmtDate, esc, alpha, onColor, T, isEn } from './engine.js';
+import { setFmt, fmtBase, createModel, autoInsights, targetStats, brandTheme, loadFont, mix, fmt, fmtPct, pLabel, fmtDate, esc, alpha, onColor, T, isEn } from './engine.js';
 
 export const TEMPLATES = {
   tiles: { name: 'مربعات تحليلية', en: 'Analytical tiles', desc: 'شبكة مربعات بأرقام كبيرة ونسب تغير ورسوم صغيرة' },
@@ -100,7 +100,7 @@ export function mountDashboard(root, opts) {
   function draw(k, cfg) { kill(k); const cv = root.querySelector('[data-cv="' + k + '"]'); if (cv && window.Chart) charts[k] = new Chart(cv, cfg); }
 
   function setup() {
-    m = o.version ? createModel(o.version.data, (({ agg, measures }) => ({ agg, measures }))((o.project && o.project.config) || {})) : null;
+    m = o.version ? createModel(o.version.data, (({ agg, measures, fmt }) => ({ agg, measures, fmt }))((o.project && o.project.config) || {})) : null;
     geo = m ? findGeoCol(m) : -1;
     saudi = geo >= 0 && saudiOnly(m, geo);
     theme = brandTheme(o.project.brand);
@@ -503,7 +503,7 @@ export function mountDashboard(root, opts) {
     if (c.tstats && c.tstats.pct != null) kpis += `<article class="d-card d-kpi d-kpi-hero"><p class="d-kl">${T('نسبة الإنجاز', 'Achievement')}</p><p class="d-kv">${fmtPct(c.tstats.pct, 1)}</p><p class="d-kf">${fmt(c.tstats.actual)} ${T('من', 'of')} ${fmt(c.tstats.target)}</p>${vz('kpi') === 'number' ? '' : `<div class="d-bar-track"><i style="width:${Math.min(100, c.tstats.pct).toFixed(1)}%"></i></div>`}</article>`;
     metrics.forEach(mi => {
       const ch = change(c, mi);
-      kpis += `<article class="d-card d-kpi ${mi === c.metric ? 'on' : ''}" data-mi="${mi}" role="button" tabindex="0" aria-pressed="${mi === c.metric}"><p class="d-kl">${esc(m.label(mi))}</p><p class="d-kv">${fmt(m.agg(c.rows, mi))}</p><p class="d-kf"><span class="d-dl ${arrowCls(ch.pct)}">${ch.pct == null ? '' : (ch.pct >= 0 ? '▲ ' : '▼ ') + Math.abs(ch.pct).toFixed(1) + '%'}</span> ${ch.pct == null ? '' : esc(ch.sub)}</p>${spark(ch.s.map(p => p.v))}</article>`;
+      kpis += `<article class="d-card d-kpi ${mi === c.metric ? 'on' : ''}" data-mi="${mi}" role="button" tabindex="0" aria-pressed="${mi === c.metric}"><p class="d-kl">${esc(m.label(mi))}</p><p class="d-kv">${m.fmtOf(mi)(m.agg(c.rows, mi))}</p><p class="d-kf"><span class="d-dl ${arrowCls(ch.pct)}">${ch.pct == null ? '' : (ch.pct >= 0 ? '▲ ' : '▼ ') + Math.abs(ch.pct).toFixed(1) + '%'}</span> ${ch.pct == null ? '' : esc(ch.sub)}</p>${spark(ch.s.map(p => p.v))}</article>`;
     });
     const hasLine = m.date >= 0;
     const html = `<section class="d-kpis">${kpis}</section>
@@ -529,7 +529,7 @@ export function mountDashboard(root, opts) {
   function tplCompact(c) {
     const total = m.agg(c.rows, c.metric), ch0 = change(c, c.metric);
     const metrics = m.nums.length ? m.nums.slice(0, 6) : [-1];
-    const rows = metrics.map(mi => { const ch = change(c, mi); return `<li data-mi="${mi}" role="button" tabindex="0" class="${mi === c.metric ? 'on' : ''}" aria-pressed="${mi === c.metric}"><span class="d-ln">${esc(m.label(mi))}</span><span class="d-lv">${fmt(m.agg(c.rows, mi))}</span>${spark(ch.s.map(p => p.v).slice(-8))}<span class="d-dl ${arrowCls(ch.pct)}">${ch.pct == null ? '' : (ch.pct >= 0 ? '▲' : '▼') + Math.abs(ch.pct).toFixed(0) + '%'}</span></li>`; }).join('');
+    const rows = metrics.map(mi => { const ch = change(c, mi); return `<li data-mi="${mi}" role="button" tabindex="0" class="${mi === c.metric ? 'on' : ''}" aria-pressed="${mi === c.metric}"><span class="d-ln">${esc(m.label(mi))}</span><span class="d-lv">${m.fmtOf(mi)(m.agg(c.rows, mi))}</span>${spark(ch.s.map(p => p.v).slice(-8))}<span class="d-dl ${arrowCls(ch.pct)}">${ch.pct == null ? '' : (ch.pct >= 0 ? '▲' : '▼') + Math.abs(ch.pct).toFixed(0) + '%'}</span></li>`; }).join('');
     const html = `<section class="d-stack">
       <article class="d-card d-hero"><p class="d-kl">${esc(c.ml)}${m.aggOf(c.metric) === 'avg' ? T(' (متوسط)', ' (avg)') : ''}</p><p class="d-kv">${fmt(total)}</p><p class="d-kf"><span class="d-dl ${arrowCls(ch0.pct)}">${ch0.pct == null ? '' : (ch0.pct >= 0 ? '▲ ' : '▼ ') + Math.abs(ch0.pct).toFixed(1) + '%'}</span> ${ch0.pct == null ? '' : esc(ch0.sub)}</p>
         ${c.tstats && c.tstats.pct != null ? `<div class="d-target"><span>${m.cols[c.metric] && m.cols[c.metric].name === c.tstats.valName ? T(`الإنجاز ${fmtPct(c.tstats.pct, 1)} من المستهدف`, `${fmtPct(c.tstats.pct, 1)} of target achieved`) : T(`${esc(c.tstats.valName)}: الإنجاز ${fmtPct(c.tstats.pct, 1)} من المستهدف`, `${esc(c.tstats.valName)}: ${fmtPct(c.tstats.pct, 1)} of target`)}</span>${vz('kpi') === 'number' ? '' : `<div class="d-bar-track"><i style="width:${Math.min(100, c.tstats.pct).toFixed(1)}%"></i></div>`}</div>` : ''}</article>
@@ -571,12 +571,12 @@ export function mountDashboard(root, opts) {
     const v = stg.map(i => m.agg(c.rows, i)), top = Math.max(...v.map(Math.abs), 1);
     let worst = -1, wr = Infinity; v.slice(1).forEach((x, k) => { const r = v[k] ? x / v[k] : Infinity; if (r < wr && r < 1) { wr = r; worst = k; } });
     const rowsH = stg.map((mi, k) => `${k ? `<div class="d-fstep ${k - 1 === worst ? 'worst' : ''}"><span>↓ ${pctS(v[k - 1], v[k])}</span>${k - 1 === worst ? `<em>${T('أكبر تسرّب', 'Biggest drop')}</em>` : ''}</div>` : ''}
-      <div class="d-frow" style="--w:${fW(v[k], top).toFixed(1)}%;--k:${k}"><span class="d-fn"><bdi>${esc(m.cols[mi].name)}</bdi></span><span class="d-fbar"><i></i></span><b class="d-fv">${fmt(v[k])}</b></div>`).join('');
+      <div class="d-frow" style="--w:${fW(v[k], top).toFixed(1)}%;--k:${k}"><span class="d-fn"><bdi>${esc(m.cols[mi].name)}</bdi></span><span class="d-fbar"><i></i></span><b class="d-fv">${m.fmtOf(mi)(v[k])}</b></div>`).join('');
     sqlSet('funnel', { kind: 'funnel', stages: stg, metric: -1 });
     const last = v[v.length - 1], first = v[0];
     let per = 100; while (first && last > 0 && last / first * per < 1 && per < 1e7) per *= 10;
     const n0 = esc(m.cols[stg[0]].name), n1 = esc(m.cols[stg[stg.length - 1]].name), got = first ? Math.round(last / first * per) : 0;
-    const sum = first ? T(`من كل ${per.toLocaleString("en-US")} في «${n0}» يوصل ${fmt(got)} إلى «${n1}».`, `Of every ${per.toLocaleString("en-US")} “${n0}”, ${fmt(got)} reach “${n1}”.`) + (top / Math.max(1, Math.abs(last)) > 50 ? `<br><small>${T('عرض الأشرطة بمقياس لوغاريتمي عشان تبان كل المراحل؛ الأرقام حقيقية.', 'Bar widths use a log scale so every stage stays visible; the numbers are real.')}</small>` : '') : '';
+    const sum = first ? T(`من كل ${per.toLocaleString("en-US")} في «${n0}» يوصل ${fmtBase(got)} إلى «${n1}».`, `Of every ${per.toLocaleString("en-US")} “${n0}”, ${fmtBase(got)} reach “${n1}”.`) + (top / Math.max(1, Math.abs(last)) > 50 ? `<br><small>${T('عرض الأشرطة بمقياس لوغاريتمي عشان تبان كل المراحل؛ الأرقام حقيقية.', 'Bar widths use a log scale so every stage stays visible; the numbers are real.')}</small>` : '') : '';
     return `<article class="${cls} d-funnel">${head(T('قمع التحويل', 'Conversion funnel'), T('التحويل الكلي ', 'Overall conversion ') + pctS(first, last))}<div data-cv="funnel" class="d-fbody">${rowsH}</div>${sum ? `<p class="d-fsum">${sum}</p>` : ''}</article>`;
   }
   function funnelPage(c) {
@@ -586,7 +586,7 @@ export function mountDashboard(root, opts) {
       const g = m.groups(c.rows, r => r[dim] == null ? null : String(r[dim]));
       const rs = [...g.entries()].map(([k, x]) => ({ k, v: stg.map(i => m.agg(x, i)) })).sort((a, b) => b.v[0] - a.v[0]).slice(0, 12);
       const best = Math.max(...rs.map(r => r.v[0] ? r.v[r.v.length - 1] / r.v[0] : -1));
-      tbl = `<article class="d-card d-periods">${head(T('التحويل حسب ', 'Conversion by ') + esc(m.cols[dim].name), T('نسبة كل مرحلة من اللي قبلها', 'Each stage as a share of the one before'))}<div class="d-pscroll" data-cv="funneltbl"><table class="d-ptbl"><thead><tr><th>${esc(m.cols[dim].name)}</th><th>${esc(m.cols[stg[0]].name)}</th>${stg.slice(1).map(i => `<th>→ ${esc(m.cols[i].name)}</th>`).join('')}<th>${T('الكلي', 'Overall')}</th></tr></thead><tbody>${rs.map(r => { const ov = r.v[0] ? r.v[r.v.length - 1] / r.v[0] : -1; return `<tr><td><bdi>${esc(r.k)}</bdi></td><td>${fmt(r.v[0])}</td>${r.v.slice(1).map((x, k) => `<td>${fmt(x)} <small>${pctS(r.v[k], x)}</small></td>`).join('')}<td class="${ov === best && rs.length > 1 ? 'up' : ''}"><b>${pctS(r.v[0], r.v[r.v.length - 1])}</b></td></tr>`; }).join('')}</tbody></table></div></article>`;
+      tbl = `<article class="d-card d-periods">${head(T('التحويل حسب ', 'Conversion by ') + esc(m.cols[dim].name), T('نسبة كل مرحلة من اللي قبلها', 'Each stage as a share of the one before'))}<div class="d-pscroll" data-cv="funneltbl"><table class="d-ptbl"><thead><tr><th>${esc(m.cols[dim].name)}</th><th>${esc(m.cols[stg[0]].name)}</th>${stg.slice(1).map(i => `<th>→ ${esc(m.cols[i].name)}</th>`).join('')}<th>${T('الكلي', 'Overall')}</th></tr></thead><tbody>${rs.map(r => { const ov = r.v[0] ? r.v[r.v.length - 1] / r.v[0] : -1; return `<tr><td><bdi>${esc(r.k)}</bdi></td><td>${m.fmtOf(stg[0])(r.v[0])}</td>${r.v.slice(1).map((x, k) => `<td>${m.fmtOf(stg[k + 1])(x)} <small>${pctS(r.v[k], x)}</small></td>`).join('')}<td class="${ov === best && rs.length > 1 ? 'up' : ''}"><b>${pctS(r.v[0], r.v[r.v.length - 1])}</b></td></tr>`; }).join('')}</tbody></table></div></article>`;
       sqlSet('funneltbl', { kind: 'funnel', stages: stg, dim, metric: -1 });
     }
     return { html: `<section class="d-pagegrid one">${funnelHTML(c, 'd-card d-funnelbig')}${tbl}</section>`, after() {} };
@@ -676,6 +676,7 @@ export function mountDashboard(root, opts) {
   function renderBody() {
     Object.keys(charts).forEach(kill); killMaps(); sqlReg = {};
     const c = ctx();
+    setFmt(m.fmtOf(c.metric));
     chartBase(c.ink, c.grid);
     const tpl = o.project.template === 'executive' ? tplExecutive : o.project.template === 'compact' ? tplCompact : tplTiles;
     renderNav();

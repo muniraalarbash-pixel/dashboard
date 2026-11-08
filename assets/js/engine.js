@@ -7,7 +7,25 @@ export const AR_M = ['يناير','فبراير','مارس','أبريل','ماي
 export const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
 const nfC = new Intl.NumberFormat('en-US', { notation: 'compact', maximumFractionDigits: 1 });
-export function fmt(n) {
+// per-column number formats: {style:'auto'|'full'|'compact'|'cur'|'pct'|'frac', dec:''|0|1|2, unit}
+export const FMT_STYLES = ['auto', 'full', 'compact', 'cur', 'pct', 'frac'];
+export function makeFmt(spec) {
+  if (!spec) return fmtBase;
+  const st = FMT_STYLES.includes(spec.style) ? spec.style : 'auto', d = spec.dec === '' || spec.dec == null ? null : +spec.dec;
+  const loc = (n, dd) => n.toLocaleString('en-US', dd == null ? { maximumFractionDigits: Math.abs(n) < 10 ? 2 : (Math.abs(n) < 1000 ? 1 : 0) } : { minimumFractionDigits: dd, maximumFractionDigits: dd });
+  const ok = f => n => (n == null || !isFinite(n)) ? '—' : f(n);
+  if (st === 'full') return ok(n => loc(n, d));
+  if (st === 'compact') return ok(n => Math.abs(n) >= 1000 ? nfC.format(n) : loc(n, d));
+  if (st === 'cur') { const u = spec.unit || T('ر.س', 'SAR'); return ok(n => (Math.abs(n) >= 100000 && d == null ? nfC.format(n) : loc(n, d ?? (Math.abs(n) < 10 ? 2 : 0))) + ' ' + u); }
+  if (st === 'pct') return ok(n => n.toFixed(d ?? (Math.abs(n) < 10 ? 1 : 0)) + '%');
+  if (st === 'frac') return ok(n => (n * 100).toFixed(d ?? 1) + '%');
+  return d == null ? fmtBase : ok(n => Math.abs(n) >= 100000 ? nfC.format(n) : loc(n, d));
+}
+// the dashboard sets the active metric's format so every chart, tooltip and tile follows it
+let ACT = null;
+export const setFmt = f => { ACT = f || null; };
+export function fmt(n) { return ACT ? ACT(n) : fmtBase(n); }
+export function fmtBase(n) {
   if (n == null || !isFinite(n)) return '—';
   const a = Math.abs(n);
   if (a >= 100000) return nfC.format(n);
@@ -46,7 +64,7 @@ export function monthIndex(v) {
 const YEAR_RE = /(year|سنة|السنة|عام|العام)/i, MONTH_RE = /(month|شهر|الشهر)/i;
 
 export function createModel(data, opts = {}) {
-  const aggCfg = opts.agg || {};
+  const aggCfg = opts.agg || {}, fmtCfg = opts.fmt || {};
   let cols = data.columns, rows = data.rows;
   const nums = [], cats = []; let date = -1;
   cols.forEach((c, i) => { if (c.type === 'date' && date < 0) date = i; });
@@ -103,6 +121,8 @@ export function createModel(data, opts = {}) {
     idx: name => cols.findIndex(c => c.name === name),
     // how a number column is summarised: owner's choice, else average for rates/percentages, else sum
     measures,
+    fmtSpec: mi => { if (mi < 0 || !cols[mi]) return null; const f = fmtCfg[cols[mi].name]; if (f && (f.style && f.style !== 'auto' || (f.dec !== '' && f.dec != null))) return f; const ms = cols[mi].measure; return ms && ms.calc(1, 1) === 100 ? { style: 'pct' } : null; },
+    fmtOf: mi => makeFmt(m.fmtSpec(mi)),
     aggOf: mi => { if (mi < 0 || !cols[mi]) return 'count'; if (cols[mi].measure) return ['/', '*'].includes(cols[mi].measure.op) ? 'ratio' : 'sum'; const o = aggCfg[cols[mi].name]; return AGG_MODES.includes(o) ? o : (MEAN_RE.test(cols[mi].name) ? 'avg' : 'sum'); },
     autoAgg: mi => mi >= 0 && !!cols[mi] && MEAN_RE.test(cols[mi].name) ? 'avg' : 'sum',
     isMean: mi => m.aggOf(mi) === 'avg',
