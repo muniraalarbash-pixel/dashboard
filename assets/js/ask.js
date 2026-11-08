@@ -22,9 +22,10 @@ export function askQuestions({ m, c, F, sqlFor }) {
       return { head: T(`<b>${f.k}</b> الأعلى بـ <b>${fmt(f.v)}</b>${!mean && tot ? `، أي ${fmtPct(pctOf(f.v, tot), 0)} من الإجمالي` : ''}، ويتقدّم على <b>${s.k}</b> بفارق ${fmt(f.v - s.v)}.`, `<b>${f.k}</b> is highest with <b>${fmt(f.v)}</b>${!mean && tot ? ` (${fmtPct(pctOf(f.v, tot), 0)} of total)` : ''}, ahead of <b>${s.k}</b> by ${fmt(f.v - s.v)}.`),
         items: t.map(x => item(x)), sql: sqlFor({ kind: 'breakdown', dim, metric: mi, limit: 3 }) };
     } });
-    out.push({ id: 'bottom', q: T(`مين الأقل في ${ml} حسب ${dn}؟`, `Who is lowest in ${ml} by ${dn}?`), a: () => {
-      const t = b.slice(-3).reverse(), l = t[0];
-      return { head: T(`<b>${l.k}</b> الأقل بـ <b>${fmt(l.v)}</b>${!mean && tot ? `، أي ${fmtPct(pctOf(l.v, tot), 0)} فقط من الإجمالي` : ''}. هذا أقل من الأعلى (${b[0].k}) بـ ${fmt(b[0].v - l.v)}.`, `<b>${l.k}</b> is lowest with <b>${fmt(l.v)}</b>${!mean && tot ? ` (only ${fmtPct(pctOf(l.v, tot), 0)} of total)` : ''}, ${fmt(b[0].v - l.v)} below the top (${b[0].k}).`),
+    const bz = b.filter(x => x.v !== 0), zeros = b.length - bz.length;
+    if (bz.length >= 2) out.push({ id: 'bottom', q: T(`مين الأقل في ${ml} حسب ${dn}؟`, `Who is lowest in ${ml} by ${dn}?`), a: () => {
+      const t = bz.slice(-3).reverse(), l = t[0];
+      return { head: T(`<b>${l.k}</b> الأقل بـ <b>${fmt(l.v)}</b>${!mean && tot ? `، أي ${fmtPct(pctOf(l.v, tot), 0)} فقط من الإجمالي` : ''}. هذا أقل من الأعلى (${b[0].k}) بـ ${fmt(b[0].v - l.v)}.${zeros ? ` (${zeros} بدون أي قيمة: ${b.filter(x => x.v === 0).map(x => x.k).join('، ')})` : ''}`, `<b>${l.k}</b> is lowest with <b>${fmt(l.v)}</b>${!mean && tot ? ` (only ${fmtPct(pctOf(l.v, tot), 0)} of total)` : ''}, ${fmt(b[0].v - l.v)} below the top (${b[0].k}).`),
         items: t.map(x => item(x)), sql: sqlFor({ kind: 'breakdown', dim, metric: mi, limit: 3 }).replace(/DESC(\s*\nLIMIT)/, 'ASC$1') };
     } });
   }
@@ -38,7 +39,7 @@ export function askQuestions({ m, c, F, sqlFor }) {
   }
   const s = m.date >= 0 ? m.series(rows, mi) : [];
   const unit = m.monthly ? T('شهر', 'month') : T('يوم', 'day');
-  if (s.length >= 2) {
+  if (s.length >= 2 && (s[s.length - 1].v || s[s.length - 2].v)) {
     const last = s[s.length - 1], prev = s[s.length - 2];
     out.push({ id: 'change', q: T(`وش تغيّر في ${pLabel(last.k)} عن ${pLabel(prev.k)}؟`, `What changed in ${pLabel(last.k)} vs ${pLabel(prev.k)}?`), a: () => {
       const ch = prev.v ? (last.v - prev.v) / Math.abs(prev.v) * 100 : null;
@@ -93,7 +94,7 @@ export function askQuestions({ m, c, F, sqlFor }) {
       return { head: T(`<b>${lk}</b> الأعلى في ${ln} من أصل ${items.length} حسب «${dn}».`, `<b>${lk}</b> leads in ${ln} of ${items.length} (${dn}).`), items, itemsTitle: T(`الأعلى في «${dn2}» داخل كل «${dn}» (الشريط = حصته)`, `Top ${dn2} within each ${dn} (bar = its share)`), sql: sqlFor({ kind: 'breakdown', dim, sd: d2, metric: mi }) };
     } });
   }
-  if (F) {
+  if (F && !F.unreliable) {
     out.push({ id: 'forecast', q: T('وش المتوقع للأشهر الجاية؟', 'What is expected next?'), a: () => {
       const last = s[s.length - 1], mx = Math.max(Math.abs(last.v), ...F.band.map(x => Math.abs(x[1]))) || 1;
       const ch = last.v ? (F.pts[0] - last.v) / Math.abs(last.v) * 100 : null;

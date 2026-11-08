@@ -113,7 +113,9 @@ export function mountDashboard(root, opts) {
   function metricIdx() {
     if (st.metric != null && (st.metric === -1 || m.nums.includes(st.metric))) return st.metric;
     const d = colIdx(dflt('metric')); if (d === -1 || (d != null && m.nums.includes(d))) return d;
-    return m.nums.length ? m.nums[0] : -1;
+    // no owner choice: prefer the outcome column (revenue / sales) over the first number
+    const pref = m.nums.find(i => /(إيراد|الإيراد|ايراد|مبيعات|المبيعات|revenue|sales)/i.test(m.cols[i].name));
+    return pref != null ? pref : m.nums.length ? m.nums[0] : -1;
   }
   function dimIdx() {
     if (st.dim != null && m.cats.includes(st.dim)) return st.dim;
@@ -297,6 +299,7 @@ export function mountDashboard(root, opts) {
     let el = card.querySelector('.d-fcnote'); if (!el) { el = document.createElement('div'); el.className = 'd-fcnote'; card.appendChild(el); }
     if (!F) { el.remove(); return; }
     const acc = F.accuracy == null ? '' : ` · ${T('الدقة', 'accuracy')} ~${F.accuracy.toFixed(0)}%`;
+    if (F.unreliable) { el.innerHTML = `<p class="d-fcvals"><span aria-hidden="true">⚠️</span>${T('ما عرضنا توقعًا: الأرقام متذبذبة كثير، وأفضل طريقة أخطأت بأكثر من النصف عند اختبارها على آخر الأشهر.', 'No forecast shown: the numbers swing too much — the best method was off by more than half when tested on recent months.')}</p>`; return; }
     el.innerHTML = `<p class="d-fcvals"><span class="d-fckey" aria-hidden="true"></span>${T('التوقع', 'Forecast')}: ${F.keys.map((k, i) => `<span><bdi>${esc(pLabel(k))}</bdi> <b>${fmt(F.pts[i])}</b></span>`).join('<i>·</i>')}</p>
       <details><summary>${T('الطريقة', 'Method')}: ${esc(F.best.name)}${acc} <small>(${T(F.test === 2 ? 'اختُبرت على آخر شهرين معروفين' : F.test === 1 ? 'اختُبرت على آخر شهر معروف' : `اختُبرت على آخر ${F.test} أشهر معروفة`, `tested on the last ${F.test} known months`)})</small></summary>
       <table class="d-fctbl"><thead><tr><th>${T('الطريقة', 'Method')}</th><th>${T('الدقة', 'Accuracy')}</th><th>${T('متوسط الخطأ', 'Avg. error')}</th></tr></thead><tbody>${F.ranking.map((r, i) => `<tr class="${i ? '' : 'on'}"><td>${esc(r.name)}${i ? '' : ' ✓'}</td><td>${r.mape == null ? '—' : Math.max(0, 100 - r.mape).toFixed(1) + '%'}</td><td>${fmt(r.rmse)}</td></tr>`).join('')}</tbody></table>
@@ -305,7 +308,7 @@ export function mountDashboard(root, opts) {
   function chartLine(c, key, mi) {
     sqlSet(key, { kind: 'trend', metric: mi });
     const s = m.series(c.rows, mi), tt = vz('trend');
-    const F = mi === c.metric ? fcFor(c) : null, n = s.length, fl = F ? F.keys.length : 0;
+    const F0 = mi === c.metric ? fcFor(c) : null, F = F0 && !F0.unreliable ? F0 : null, n = s.length, fl = F ? F.keys.length : 0;
     const labels = s.map(p => pLabel(p.k)).concat(F ? F.keys.map(pLabel) : []);
     const pad = (arr) => arr.concat(Array(fl).fill(null));
     const fcCol = c.pal[1] || c.pal[0];
@@ -322,7 +325,7 @@ export function mountDashboard(root, opts) {
       draw(key, { type: 'line', data: { labels, datasets: [{ label: F ? c.ml : '', data: pad(s.map(p => p.v)), borderColor: c.pal[0], backgroundColor: alpha(c.pal[0], .14), fill: tt !== 'line', tension: .3, borderWidth: 2.2, pointRadius: n > 40 ? 0 : 3, pointBackgroundColor: c.pal[0] }].concat(fcSets) },
         options: { responsive: true, maintainAspectRatio: false, animation: anim(), interaction: { mode: 'index', intersect: false }, plugins: { legend: { display: false }, tooltip: tp }, scales: { x: { grid: { display: false }, ticks: { maxRotation: 0, autoSkip: true } }, y: { beginAtZero: true, grid: { color: c.grid }, border: { display: false }, ticks: { callback: v => fmt(v), maxTicksLimit: 5 } } } } });
     }
-    fcNote(key, F, c);
+    fcNote(key, F0, c);
   }
   function chartMini(c, key, mi) {
     sqlSet(key, m.date >= 0 ? { kind: 'trend', metric: mi, last: 6 } : { kind: 'breakdown', dim: c.dim, metric: mi, limit: 6 });
@@ -418,7 +421,7 @@ export function mountDashboard(root, opts) {
   // ---------- template: tiles ----------
   function tplTiles(c) {
     const total = m.agg(c.rows, c.metric);
-    let top = `<article class="d-tile d-num">${head(c.ml, c.mean ? T('المتوسط', 'Average') : (c.hasF ? T('الإجمالي حسب الفلاتر', 'Filtered total') : T('الإجمالي', 'Total')))}<p class="d-big">${fmt(total)}</p>${c.tstats ? `<p class="d-sub">${T('المستهدف', 'Target')} ${fmt(c.tstats.target)}</p>` : ''}</article>`;
+    let top = `<article class="d-tile d-num">${head(c.ml, c.mean ? T('المتوسط', 'Average') : (c.hasF ? T('الإجمالي حسب الفلاتر', 'Filtered total') : T('الإجمالي', 'Total')))}<p class="d-big">${fmt(total)}</p>${c.tstats && m.cols[c.metric] && m.cols[c.metric].name === c.tstats.valName ? `<p class="d-sub">${T('المستهدف', 'Target')} ${fmt(c.tstats.target)}</p>` : ''}</article>`;
     let gauge = null;
     if (c.tstats && c.tstats.pct != null) gauge = { title: T('نسبة الإنجاز', 'Achievement'), sub: c.tstats.valName + T(' مقابل المستهدف', ' vs target'), v: c.tstats.pct, max: 100, label: fmtPct(c.tstats.pct, 1), lo: '0%', hi: '100%' };
     else if (c.dim >= 0 && !c.mean && c.rows.length) { const b = m.breakdown(c.rows, c.dim, c.metric), t = b.reduce((s, x) => s + x.v, 0); if (b.length >= 2 && t > 0) gauge = { title: T('حصة ', 'Share of ') + b[0].k, sub: T('من إجمالي ', 'of total ') + c.ml, v: b[0].v, max: t, label: fmt(b[0].v), lo: '0', hi: fmt(t) }; }
@@ -495,7 +498,7 @@ export function mountDashboard(root, opts) {
     const rows = metrics.map(mi => { const ch = change(c, mi); return `<li data-mi="${mi}" role="button" tabindex="0" class="${mi === c.metric ? 'on' : ''}" aria-pressed="${mi === c.metric}"><span class="d-ln">${esc(m.label(mi))}</span><span class="d-lv">${fmt(m.agg(c.rows, mi))}</span>${spark(ch.s.map(p => p.v).slice(-8))}<span class="d-dl ${arrowCls(ch.pct)}">${ch.pct == null ? '' : (ch.pct >= 0 ? '▲' : '▼') + Math.abs(ch.pct).toFixed(0) + '%'}</span></li>`; }).join('');
     const html = `<section class="d-stack">
       <article class="d-card d-hero"><p class="d-kl">${esc(c.ml)}${c.mean ? T(' (متوسط)', ' (avg)') : ''}</p><p class="d-kv">${fmt(total)}</p><p class="d-kf"><span class="d-dl ${arrowCls(ch0.pct)}">${ch0.pct == null ? '' : (ch0.pct >= 0 ? '▲ ' : '▼ ') + Math.abs(ch0.pct).toFixed(1) + '%'}</span> ${ch0.pct == null ? '' : esc(ch0.sub)}</p>
-        ${c.tstats && c.tstats.pct != null ? `<div class="d-target"><span>${T(`الإنجاز ${fmtPct(c.tstats.pct, 1)} من المستهدف`, `${fmtPct(c.tstats.pct, 1)} of target achieved`)}</span>${vz('kpi') === 'number' ? '' : `<div class="d-bar-track"><i style="width:${Math.min(100, c.tstats.pct).toFixed(1)}%"></i></div>`}</div>` : ''}</article>
+        ${c.tstats && c.tstats.pct != null ? `<div class="d-target"><span>${m.cols[c.metric] && m.cols[c.metric].name === c.tstats.valName ? T(`الإنجاز ${fmtPct(c.tstats.pct, 1)} من المستهدف`, `${fmtPct(c.tstats.pct, 1)} of target achieved`) : T(`${esc(c.tstats.valName)}: الإنجاز ${fmtPct(c.tstats.pct, 1)} من المستهدف`, `${esc(c.tstats.valName)}: ${fmtPct(c.tstats.pct, 1)} of target`)}</span>${vz('kpi') === 'number' ? '' : `<div class="d-bar-track"><i style="width:${Math.min(100, c.tstats.pct).toFixed(1)}%"></i></div>`}</div>` : ''}</article>
       <article class="d-card">${head(T('المؤشرات', 'Metrics'), T('اضغط مؤشرًا لعرضه', 'Tap a metric to show it'))}<ul class="d-list">${rows}</ul></article>
       ${c.dim >= 0 ? `<article class="d-card">${head(c.ml + T(' حسب ', ' by ') + m.cols[c.dim].name, '')}<div class="d-box d-hbox"><canvas data-cv="hbar" role="img" aria-label="${T('الترتيب', 'Ranking')}"></canvas></div></article>` : ''}
       ${mapHTML(c, 'd-card')}
@@ -533,7 +536,7 @@ export function mountDashboard(root, opts) {
   };
   function pages() {
     const l = [['overview', T('نظرة عامة', 'Overview')], ['ask', T('اسأل البيانات', 'Ask the data')]];
-    if (m.date >= 0 && m.series(m.rows, -1).length >= 2) l.push(['trend', fcFor({ rows: m.rows, metric: metricIdx() }) ? T('الاتجاه والتوقع', 'Trend & forecast') : T('الاتجاه', 'Trend')]);
+    if (m.date >= 0 && m.series(m.rows, -1).length >= 2) l.push(['trend', (f => f && !f.unreliable)(fcFor({ rows: m.rows, metric: metricIdx() })) ? T('الاتجاه والتوقع', 'Trend & forecast') : T('الاتجاه', 'Trend')]);
     if (geo >= 0) l.push(['map', T('المواقع', 'Locations')]);
     if (recItems().length || noteItems().length) l.push(['notes', T('التوصيات والملاحظات', 'Recommendations & notes')]);
     l.push(['data', T('البيانات', 'Data')]);
@@ -549,7 +552,7 @@ export function mountDashboard(root, opts) {
     tc.hidden = !(st.view === 'data' || st.view === 'all');
   }
   function trendPage(c) {
-    const s = m.series(c.rows, c.metric), F = fcFor(c);
+    const s = m.series(c.rows, c.metric), F0 = fcFor(c), F = F0 && !F0.unreliable ? F0 : null;
     const rowsH = s.map((p, i) => { const pv = i ? s[i - 1].v : null, ch = pv ? (p.v - pv) / Math.abs(pv) * 100 : null; return `<tr><td>${esc(pLabel(p.k))}</td><td>${fmt(p.v)}</td><td class="${arrowCls(ch)}">${ch == null ? '—' : (ch > 0 ? '+' : ch < 0 ? '−' : '') + Math.abs(ch).toFixed(1) + '%'}</td></tr>`; }).reverse().join('');
     const fcRows = F ? F.keys.map((k, i) => `<tr class="fc"><td>${esc(pLabel(k))} <small>${T('متوقع', 'forecast')}</small></td><td>${fmt(F.pts[i])}</td><td><small>${fmt(F.band[i][0])} – ${fmt(F.band[i][1])}</small></td></tr>`).reverse().join('') : '';
     return { html: `<section class="d-pagegrid">

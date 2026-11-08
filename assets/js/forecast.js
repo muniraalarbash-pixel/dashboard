@@ -33,6 +33,7 @@ const nextMonth = k => { let [y, mo] = k.split('-').map(Number); mo++; if (mo > 
 // series: [{k:'YYYY-MM', v}] sorted. Returns null when there is not enough history.
 export function forecast(series, h = 3) {
   const s = series.filter(p => /^\d{4}-\d{2}$/.test(p.k) && isFinite(p.v));
+  while (s.length && s[0].v === 0) s.shift(); // months before activity started are not history
   if (s.length < 6) return null;
   const y = s.map(p => p.v), test = Math.min(3, Math.floor(y.length / 4)), train = y.slice(0, -test), actual = y.slice(-test);
   const nonNeg = y.every(v => v >= 0);
@@ -49,5 +50,7 @@ export function forecast(series, h = 3) {
   const keys = []; let k = s[s.length - 1].k; for (let i = 0; i < h; i++) { k = nextMonth(k); keys.push(k); }
   const z = 1.28; // ~80% range
   const band = pts.map((v, i) => { const w = z * best.rmse * Math.sqrt(i + 1); return [nonNeg ? Math.max(0, v - w) : v - w, v + w]; });
-  return { keys, pts, band, best, ranking: scored, test, accuracy: best.mape == null ? null : Math.max(0, 100 - best.mape) };
+  const accuracy = best.mape == null ? null : Math.max(0, 100 - best.mape);
+  // too erratic to forecast honestly: keep the numbers for the comparison table but flag it
+  return { keys, pts, band, best, ranking: scored, test, accuracy, unreliable: accuracy != null && accuracy < 50 };
 }
