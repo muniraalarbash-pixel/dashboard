@@ -15,6 +15,8 @@ export function buildSQL(m, spec, filters, tcfg) {
     if (metric < 0) return 'COUNT(*)'; const c = p + q(name(metric)), md = m.aggOf ? m.aggOf(metric) : (m.isMean(metric) ? 'avg' : 'sum'); return md === 'avg' ? `ROUND(AVG(${c}), 2)` : md === 'max' ? `MAX(${c})` : md === 'min' ? `MIN(${c})` : `SUM(${c})`; };
   const where = (p = '') => {
     const w = Object.entries(filters || {}).filter(([ci, v]) => v != null && +ci !== spec.exclude && m.cols[+ci] && !m.cols[+ci].virtual).map(([ci, v]) => Array.isArray(v) ? `${p}${q(name(+ci))} IN (${v.map(lit).join(', ')})` : `${p}${q(name(+ci))} = ${lit(v)}`);
+    const rg = filters && filters.__range, dc = m.cols[m.date];
+    if (rg && dc && !dc.virtual) { const e = `substr(${p}${q(dc.name)}, 1, ${rg.len})`; if (rg.from && rg.to) w.push(`${e} BETWEEN ${lit(rg.from)} AND ${lit(rg.to)}`); else if (rg.from) w.push(`${e} >= ${lit(rg.from)}`); else if (rg.to) w.push(`${e} <= ${lit(rg.to)}`); }
     return w.length ? '\nWHERE ' + w.join('\n  AND ') : '';
   };
   const headC = `-- SQLite · ${T('الجدول', 'table')}: data`;

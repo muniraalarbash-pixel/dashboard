@@ -67,7 +67,7 @@ export function mountDashboard(root, opts) {
   const sqlSet = (key, spec) => { sqlReg[key] = spec; };
   function sqlText(key) { const spec = sqlReg[key]; return spec ? sqlFor(spec) : ''; }
   function sqlFor(spec) {
-    const f = { ...st.filters }; if (st.region && geo >= 0 && f[geo] == null) f[geo] = regionVals(); if (spec.exclude != null) delete f[spec.exclude];
+    const f = { ...st.filters }; if (st.range) f.__range = { ...st.range, len: pLen() }; if (st.region && geo >= 0 && f[geo] == null) f[geo] = regionVals(); if (spec.exclude != null) delete f[spec.exclude];
     const tc = o.project.config && o.project.config.target;
     return buildSQL(m, spec, f, tc);
   }
@@ -105,7 +105,7 @@ export function mountDashboard(root, opts) {
     saudi = geo >= 0 && saudiOnly(m, geo);
     theme = brandTheme(o.project.brand);
     loadFont(theme.font);
-    st.view = 'overview'; st.filters = {}; st.region = null; st.metric = null; st.dim = null; st.page = 0; st.sortCol = null;
+    st.view = 'overview'; st.filters = {}; st.range = null; st.openMs = null; st.region = null; st.metric = null; st.dim = null; st.page = 0; st.sortCol = null;
   }
   // owner-chosen defaults are stored by column name so they survive new uploads
   const dflt = k => o.project.config && o.project.config.defaults && o.project.config.defaults[k];
@@ -129,7 +129,20 @@ export function mountDashboard(root, opts) {
   }
   function pieIdx(dim, sd) { const d = colIdx(dflt('pie')); if (d != null && m.cats.includes(d)) return d; return sd >= 0 ? sd : dim; }
   const vz = slot => { const v = o.project.config && o.project.config.viz && o.project.config.viz[slot]; return v || vizDefault(TEMPLATES[o.project.template] ? o.project.template : 'tiles', slot); };
-  const activeF = () => Object.entries(st.filters).filter(([, v]) => v != null).concat(st.region ? [['region', st.region]] : []);
+  const activeF = () => Object.entries(st.filters).filter(([, v]) => v != null).concat(st.region ? [['region', st.region]] : []).concat(st.range ? [['range', st.range]] : []);
+  // a filter value is one string or an array of strings (multi-select)
+  const isSel = (s, k) => s != null && (Array.isArray(s) ? s.includes(k) : s === k);
+  const isOn = (s, k) => s == null || isSel(s, k);
+  function togF(ci, k) {
+    const cur = st.filters[ci];
+    if (Array.isArray(cur)) { const a = cur.includes(k) ? cur.filter(x => x !== k) : cur.concat([k]); if (!a.length) delete st.filters[ci]; else st.filters[ci] = a.length === 1 ? a[0] : a; }
+    else if (cur === k) delete st.filters[ci]; else st.filters[ci] = k;
+    st.page = 0; renderData();
+  }
+  // date range (from/to period keys, YYYY-MM or YYYY-MM-DD)
+  const pLen = () => m.monthly ? 7 : 10;
+  const rangeRows = rs => { if (!st.range || m.date < 0) return rs; const { from, to } = st.range, L = pLen(); return rs.filter(r => { const k = r[m.date] ? String(r[m.date]).slice(0, L) : null; return k && (!from || k >= from) && (!to || k <= to); }); };
+  const periodKeys = () => m.date < 0 ? [] : [...new Set(m.rows.map(r => r[m.date] ? String(r[m.date]).slice(0, pLen()) : null).filter(Boolean))].sort();
   // optional region filter (clicking a region on the map); applied on top of the column filters
   const regionRows = rs => st.region && geo >= 0 ? rs.filter(r => regionOf(r[geo]) === st.region) : rs;
   const regionVals = () => [...new Set(m.rows.map(r => r[geo]).filter(v => v != null && regionOf(v) === st.region).map(String))];
@@ -165,10 +178,21 @@ export function mountDashboard(root, opts) {
       const t = e.target;
       if (t.dataset.k === 'metric') st.metric = +t.value;
       else if (t.dataset.k === 'dim') st.dim = +t.value;
-      else if (t.dataset.f != null) { if (t.value) st.filters[t.dataset.f] = t.value; else delete st.filters[t.dataset.f]; st.page = 0; }
+      else if (t.dataset.msv != null) { const ci = t.dataset.msv, a = [...q(`[data-ms="${ci}"]`).querySelectorAll('input[data-msv]:checked')].map(x => x.value);
+        if (!a.length) delete st.filters[ci]; else st.filters[ci] = a.length === 1 ? a[0] : a; st.openMs = ci; st.page = 0; }
+      else if (t.dataset.r) { const r = { ...(st.range || {}) }; r[t.dataset.r] = t.value || null; if (r.from && r.to && r.from > r.to) [r.from, r.to] = [r.to, r.from]; st.range = r.from || r.to ? r : null; st.page = 0; }
+      else if (t.dataset.mss != null) return;
       renderData();
     });
-    q('[data-bar]').addEventListener('click', e => { if (e.target.closest('[data-clear]')) { st.filters = {}; st.region = null; st.page = 0; renderData(); } });
+    q('[data-bar]').addEventListener('input', e => { const t = e.target; if (t.dataset.mss == null) return; const v = t.value.trim().toLowerCase();
+      t.closest('.d-msp').querySelectorAll('.d-msl label').forEach(l => { l.hidden = !!v && !l.textContent.toLowerCase().includes(v); }); });
+    q('[data-bar]').addEventListener('toggle', e => { const d = e.target; if (!d.classList || !d.classList.contains('d-ms')) return;
+      if (d.open) { st.openMs = d.dataset.ms; root.querySelectorAll('.d-ms[open]').forEach(x => { if (x !== d) x.open = false; }); const s = d.querySelector('[data-mss]'); if (s) s.focus(); }
+      else if (String(st.openMs) === d.dataset.ms) st.openMs = null; }, true);
+    document.addEventListener('click', e => { if (!root.isConnected) return; const op = root.querySelector('.d-ms[open]'); if (op && !op.contains(e.target)) { op.open = false; st.openMs = null; } });
+    root.addEventListener('keydown', e => { if (e.key === 'Escape') { const op = root.querySelector('.d-ms[open]'); if (op) { op.open = false; st.openMs = null; op.querySelector('summary').focus(); } } });
+    q('[data-bar]').addEventListener('click', e => { if (e.target.closest('[data-clear]')) { st.filters = {}; st.range = null; st.openMs = null; st.region = null; st.page = 0; renderData(); return; }
+      const all = e.target.closest('[data-msall]'); if (all) { delete st.filters[all.dataset.msall]; st.openMs = all.dataset.msall; st.page = 0; renderData(); } });
     const pick = e => { const k = e.target.closest('[data-mi]'); if (!k) return; st.metric = +k.dataset.mi; renderData(); };
     q('[data-body]').addEventListener('click', pick);
     q('[data-body]').addEventListener('keydown', e => { if ((e.key === 'Enter' || e.key === ' ') && e.target.closest('[data-mi]')) { e.preventDefault(); pick(e); } });
@@ -187,8 +211,13 @@ export function mountDashboard(root, opts) {
     m.cats.slice(0, 4).forEach(ci => {
       const freq = new Map(); for (const r of m.rows) { const v = r[ci]; if (v == null) continue; const k = String(v); freq.set(k, (freq.get(k) || 0) + 1); }
       const vals = [...freq.entries()].sort((a, b) => b[1] - a[1]).map(x => x[0]);
-      h += `<label class="d-ctl"><span>${esc(m.cols[ci].name)}</span><select data-f="${ci}"><option value="">${T('الكل', 'All')}</option>${vals.map(v => `<option value="${esc(v)}" ${st.filters[ci] === v ? 'selected' : ''}>${esc(v)}</option>`).join('')}</select></label>`;
+      const cur = st.filters[ci], selA = cur == null ? [] : [].concat(cur);
+      const lab = !selA.length ? T('الكل', 'All') : selA.length === 1 ? esc(selA[0]) : `${selA.length} ${T('مختارة', 'selected')}`;
+      h += `<div class="d-ctl"><span>${esc(m.cols[ci].name)}</span><details class="d-ms ${selA.length ? 'on' : ''}" data-ms="${ci}" ${String(st.openMs) === String(ci) ? 'open' : ''}><summary><bdi>${lab}</bdi></summary><div class="d-msp">${vals.length > 8 ? `<input type="search" data-mss="${ci}" placeholder="${T('بحث…', 'Search…')}" aria-label="${T('بحث', 'Search')}">` : ''}<div class="d-msl">${vals.map(v => `<label><input type="checkbox" data-msv="${ci}" value="${esc(v)}" ${selA.includes(v) ? 'checked' : ''}><bdi>${esc(v)}</bdi></label>`).join('')}</div>${selA.length ? `<button type="button" class="d-msall" data-msall="${ci}">${T('عرض الكل', 'Show all')}</button>` : ''}</div></details></div>`;
     });
+    const pk = periodKeys();
+    if (pk.length >= 3) { const r = st.range || {}, op = (sel, ph) => `<option value="">${ph}</option>` + pk.map(k => `<option value="${k}" ${sel === k ? 'selected' : ''}>${esc(pLabel(k))}</option>`).join('');
+      h += `<div class="d-ctl d-range ${st.range ? 'on' : ''}"><span>${T('الفترة', 'Period')}</span><div><select data-r="from" aria-label="${T('من', 'From')}">${op(r.from, T('من البداية', 'From start'))}</select><select data-r="to" aria-label="${T('إلى', 'To')}">${op(r.to, T('إلى النهاية', 'To end'))}</select></div></div>`; }
     const n = activeF().length;
     if (n) h += `<button type="button" class="d-clear" data-clear>${T('مسح الفلاتر', 'Clear filters')} (${n})</button>`;
     h += `<button type="button" class="d-sqled no-export" data-sqled title="${T('اكتب استعلامات SQL على بيانات اللوحة', 'Write SQL queries on this data')}">{ } ${T('محرر SQL', 'SQL editor')}</button>`;
@@ -196,7 +225,7 @@ export function mountDashboard(root, opts) {
   }
 
   function ctx() {
-    const metric = metricIdx(), dim = dimIdx(), rows = regionRows(m.filter(st.filters, ''));
+    const metric = metricIdx(), dim = dimIdx(), rows = rangeRows(regionRows(m.filter(st.filters, '')));
     const tcfg = o.project.config && o.project.config.target;
     const tstats = o.version.targets ? targetStats(m, rows, o.version.targets, tcfg, st.filters) : null;
     const sd = sdIdx(dim), dimChosen = st.dim != null || colIdx(dflt('dim')) != null;
@@ -230,8 +259,8 @@ export function mountDashboard(root, opts) {
     if (type === 'line') {
       sqlSet(key, { kind: 'breakdown', dim: c.dim, metric: c.metric, limit: 12 });
       const bl = m.breakdown(c.rows, c.dim, c.metric).slice(0, 12), sel = st.filters[c.dim];
-      draw(key, { type: 'line', data: { labels: bl.map(x => wrapLabel(x.k)), datasets: [{ label: c.ml, data: bl.map(x => x.v), borderColor: c.pal[0], backgroundColor: c.pal[0], tension: .3, borderWidth: 2.2, pointRadius: bl.map(x => sel === x.k ? 7 : 4), pointHoverRadius: 8, pointBackgroundColor: bl.map(x => sel == null || sel === x.k ? c.pal[0] : alpha(c.pal[0], .3)) }] },
-        options: { responsive: true, maintainAspectRatio: false, animation: anim(), onClick: (e, els) => { if (!els.length) return; const k = bl[els[0].index].k; if (st.filters[c.dim] === k) delete st.filters[c.dim]; else st.filters[c.dim] = k; st.page = 0; renderData(); }, onHover: (e, els) => { if (e.native) e.native.target.style.cursor = els.length ? 'pointer' : 'default'; },
+      draw(key, { type: 'line', data: { labels: bl.map(x => wrapLabel(x.k)), datasets: [{ label: c.ml, data: bl.map(x => x.v), borderColor: c.pal[0], backgroundColor: c.pal[0], tension: .3, borderWidth: 2.2, pointRadius: bl.map(x => isSel(sel, x.k) ? 7 : 4), pointHoverRadius: 8, pointBackgroundColor: bl.map(x => isOn(sel, x.k) ? c.pal[0] : alpha(c.pal[0], .3)) }] },
+        options: { responsive: true, maintainAspectRatio: false, animation: anim(), onClick: (e, els) => { if (!els.length) return; const k = bl[els[0].index].k; togF(c.dim, k); }, onHover: (e, els) => { if (e.native) e.native.target.style.cursor = els.length ? 'pointer' : 'default'; },
           plugins: { legend: { display: false }, tooltip: tip() }, scales: { x: { reverse: !isEn(), grid: { display: false }, ticks: { maxRotation: 0, autoSkip: false, font: { size: 11 } } }, y: { position: isEn() ? 'left' : 'right', beginAtZero: true, grid: { color: c.grid }, border: { display: false }, ticks: { callback: v => fmt(v), maxTicksLimit: 5 } } } } });
       return;
     }
@@ -246,8 +275,8 @@ export function mountDashboard(root, opts) {
     if (!horizontal && c.sd >= 0 && !c.mean) {
       const sb = m.breakdown(c.rows, c.sd, c.metric), keys = sb.slice(0, 3).map(x => x.k), other = sb.length > 3, labs = keys.concat(other ? [OTHER()] : []);
       ds = labs.map((lab, j) => ({ label: lab, data: b.map(x => m.agg(c.rows.filter(r => String(r[c.dim]) === x.k && (lab === OTHER() ? !keys.includes(String(r[c.sd])) : String(r[c.sd]) === lab)), c.metric)), backgroundColor: lab === OTHER() ? '#A9B4BC' : c.pal[j], maxBarThickness: 48 }));
-    } else ds = [{ label: c.ml, data: b.map(x => x.v), backgroundColor: b.map(x => sel == null || sel === x.k ? c.pal[0] : alpha(c.pal[0], .3)), borderRadius: 3, maxBarThickness: horizontal ? 22 : 48 }];
-    const click = (e, els) => { if (!els.length) return; const k = b[els[0].index].k; if (st.filters[c.dim] === k) delete st.filters[c.dim]; else st.filters[c.dim] = k; st.page = 0; renderData(); };
+    } else ds = [{ label: c.ml, data: b.map(x => x.v), backgroundColor: b.map(x => isOn(sel, x.k) ? c.pal[0] : alpha(c.pal[0], .3)), borderRadius: 3, maxBarThickness: horizontal ? 22 : 48 }];
+    const click = (e, els) => { if (!els.length) return; const k = b[els[0].index].k; togF(c.dim, k); };
     const hover = (e, els) => { if (e.native) e.native.target.style.cursor = els.length ? 'pointer' : 'default'; };
     if (horizontal) {
       const box = root.querySelector(`[data-cv="${key}"]`); if (box) box.parentElement.style.height = Math.max(200, b.length * 32 + 30) + 'px';
@@ -274,8 +303,8 @@ export function mountDashboard(root, opts) {
     sqlSet(key, { kind: 'share', dim: pd, metric: c.metric });
     const b = m.breakdown(c.rows, pd, c.metric); let t5 = b.slice(0, 5); const rest = b.slice(5).reduce((s, x) => s + x.v, 0); if (rest > 0) t5 = t5.concat([{ k: OTHER(), v: rest }]);
     const pc = [c.pal[0], c.pal[2], c.pal[1], c.pal[3], c.pal[6]], sel = st.filters[pd];
-    const cols = t5.map((x, i) => { const col = x.k === OTHER() ? '#A9B4BC' : pc[i % pc.length]; return sel == null || sel === x.k ? col : alpha(col, .3); });
-    const click = (e, els) => { if (!els.length) return; const k = t5[els[0].index].k; if (k === OTHER()) return; if (st.filters[pd] === k) delete st.filters[pd]; else st.filters[pd] = k; st.page = 0; renderData(); };
+    const cols = t5.map((x, i) => { const col = x.k === OTHER() ? '#A9B4BC' : pc[i % pc.length]; return isOn(sel, x.k) ? col : alpha(col, .3); });
+    const click = (e, els) => { if (!els.length) return; const k = t5[els[0].index].k; if (k === OTHER()) return; togF(pd, k); };
     const hover = (e, els) => { if (e.native) e.native.target.style.cursor = els.length ? 'pointer' : 'default'; };
     if (type === 'bar' || type === 'hbar') {
       const h = type === 'hbar';
@@ -359,7 +388,7 @@ export function mountDashboard(root, opts) {
   function killMaps() { while (maps.length) { try { maps.pop().remove(); } catch (e) {} } }
   function drawRegions(c, box) {
     const f = { ...st.filters }; delete f[geo];
-    const rows = m.filter(f, ''), sel = st.region;
+    const rows = rangeRows(m.filter(f, '')), sel = st.region;
     sqlSet('map', { kind: 'breakdown', dim: geo, metric: c.metric, exclude: geo });
     const g = new Map(); for (const r of rows) { const rg = regionOf(r[geo]); if (!rg) continue; if (!g.has(rg)) g.set(rg, []); g.get(rg).push(r); }
     import('./sa-regions.js').then(({ VIEWBOX, REGIONS }) => {
@@ -389,11 +418,11 @@ export function mountDashboard(root, opts) {
     const box = root.querySelector('[data-map]'); if (!box || geo < 0) return;
     if (mapMode() === 'regions') return drawRegions(c, box);
     const f = { ...st.filters }; delete f[geo];
-    const rows = m.filter(f, ''), sel = st.filters[geo];
+    const rows = rangeRows(m.filter(f, '')), sel = st.filters[geo];
     sqlSet('map', { kind: 'breakdown', dim: geo, metric: c.metric, exclude: geo });
     const pts = m.breakdown(rows, geo, c.metric).map(x => ({ ...x, ll: coordOf(x.k) })).filter(x => x.ll && x.v > 0);
     const rank = root.querySelector('[data-maprank]'), tot = pts.reduce((s, x) => s + x.v, 0);
-    if (rank) rank.innerHTML = pts.slice(0, 5).map((x, i) => `<li class="${sel == null || sel === x.k ? '' : 'dim'}"><span class="r">${i + 1}</span><bdi>${esc(x.k)}</bdi><b>${fmt(x.v)}</b>${!c.mean && tot ? `<i>${(x.v / tot * 100).toFixed(0)}%</i>` : ''}</li>`).join('');
+    if (rank) rank.innerHTML = pts.slice(0, 5).map((x, i) => `<li class="${isOn(sel, x.k) ? '' : 'dim'}"><span class="r">${i + 1}</span><bdi>${esc(x.k)}</bdi><b>${fmt(x.v)}</b>${!c.mean && tot ? `<i>${(x.v / tot * 100).toFixed(0)}%</i>` : ''}</li>`).join('');
     if (!pts.length) return;
     loadLeaflet().then(L => {
       if (!box.isConnected) return;
@@ -406,16 +435,16 @@ export function mountDashboard(root, opts) {
       if (pts.length === 1) map.setView(pts[0].ll, 7); else map.fitBounds(bnd.pad(0.2), { maxZoom: 8, padding: [30, 30] });
       const placed = [];
       const mks = pts.map((x, i) => {
-        const on = sel == null || sel === x.k, r = 6 + 22 * Math.sqrt(x.v / max);
+        const on = isOn(sel, x.k), r = 6 + 22 * Math.sqrt(x.v / max);
         const pt = map.latLngToContainerPoint(x.ll);
         const free = on && i < 8 && placed.every(q => Math.abs(q.x - pt.x) > 74 || Math.abs(q.y - pt.y) > 54);
         if (free) placed.push(pt);
         return { x, i, on, r, free };
       });
       mks.slice().reverse().forEach(({ x, on, r, free }) => {
-        const mk = L.circleMarker(x.ll, { radius: r, color: '#fff', weight: 2, fillColor: sel === x.k ? col2 : col, fillOpacity: on ? .8 : .22, opacity: on ? 1 : .5 }).addTo(map);
+        const mk = L.circleMarker(x.ll, { radius: r, color: '#fff', weight: 2, fillColor: isSel(sel, x.k) ? col2 : col, fillOpacity: on ? .8 : .22, opacity: on ? 1 : .5 }).addTo(map);
         mk.bindTooltip(`<bdi>${esc(x.k)}</bdi><b>${fmt(x.v)}</b>`, { permanent: free, direction: 'top', offset: [0, -r + 2], className: 'd-maplbl', opacity: 1 });
-        mk.on('click', () => { if (st.filters[geo] === x.k) delete st.filters[geo]; else st.filters[geo] = x.k; st.page = 0; renderData(); });
+        mk.on('click', () => { togF(geo, x.k); });
       });
     }).catch(() => { box.innerHTML = `<p class="d-muted" style="padding:16px">${T('تعذّر تحميل الخريطة.', 'Map could not be loaded.')}</p>`; });
   }
@@ -631,7 +660,7 @@ export function mountDashboard(root, opts) {
   }
 
   function renderTable() {
-    let rows = regionRows(m.filter(st.filters, st.search));
+    let rows = rangeRows(regionRows(m.filter(st.filters, st.search)));
     if (st.sortCol != null && st.sortCol < m.cols.length) {
       const c = st.sortCol, d = st.sortDir;
       rows = rows.slice().sort((a, b) => { const x = a[c], y = b[c]; if (x == null) return 1; if (y == null) return -1; return (typeof x === 'number' && typeof y === 'number' ? x - y : String(x).localeCompare(String(y), isEn() ? 'en' : 'ar')) * d; });

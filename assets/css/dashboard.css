@@ -365,3 +365,21 @@
 .d-ptbl td small{color:var(--d-muted);font-size:11px;margin-inline-start:4px}
 .d-ptbl td.up b{color:#1E8E5A}
 @media (max-width:520px){.d-frow{grid-template-columns:minmax(60px,28%) minmax(0,1fr) auto;gap:6px}.d-fbar i{height:24px}}
+/* multi-select filters + period range */
+.d-ms{position:relative}
+.d-ms summary{list-style:none;cursor:pointer;font-size:13px;color:var(--d-ink);background:var(--d-surface);border:1px solid var(--d-line);border-radius:7px;padding:7px 9px;padding-inline-end:26px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;position:relative}
+.d-ms summary::-webkit-details-marker{display:none}
+.d-ms summary::after{content:'';position:absolute;inset-inline-end:10px;top:50%;width:6px;height:6px;border:solid var(--d-muted);border-width:0 1.6px 1.6px 0;transform:translateY(-70%) rotate(45deg)}
+.d-ms.on summary,.d-range.on select{border-color:var(--d-primary);box-shadow:inset 0 0 0 1px var(--d-primary)}
+.d-msp{position:absolute;z-index:30;top:calc(100% + 4px);inset-inline-start:0;min-width:100%;width:max-content;max-width:280px;background:var(--d-surface);border:1px solid var(--d-line);border-radius:10px;box-shadow:0 10px 30px rgba(0,0,0,.14);padding:6px;display:grid;gap:4px}
+.d-msp input[type=search]{font:inherit;font-size:13px;color:var(--d-ink);background:var(--d-surface-2,var(--d-surface));border:1px solid var(--d-line);border-radius:7px;padding:6px 8px;width:100%}
+.d-msl{max-height:240px;overflow:auto;display:grid}
+.d-msl label{display:flex;gap:8px;align-items:center;font-size:13px;color:var(--d-ink);padding:6px 8px;border-radius:6px;cursor:pointer}
+.d-msl label:hover{background:var(--d-surface-2,rgba(0,0,0,.04))}
+.d-msl label[hidden]{display:none}
+.d-msl input{accent-color:var(--d-primary);width:16px;height:16px;flex:none;margin:0}
+.d-msall{font:inherit;font-size:12.5px;border:0;border-top:1px solid var(--d-line);background:none;color:var(--d-primary);cursor:pointer;padding:7px 8px 3px;text-align:start}
+.d-range{flex:1 1 230px;max-width:300px}
+.d-range>div{display:grid;grid-template-columns:1fr 1fr;gap:4px}
+@media (max-width:640px){.d-range{flex:0 0 230px}.d-msp{position:fixed;inset:auto 12px 12px 12px;top:auto;max-width:none;width:auto;max-height:60vh}.d-msl{max-height:calc(60vh - 80px)}}
+@media print{.d-msp{display:none}}

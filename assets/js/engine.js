@@ -131,7 +131,7 @@ export function createModel(data, opts = {}) {
       const fe = Object.entries(f).filter(([, v]) => v != null);
       q = (q || '').trim().toLowerCase();
       return rows.filter(r => {
-        for (const [ci, v] of fe) if (String(r[ci] ?? '') !== v) return false;
+        for (const [ci, v] of fe) { const x = String(r[ci] ?? ''); if (Array.isArray(v) ? !v.includes(x) : x !== v) return false; }
         return q ? r.some(x => x != null && String(x).toLowerCase().includes(q)) : true;
       });
     }
@@ -169,7 +169,7 @@ export function targetStats(m, rows, targets, cfg, filters) {
   if (aKey < 0 || aVal < 0 || tKey < 0 || tVal < 0) return null;
   let trows = t.rows;
   const fk = filters && filters[aKey];
-  if (fk != null) trows = trows.filter(r => String(r[tKey] ?? '') === fk);
+  if (fk != null) trows = trows.filter(r => Array.isArray(fk) ? fk.includes(String(r[tKey] ?? '')) : String(r[tKey] ?? '') === fk);
   const tg = new Map(); for (const r of trows) { const k = r[tKey] == null ? null : String(r[tKey]); if (k == null) continue; tg.set(k, (tg.get(k) || 0) + (typeof r[tVal] === 'number' ? r[tVal] : 0)); }
   const ag = new Map(); for (const r of rows) { const k = r[aKey] == null ? null : String(r[aKey]); if (k == null) continue; ag.set(k, (ag.get(k) || 0) + (typeof r[aVal] === 'number' ? r[aVal] : 0)); }
   const keys = [...new Set([...tg.keys(), ...ag.keys()])];
