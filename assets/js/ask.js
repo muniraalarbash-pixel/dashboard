@@ -8,7 +8,7 @@ const pctOf = (v, tot) => tot ? v / tot * 100 : null;
 const sgn = p => p == null ? '—' : (p > 0 ? '+' : p < 0 ? '−' : '') + Math.abs(p).toFixed(1) + '%';
 
 // env: { m, c, F (forecast or null), sqlFor(spec) }
-export function askQuestions({ m, c, F, sqlFor }) {
+export function askQuestions({ m, c, F, sqlFor, ti }) {
   const rows = c.rows, mi = c.metric, ml = iso(c.ml), mean = c.mean;
   const dim = c.dim >= 0 ? c.dim : (m.dims || []).find(d => d !== m.monthCol);
   const out = [];
@@ -94,6 +94,18 @@ export function askQuestions({ m, c, F, sqlFor }) {
       const lead = new Map(); items.forEach(i => { const k = i.sub.split(' · ')[0]; lead.set(k, (lead.get(k) || 0) + 1); });
       const [lk, ln] = [...lead.entries()].sort((a, b) => b[1] - a[1])[0] || [];
       return { head: T(`<b>${iso(lk)}</b> الأعلى في ${ln} من أصل ${items.length} حسب «${dn}».`, `<b>${iso(lk)}</b> leads in ${ln} of ${items.length} (${dn}).`), items, itemsTitle: T(`الأعلى في «${dn2}» داخل كل «${dn}» (الشريط = حصته)`, `Top ${dn2} within each ${dn} (bar = its share)`), sql: sqlFor({ kind: 'breakdown', dim, sd: d2, metric: mi }) };
+    } });
+  }
+  if (ti && ti.hasLY) {
+    out.push({ id: 'yoy', q: T('كيف نقارن بالسنة الماضية؟', 'How do we compare with last year?'), a: () => {
+      const its = ti.items.map(x => { const y = x.vs.find(v => v.yoy && v.pct != null); return y ? { x, y } : null; }).filter(Boolean);
+      const mx = Math.max(1, ...its.map(o => Math.abs(o.y.pct)));
+      const ytd = its.find(o => o.x.id === 'ytd'), mon = its.find(o => o.x.id === 'month');
+      const parts = [];
+      if (ytd) parts.push(T(`من بداية السنة: <b>${fmt(ytd.x.v)}</b>، ${sgn(ytd.y.pct)} ${ytd.y.lab}`, `Year to date: <b>${fmt(ytd.x.v)}</b>, ${sgn(ytd.y.pct)} ${ytd.y.lab}`));
+      if (mon) parts.push(T(`${mon.x.label}: <b>${fmt(mon.x.v)}</b>، ${sgn(mon.y.pct)} ${mon.y.lab}`, `${mon.x.label}: <b>${fmt(mon.x.v)}</b>, ${sgn(mon.y.pct)} ${mon.y.lab}`));
+      return { head: `${ml} — ` + parts.join(T('. ', '. ')) + '.', items: its.map(o => ({ k: o.x.label, v: o.y.pct, signed: true, w: Math.abs(o.y.pct) / mx, sub: o.y.lab, cls: o.y.pct >= 0 ? 'up' : 'down', pct: true })),
+        itemsTitle: T('التغير عن السنة الماضية %', 'Change vs last year %'), note: ytd && ytd.y.partial ? T('بيانات السنة الماضية ناقصة لبعض الأشهر.', 'Last year is missing some months.') : '', sql: sqlFor({ kind: 'trend', metric: mi }) };
     } });
   }
   if (F && !F.unreliable) {

@@ -336,7 +336,7 @@ export function mountDashboard(root, opts) {
       <table class="d-fctbl"><thead><tr><th>${T('الطريقة', 'Method')}</th><th>${T('الدقة', 'Accuracy')}</th><th>${T('متوسط الخطأ', 'Avg. error')}</th></tr></thead><tbody>${F.ranking.map((r, i) => `<tr class="${i ? '' : 'on'}"><td>${esc(r.name)}${i ? '' : ' ✓'}</td><td>${r.mape == null ? '—' : Math.max(0, 100 - r.mape).toFixed(1) + '%'}</td><td>${fmt(r.rmse)}</td></tr>`).join('')}</tbody></table>
       <p class="d-fchelp">${T('النطاق المظلل يوضّح المدى المتوقع بثقة ~80%. التوقع مبني على الأرقام السابقة فقط ولا يعرف عن أي حدث قادم.', 'The shaded band is the ~80% expected range. The forecast uses past numbers only and knows nothing about upcoming events.')}</p></details>`;
   }
-  function chartLine(c, key, mi) {
+  function chartLine(c, key, mi, ti) {
     sqlSet(key, { kind: 'trend', metric: mi });
     const s = m.series(c.rows, mi), tt = vz('trend');
     const F0 = mi === c.metric ? fcFor(c) : null, F = F0 && !F0.unreliable ? F0 : null, n = s.length, fl = F ? F.keys.length : 0;
@@ -353,7 +353,10 @@ export function mountDashboard(root, opts) {
       draw(key, { type: 'bar', data: { labels, datasets: [{ label: F ? c.ml : '', data: pad(s.map(p => p.v)), backgroundColor: c.pal[0], borderRadius: 3, maxBarThickness: 40, grouped: false }].concat(fcSets) },
         options: { responsive: true, maintainAspectRatio: false, animation: anim(), plugins: { legend: { display: false }, tooltip: tp }, scales: { x: { reverse: !isEn(), grid: { display: false }, ticks: { maxRotation: 0, autoSkip: true } }, y: { position: isEn() ? 'left' : 'right', beginAtZero: true, grid: { color: c.grid }, border: { display: false }, ticks: { callback: v => fmt(v), maxTicksLimit: 5 } } } } });
     } else {
-      draw(key, { type: 'line', data: { labels, datasets: [{ label: F ? c.ml : '', data: pad(s.map(p => p.v)), borderColor: c.pal[0], backgroundColor: alpha(c.pal[0], .14), fill: tt !== 'line', tension: .3, borderWidth: 2.2, pointRadius: n > 40 ? 0 : 3, pointBackgroundColor: c.pal[0] }].concat(fcSets) },
+      const lyD = ti && ti.hasLY && mi === c.metric ? s.map(p => /^\d{4}-\d{2}$/.test(p.k) ? ti.lyOf(p.k) : null) : null;
+      const lySet = lyD && lyD.filter(v => v != null).length >= 3 ? [{ label: T('السنة الماضية', 'Last year'), data: pad(lyD), borderColor: alpha(c.ink, .55), backgroundColor: alpha(c.ink, .55), borderDash: [3, 3], borderWidth: 1.6, pointRadius: 0, tension: .3, fill: false }] : [];
+      if (lySet.length) { const lg = root.querySelector(`[data-cv="${key}"]`); const card = lg && lg.closest('article'); if (card && !card.querySelector('.d-lylg')) card.querySelector('.d-box').insertAdjacentHTML('beforebegin', `<p class="d-lylg"><i></i>${T('السنة الماضية (نفس الشهر)', 'Last year (same month)')}</p>`); }
+      draw(key, { type: 'line', data: { labels, datasets: [{ label: F || lySet.length ? c.ml : '', data: pad(s.map(p => p.v)), borderColor: c.pal[0], backgroundColor: alpha(c.pal[0], .14), fill: tt !== 'line', tension: .3, borderWidth: 2.2, pointRadius: n > 40 ? 0 : 3, pointBackgroundColor: c.pal[0] }].concat(lySet, fcSets) },
         options: { responsive: true, maintainAspectRatio: false, animation: anim(), interaction: { mode: 'index', intersect: false }, plugins: { legend: { display: false }, tooltip: tp }, scales: { x: { grid: { display: false }, ticks: { maxRotation: 0, autoSkip: true } }, y: { beginAtZero: true, grid: { color: c.grid }, border: { display: false }, ticks: { callback: v => fmt(v), maxTicksLimit: 5 } } } } });
     }
     fcNote(key, F0, c);
@@ -542,7 +545,7 @@ export function mountDashboard(root, opts) {
   let askCtx = null, lastAnswer = null;
   function renderAsk() {
     const qb = root.querySelector('[data-askq]'), ab = root.querySelector('[data-askans]'); if (!qb || !askCtx) return;
-    const qs = askQuestions({ m, c: askCtx, F: fcFor(askCtx), sqlFor });
+    const qs = askQuestions({ m, c: askCtx, F: fcFor(askCtx), sqlFor, ti: timeIntel(askCtx) });
     if (!qs.length) { qb.innerHTML = ''; ab.innerHTML = `<p class="d-muted">${T('لا توجد بيانات كافية للأسئلة مع الفلاتر الحالية.', 'Not enough data for questions with the current filters.')}</p>`; return; }
     if (!qs.some(x => x.id === st.ask)) st.ask = qs[0].id;
     qb.innerHTML = qs.map(x => `<button type="button" data-ask="${x.id}" aria-pressed="${x.id === st.ask}">${esc(x.q)}</button>`).join('');
@@ -550,7 +553,7 @@ export function mountDashboard(root, opts) {
     lastAnswer = { sql: a.sql, q: q.q };
     const safe = h => esc(h).replace(/&lt;(\/?)b&gt;/g, '<$1b>').replace(/([+−-]?\d[\d.,]*%)/g, '<bdi dir="ltr">$1</bdi>');
     ab.innerHTML = `<div class="d-askhead"><span class="d-askicon" aria-hidden="true">💡</span><p>${safe(a.head)}</p></div>
-      ${a.items && a.items.length ? `${a.itemsTitle ? `<p class="d-askst">${esc(a.itemsTitle)}</p>` : ''}<ul class="d-askbars">${a.items.map(i => `<li class="${i.cls || ''}"><span class="k"><bdi>${esc(i.k)}</bdi></span><span class="bar"><i style="width:${Math.max(2, Math.round((i.w || 0) * 100))}%"></i>${a.avgLine != null ? `<em style="inset-inline-start:${Math.round(a.avgLine * 100)}%" title="${T('المتوسط', 'Average')}"></em>` : ''}</span><b><bdi dir="ltr">${i.signed && i.v > 0 ? '+' : ''}${fmt(i.v).replace(/^-/, '−')}</bdi></b><small>${esc(i.sub || '')}</small></li>`).join('')}</ul>` : ''}
+      ${a.items && a.items.length ? `${a.itemsTitle ? `<p class="d-askst">${esc(a.itemsTitle)}</p>` : ''}<ul class="d-askbars">${a.items.map(i => `<li class="${i.cls || ''}"><span class="k"><bdi>${esc(i.k)}</bdi></span><span class="bar"><i style="width:${Math.max(2, Math.round((i.w || 0) * 100))}%"></i>${a.avgLine != null ? `<em style="inset-inline-start:${Math.round(a.avgLine * 100)}%" title="${T('المتوسط', 'Average')}"></em>` : ''}</span><b><bdi dir="ltr">${i.pct ? (i.v > 0 ? '+' : i.v < 0 ? '−' : '') + Math.abs(i.v).toFixed(1) + '%' : (i.signed && i.v > 0 ? '+' : '') + fmt(i.v).replace(/^-/, '−')}</bdi></b><small>${esc(i.sub || '')}</small></li>`).join('')}</ul>` : ''}
       ${a.note ? `<p class="d-asknote">${esc(a.note)}</p>` : ''}
       ${a.sql ? `<button type="button" class="d-asksql no-export" data-asksql><span dir="ltr">{ } SQL</span> ${T('شوف الاستعلام وشغّله', 'See and run the query')}</button>` : ''}`;
   }
@@ -618,14 +621,46 @@ export function mountDashboard(root, opts) {
     nav.innerHTML = pl.map(([k, l]) => `<button type="button" data-view="${k}" class="${k === 'all' ? 'd-pall' : ''}" aria-current="${st.view === k ? 'page' : 'false'}"><svg viewBox="0 0 24 24" aria-hidden="true">${PI[k]}</svg><span>${esc(l)}</span></button>`).join('');
     tc.hidden = !(st.view === 'data' || st.view === 'all');
   }
+  // ---------- time intelligence: month vs previous month / same month last year, YTD vs last year's YTD ----------
+  const addM = (k, n) => { let [y, mo] = k.split('-').map(Number); mo += n; while (mo < 1) { mo += 12; y--; } while (mo > 12) { mo -= 12; y++; } return `${y}-${String(mo).padStart(2, '0')}`; };
+  const chPct = (a, b) => b ? (a - b) / Math.abs(b) * 100 : null;
+  function timeIntel(c) {
+    if (m.date < 0 || !m.monthly) return null;
+    const base = regionRows(m.filter(st.filters, '')), mi = c.metric; // last year must stay reachable even when a period range is set
+    const key = r => r[m.date] ? String(r[m.date]).slice(0, 7) : null;
+    const byK = m.groups(base, key), keys = [...byK.keys()].sort(); if (keys.length < 2) return null;
+    let end = keys[keys.length - 1]; if (st.range && st.range.to && st.range.to < end) end = keys.filter(k => k <= st.range.to).pop() || end;
+    const val = ks => { const rs = []; let n = 0; ks.forEach(k => { const x = byK.get(k); if (x) { rs.push(...x); n++; } }); return n ? m.agg(rs, mi) : null; };
+    const span = (from, to) => { const out = []; for (let k = from; k <= to; k = addM(k, 1)) out.push(k); return out; };
+    const have = ks => ks.filter(k => byK.has(k)).length;
+    const y = end.slice(0, 4), ytd = span(`${y}-01`, end), ytdLY = ytd.map(k => addM(k, -12));
+    const cur = val([end]), pm = val([addM(end, -1)]), ly = val([addM(end, -12)]);
+    const r3 = span(addM(end, -2), end), p3 = r3.map(k => addM(k, -3));
+    const out = [];
+    out.push({ id: 'month', label: pLabel(end), sub: T('آخر شهر', 'Latest month'), v: cur, vs: [{ lab: T('عن ', 'vs ') + pLabel(addM(end, -1)), pct: pm == null ? null : chPct(cur, pm) }, { lab: T('عن ', 'vs ') + pLabel(addM(end, -12)), pct: ly == null ? null : chPct(cur, ly), yoy: true }] });
+    const ytdV = val(ytd), ytdL = have(ytdLY) ? val(ytdLY) : null;
+    out.push({ id: 'ytd', label: T('من بداية ', 'YTD ') + y, sub: ytd.length > 1 ? `${pLabel(ytd[0])} – ${pLabel(end)}` : pLabel(end), v: ytdV, vs: [{ lab: T('عن نفس الفترة ', 'vs same period ') + (+y - 1), pct: ytdL == null ? null : chPct(ytdV, ytdL), yoy: true, partial: ytdL != null && have(ytdLY) < ytdLY.length }] });
+    if (have(r3) === 3 && have(p3) === 3) out.push({ id: 'q', label: T('آخر 3 أشهر', 'Last 3 months'), sub: `${pLabel(r3[0])} – ${pLabel(end)}`, v: val(r3), vs: [{ lab: T('عن الـ3 أشهر اللي قبلها', 'vs the 3 months before'), pct: chPct(val(r3), val(p3)) }, ...(have(r3.map(k => addM(k, -12))) === 3 ? [{ lab: T('عن نفس الفترة السنة الماضية', 'vs same period last year'), pct: chPct(val(r3), val(r3.map(k => addM(k, -12)))), yoy: true }] : [])] });
+    const r12 = span(addM(end, -11), end), p12 = r12.map(k => addM(k, -12));
+    if (have(r12) === 12 && have(p12) === 12) out.push({ id: 'r12', label: T('آخر 12 شهر', 'Last 12 months'), sub: `${pLabel(r12[0])} – ${pLabel(end)}`, v: val(r12), vs: [{ lab: T('عن الـ12 شهر اللي قبلها', 'vs the previous 12 months'), pct: chPct(val(r12), val(p12)), yoy: true }] });
+    const lyOf = k => val([addM(k, -12)]);
+    return { end, items: out, hasLY: out.some(x => x.vs.some(v => v.yoy && v.pct != null)), lyOf, byK };
+  }
+  function tiHTML(c, ti) {
+    if (!ti) return '';
+    const chip = v => `<li class="${v.pct == null ? 'na' : arrowCls(v.pct)}"><b>${v.pct == null ? '—' : (v.pct > 0 ? '▲ ' : v.pct < 0 ? '▼ ' : '') + Math.abs(v.pct).toFixed(1) + '%'}</b> <span>${esc(v.lab)}${v.pct == null ? T(' · لا توجد بيانات', ' · no data') : ''}${v.partial ? T(' · بيانات ناقصة', ' · partial data') : ''}</span></li>`;
+    return `<article class="d-card d-ti">${head(T('مقارنة الفترات', 'Period comparison'), c.ml + (ti.hasLY ? '' : T(' · المقارنة بالسنة الماضية تطلع لما يكون فيه بيانات سنة كاملة قبلها', ' · year-over-year appears once there is a year of earlier data')))}<div class="d-tigrid">${ti.items.map(x => `<div class="d-tibox"><p class="d-til">${esc(x.label)}</p><p class="d-tis">${esc(x.sub)}</p><p class="d-tiv">${x.v == null ? '—' : fmt(x.v)}</p><ul class="d-tic">${x.vs.map(chip).join('')}</ul></div>`).join('')}</div></article>`;
+  }
   function trendPage(c) {
     const s = m.series(c.rows, c.metric), F0 = fcFor(c), F = F0 && !F0.unreliable ? F0 : null;
-    const rowsH = s.map((p, i) => { const pv = i ? s[i - 1].v : null, ch = pv ? (p.v - pv) / Math.abs(pv) * 100 : null; return `<tr><td>${esc(pLabel(p.k))}</td><td>${fmt(p.v)}</td><td class="${arrowCls(ch)}">${ch == null ? '—' : (ch > 0 ? '+' : ch < 0 ? '−' : '') + Math.abs(ch).toFixed(1) + '%'}</td></tr>`; }).reverse().join('');
-    const fcRows = F ? F.keys.map((k, i) => `<tr class="fc"><td>${esc(pLabel(k))} <small>${T('متوقع', 'forecast')}</small></td><td>${fmt(F.pts[i])}</td><td><small>${fmt(F.band[i][0])} – ${fmt(F.band[i][1])}</small></td></tr>`).reverse().join('') : '';
+    const ti = timeIntel(c), yo = ti && ti.hasLY, pc = ch => ch == null ? '—' : (ch > 0 ? '+' : ch < 0 ? '−' : '') + Math.abs(ch).toFixed(1) + '%';
+    const rowsH = s.map((p, i) => { const pv = i ? s[i - 1].v : null, ch = pv ? (p.v - pv) / Math.abs(pv) * 100 : null; const lv = yo && /^\d{4}-\d{2}$/.test(p.k) ? ti.lyOf(p.k) : null, yc = lv ? chPct(p.v, lv) : null; return `<tr><td>${esc(pLabel(p.k))}</td><td>${fmt(p.v)}</td><td class="${arrowCls(ch)}">${pc(ch)}</td>${yo ? `<td class="${arrowCls(yc)}">${pc(yc)}</td>` : ''}</tr>`; }).reverse().join('');
+    const fcRows = F ? F.keys.map((k, i) => `<tr class="fc"><td>${esc(pLabel(k))} <small>${T('متوقع', 'forecast')}</small></td><td>${fmt(F.pts[i])}</td><td${yo ? ' colspan="2"' : ''}><small>${fmt(F.band[i][0])} – ${fmt(F.band[i][1])}</small></td></tr>`).reverse().join('') : '';
     return { html: `<section class="d-pagegrid">
+      ${tiHTML(c, ti)}
       <article class="d-card d-trendbig">${head(F ? T('الاتجاه والتوقع', 'Trend & forecast') : T('الاتجاه', 'Trend'), c.ml + (m.monthly ? T(' · شهريًا', ' · monthly') : T(' · يوميًا', ' · daily')) + (F ? T(' · الأشهر القادمة بخط متقطع', ' · coming months dashed') : ''))}<div class="d-box"><canvas data-cv="trend" role="img" aria-label="${T('الاتجاه', 'Trend')}"></canvas></div></article>
-      <article class="d-card d-periods">${head(T('الأرقام حسب الفترة', 'By period'), T('الأحدث أولًا', 'Newest first'))}<div class="d-pscroll"><table class="d-ptbl"><thead><tr><th>${T('الفترة', 'Period')}</th><th>${esc(c.ml)}</th><th>${T('التغير', 'Change')}</th></tr></thead><tbody>${fcRows}${rowsH}</tbody></table></div></article>
-    </section>`, after() { chartLine(c, 'trend', c.metric); } };
+      <article class="d-card d-periods">${head(T('الأرقام حسب الفترة', 'By period'), T('الأحدث أولًا', 'Newest first'))}<div class="d-pscroll"><table class="d-ptbl"><thead><tr><th>${T('الفترة', 'Period')}</th><th>${esc(c.ml)}</th><th>${T('عن الشهر السابق', 'vs prev.')}</th>${yo ? `<th>${T('عن السنة الماضية', 'vs last year')}</th>` : ''}</tr></thead><tbody>${fcRows}${rowsH}</tbody></table></div></article>
+    </section>`, after() { chartLine(c, 'trend', c.metric, ti); } };
   }
   function pageOf(c) {
     const v = st.view;
