@@ -482,3 +482,13 @@ html[dir=ltr] #cal-prev svg,html[dir=ltr] #cal-next svg,html[dir=ltr] .pwrap .ic
 .fn-form select{font:inherit;font-size:12.5px;padding:6px 8px;flex:1;min-width:140px}
 .src-live{display:flex;gap:8px;align-items:center;font-size:13px}
 .src-live input:disabled+*{opacity:.5}
+.pl-form{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.pl-form input,.pl-form select{font:inherit;font-size:13px;padding:7px 9px;min-width:0}
+.pl-vals{display:flex;flex-wrap:wrap;gap:4px 12px;max-height:160px;overflow:auto;border:1px solid var(--line,#DDE3E9);border-radius:8px;padding:8px}
+.pl-vals label{display:flex;gap:6px;align-items:center;font-size:13px}
+.pl-list{list-style:none;margin:0;padding:0;display:grid;gap:6px}
+.pl-list li{display:flex;justify-content:space-between;gap:8px;align-items:center;font-size:13px;padding:6px 8px;border-radius:8px;background:var(--surface-2,#F4F6F8)}
+.pl-list small{color:var(--muted,#5B6875)}
+.pl-new{display:grid;gap:4px;padding:8px;border:1px dashed var(--line,#DDE3E9);border-radius:8px}
+#pl-status.bad{color:var(--bad,#B42318)}
+@media (max-width:520px){.pl-form{grid-template-columns:1fr}}

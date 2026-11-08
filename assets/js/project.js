@@ -64,7 +64,7 @@ async function loadVersions() {
     const { data: full } = await sb.from('versions').select('period,file_name,data,targets,totals,row_count,created_at').eq('id', versions[0].id).single();
     latest = full;
   }
-  renderVersions();
+  renderVersions(); if (project) renderPrivate();
 }
 async function load() {
   const { data, error } = await sb.from('projects').select('*').eq('id', id).single();
@@ -518,8 +518,53 @@ function renderShare() {
   const hasPass = !!project.share_pass_hash;
   $('#pass-state').textContent = hasPass ? 'الرابط محمي بكلمة مرور' : 'بدون كلمة مرور';
   $('#b-nopass').hidden = !hasPass;
-  renderViews();
+  renderViews(); renderPrivate();
 }
+/* private links: row-level access per viewer (migration 003) */
+const plStatus = (t, bad) => { $('#pl-status').textContent = t; $('#pl-status').classList.toggle('bad', !!bad); };
+let plReady = null;
+async function renderPrivate() {
+  const { version } = currentVersion();
+  const cols = version && version.data ? version.data.columns.filter(c => c.type === 'category' || c.type === 'text') : [];
+  const cur = $('#pl-col').value;
+  $('#pl-col').innerHTML = cols.map(c => `<option ${c.name === cur ? 'selected' : ''}>${esc(c.name)}</option>`).join('');
+  renderPlVals();
+  $('#pl-only').checked = !!project.config.keys_only;
+  const { data, error } = await sb.from('share_keys').select('id,label,col,vals,key_hint,created_at').eq('project_id', id).order('created_at');
+  plReady = !error;
+  if (error) { $('#pl-list').innerHTML = ''; plStatus('الروابط الخاصة تحتاج تشغيل ملف supabase/migration-003-private-links.sql مرة وحدة في Supabase.', true); $('#pl-add').disabled = true; return; }
+  $('#pl-add').disabled = false; plStatus('');
+  $('#pl-list').innerHTML = data.map(k => `<li><span><b><bdi>${esc(k.label || k.col)}</bdi></b> <small><bdi>${esc(k.col)}</bdi> = <bdi>${esc(k.vals.join('، '))}</bdi> · …${esc(k.key_hint)}</small></span><button type="button" class="btn btn-ghost btn-sm" data-pldel="${k.id}">إلغاء الرابط</button></li>`).join('');
+}
+function renderPlVals() {
+  const { version } = currentVersion(), col = $('#pl-col').value;
+  if (!version || !version.data || !col) { $('#pl-vals').innerHTML = '<p class="muted" style="font-size:12px;margin:0">ارفع البيانات أولًا.</p>'; return; }
+  const i = version.data.columns.findIndex(c => c.name === col);
+  const vals = [...new Set(version.data.rows.map(r => r[i]).filter(v => v != null && v !== '').map(String))].sort((a, b) => a.localeCompare(b, 'ar')).slice(0, 200);
+  $('#pl-vals').innerHTML = vals.map(v => `<label><input type="checkbox" value="${esc(v)}"><bdi>${esc(v)}</bdi></label>`).join('');
+}
+$('#pl-col').addEventListener('change', renderPlVals);
+$('#pl-only').addEventListener('change', e => { project.config = { ...project.config, keys_only: e.target.checked }; queue({ config: project.config }); toast(e.target.checked ? 'الرابط العام صار مقفل، بس الروابط الخاصة تفتح' : 'الرابط العام يفتح للجميع'); });
+$('#pl-add').addEventListener('click', async () => {
+  const vals = [...$('#pl-vals').querySelectorAll('input:checked')].map(x => x.value), col = $('#pl-col').value, label = $('#pl-label').value.trim();
+  if (!col || !vals.length) { plStatus('اختر العمود والقيم اللي يشوفها صاحب الرابط.', true); return; }
+  $('#pl-add').disabled = true;
+  const { data, error } = await sb.rpc('create_share_key', { p_project: id, p_label: label || vals.join('، '), p_col: col, p_vals: vals });
+  $('#pl-add').disabled = false;
+  if (error) { plStatus('تعذّر إنشاء الرابط: ' + error.message, true); return; }
+  const url = shareUrl() + '&k=' + encodeURIComponent(data);
+  $('#pl-new').hidden = false;
+  $('#pl-new').innerHTML = `<span class="label">انسخ الرابط الحين — ما راح يطلع مرة ثانية:</span><div class="share-link"><input type="text" readonly value="${esc(url)}" dir="ltr"><button type="button" class="btn btn-quiet btn-sm" id="pl-copy">نسخ</button></div>${project.is_published ? '' : '<span class="label" style="color:var(--bad,#B42318)">فعّل «نشر لوحة المؤشرات» عشان يشتغل الرابط.</span>'}`;
+  $('#pl-label').value = ''; $('#pl-vals').querySelectorAll('input').forEach(x => { x.checked = false; });
+  renderPrivate();
+});
+$('#pl-box').addEventListener('click', async e => {
+  if (e.target.closest('#pl-copy')) { const inp = $('#pl-new input'); try { await navigator.clipboard.writeText(inp.value); plStatus('تم نسخ الرابط.'); } catch (err) { inp.select(); } return; }
+  const d = e.target.closest('[data-pldel]'); if (!d) return;
+  const { error } = await sb.from('share_keys').delete().eq('id', d.dataset.pldel);
+  if (error) { plStatus('تعذّر الإلغاء: ' + error.message, true); return; }
+  plStatus('تم إلغاء الرابط. ما عاد يفتح.'); renderPrivate();
+});
 async function renderViews() {
   if (!('view_count' in project)) return; // migration 002 not applied yet
   $('#views-box').hidden = false;

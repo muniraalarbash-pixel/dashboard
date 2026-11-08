@@ -78,9 +78,12 @@ if (qs.get('demo')) {
   if (!slug || !sb) gate(T('الرابط غير صحيح', 'Invalid link'), T('تأكد من نسخ رابط المشاركة كاملًا.', 'Make sure you copied the full share link.'), false);
   else {
     async function fetchShared(first) {
-      const { data, error } = await sb.rpc('get_shared', { p_slug: slug, p_pass: pass });
+      const key = qs.get('k');
+      const { data, error } = await sb.rpc('get_shared', key ? { p_slug: slug, p_pass: pass, p_key: key } : { p_slug: slug, p_pass: pass });
       if (error) { if (first) gate(T('تعذّر فتح لوحة المؤشرات', 'Could not open the dashboard'), T('حاول مرة أخرى بعد قليل.', 'Please try again shortly.'), false); return; }
       if (data.error === 'not_found') { gate(T('لوحة المؤشرات غير متاحة', 'Dashboard unavailable'), T('قد يكون الرابط متوقفًا أو غير صحيح.', 'The link may be turned off or incorrect.'), false); return; }
+      if (data.error === 'key_required') { gate(data.title || T('لوحة مؤشرات خاصة', 'Private dashboard'), T('هذي اللوحة تفتح بروابط خاصة فقط. اطلب رابطك من صاحب اللوحة.', 'This dashboard opens with private links only. Ask the owner for your link.'), false); return; }
+      if (data.error === 'bad_key') { gate(data.title || T('رابط غير صالح', 'Invalid link'), T('هذا الرابط الخاص غير صالح أو تم إلغاؤه. اطلب رابط جديد من صاحب اللوحة.', 'This private link is invalid or was revoked. Ask the owner for a new one.'), false); return; }
       if (data.error === 'password' || data.error === 'wrong_password') {
         gate(data.title || T('لوحة مؤشرات محمية', 'Protected dashboard'), T('لوحة المؤشرات هذه محمية بكلمة مرور.', 'This dashboard is password protected.'), true);
         if (data.error === 'wrong_password') $('#gate-err').textContent = T('كلمة المرور غير صحيحة.', 'Incorrect password.');

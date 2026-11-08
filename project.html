@@ -157,6 +157,18 @@
           <div class="field"><span class="label">رابط المشاركة</span><div class="share-link"><input type="text" id="f-link" readonly><button type="button" class="btn btn-quiet btn-sm" id="b-copy">نسخ</button></div></div>
           <div class="field"><span class="label" id="pass-state">بدون كلمة مرور</span><div class="share-link"><input type="password" id="f-pass" placeholder="كلمة مرور للرابط (اختياري)" autocomplete="new-password"><button type="button" class="btn btn-quiet btn-sm" id="b-pass">حفظ</button></div>
             <button type="button" class="btn btn-ghost btn-sm" id="b-nopass" hidden style="justify-self:start">إزالة كلمة المرور</button></div>
+          <details class="pl-box" id="pl-box"><summary class="label" style="cursor:pointer">روابط خاصة: كل شخص يشوف بياناته بس</summary>
+            <div class="field" style="margin-top:8px">
+              <p class="muted" style="font-size:12px;margin:0">مثال: مدير فرع جدة يفتح رابطه ويشوف صفوف «جدة» بس. الفلترة تصير في قاعدة البيانات، فباقي الصفوف ما توصل لجهازه أبدًا.</p>
+              <div class="pl-form"><input id="pl-label" maxlength="60" placeholder="اسم الرابط (مثل: مدير فرع جدة)"><select id="pl-col" aria-label="العمود"></select></div>
+              <div class="pl-vals" id="pl-vals"></div>
+              <button type="button" class="btn btn-primary btn-sm" id="pl-add" style="justify-self:start">إنشاء رابط خاص</button>
+              <div class="pl-new" id="pl-new" hidden></div>
+              <ul class="pl-list" id="pl-list"></ul>
+              <label class="src-live"><input type="checkbox" id="pl-only"> الرابط العام ما يفتح، بس الروابط الخاصة</label>
+              <p class="status" id="pl-status" role="status"></p>
+            </div>
+          </details>
           <div class="views" id="views-box" hidden><div class="views-top"><span class="label">مشاهدات الرابط</span><b id="v-total">0</b></div><div class="vbars" id="v-bars" aria-hidden="true"></div><span class="label" id="v-last"></span></div>
           <p class="status" id="share-status" role="status" aria-live="polite"></p>
           <hr style="border:0;border-top:1px solid var(--line);width:100%">

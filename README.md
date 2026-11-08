@@ -32,6 +32,13 @@ Teams share performance numbers as Excel attachments or static screenshots. Ever
 | **Forecast** | Monthly data with 6+ months gets a 3-month forecast on the trend chart with an ~80% range. Five classic methods are back-tested on the last known months and the most accurate one is used; the comparison table is shown. |
 | **Ask the data** | Ready-made questions built from the file's columns (top/bottom, top-3 share, month-on-month change with biggest movers, best/worst month, who missed target, above/below average, leader within each group, next-month forecast), answered instantly from the filtered rows — no AI. Each answer links to its SQL. |
 | **Pages** | Overview, Ask the data, Trend & forecast, Locations, Notes, Data, and Show all — a sidebar on wide screens, tabs on mobile. |
+| **Numbers** | Per-column aggregation (sum / average / max / min; rates averaged automatically) and format (currency with any symbol, percent, fraction→percent, compact, decimals). |
+| **Calculated measures** | A ÷ B, A − B, A + B, A × B computed from totals (e.g. CTR = Clicks ÷ Impressions), listed with the metrics. |
+| **Funnel** | Owner-ordered stages with step and overall conversion, biggest drop, and a conversion table by group. |
+| **Filters** | Multi-select filters with search, a From/To period range, saved views (bookmarks) and links that reopen the same view. |
+| **Year over year** | Latest month vs previous month and same month last year, year-to-date vs last year, last-year line on the trend chart. |
+| **Live source** | Link a Google Sheet (or CSV/Excel URL); fetch it as a new version or let the share link read it live. |
+| **Private links** | Each private link shows only rows where one column matches (e.g. Branch = Jeddah), filtered in the database (`supabase/migration-003-private-links.sql`). |
 | **SQL editor** | Each chart's SQL opens in an in-browser SQLite editor (tables `data` and `targets`); run, edit, and download results as CSV. Nothing leaves the browser. |
 | **Location map** | If a column holds Saudi cities or regions (or GCC cities), in Arabic or English, a map appears automatically with a top-5 ranking: Saudi data shows a shaded map of the 13 administrative regions (switchable to city bubbles); click a region or city to filter the whole dashboard. |
 | **Three templates** | Analytical tiles, executive report, and a mobile summary, all from the same data model. |
@@ -143,6 +150,13 @@ supabase/             Database schema and migrations
 - **التوقع:** البيانات الشهرية (6 أشهر فأكثر) يظهر لها توقع للأشهر الثلاثة القادمة مع نطاق متوقع، بعد اختبار عدة طرق واختيار الأدق.
 - **اسأل البيانات:** أسئلة جاهزة تُبنى من أعمدة الملف (الأعلى والأقل، التغير عن الشهر السابق، من لم يحقق المستهدف، وغيرها) والإجابة تُحسب فورًا بدون ذكاء اصطناعي.
 - **الصفحات:** نظرة عامة، اسأل البيانات، الاتجاه والتوقع، المواقع، الملاحظات، البيانات، وعرض الكل.
+- **الأرقام:** طريقة التجميع والتنسيق لكل عمود (عملة، نسبة، مختصر، كسور).
+- **مقاييس محسوبة:** قسمة/طرح/جمع/ضرب بين عمودين من الإجماليات.
+- **القمع:** مراحل التحويل وأكبر تسرّب وجدول التحويل حسب المجموعة.
+- **الفلاتر:** اختيار متعدد، نطاق فترة، مشاهد محفوظة، ورابط لنفس العرض.
+- **المقارنة بالسنة الماضية:** آخر شهر، من بداية السنة، وخط السنة الماضية.
+- **مصدر مباشر:** ربط Google Sheets يتحدث تلقائيًا.
+- **روابط خاصة:** كل رابط يعرض صفوف محددة فقط، والفلترة في قاعدة البيانات.
 - **محرر SQL:** استعلام كل رسم يفتح في محرر داخل المتصفح، تشغّله وتعدّله وتنزّل النتيجة CSV.
 - **ثلاثة قوالب:** مربعات تحليلية، تقرير تنفيذي، ملخص للجوال.
 - **الهوية البصرية:** استخراج ألوان الشعار تلقائيًا واختيار الخط.
