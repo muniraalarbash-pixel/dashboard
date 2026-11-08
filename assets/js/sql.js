@@ -81,5 +81,15 @@ JOIN targets t ON t.${tK} = d.${aK}${where('d.')}
 GROUP BY d.${aK}, t.${tV}
 ORDER BY 4 DESC;`;
   }
+  if (spec.kind === 'funnel') {
+    const st = spec.stages.filter(i => !m.cols[i].virtual); if (st.length < 2) return '';
+    const s = i => `SUM(${q(name(i))})`;
+    const conv = st.slice(1).map((i, k) => `       ROUND(100.0 * ${s(i)} / NULLIF(${s(st[k])}, 0), 1) AS ${q(name(st[k]) + ' → ' + name(i) + ' %')}`);
+    const d = spec.dim != null && spec.dim >= 0 ? q(name(spec.dim)) : null;
+    return `${headC}
+SELECT ${d ? d + ',\n       ' : ''}${st.map(i => `${s(i)} AS ${q(name(i))}`).join(',\n       ')},
+${conv.join(',\n')}
+FROM data${where()}${d ? `\nGROUP BY ${d}\nORDER BY 2 DESC` : ''};`;
+  }
   return '';
 }

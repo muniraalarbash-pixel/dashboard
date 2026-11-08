@@ -526,6 +526,40 @@ export function mountDashboard(root, opts) {
       ${a.sql ? `<button type="button" class="d-asksql no-export" data-asksql><span dir="ltr">{ } SQL</span> ${T('شوف الاستعلام وشغّله', 'See and run the query')}</button>` : ''}`;
   }
 
+  // ---------- funnel (owner picks ordered stages, e.g. Impressions → Clicks → Leads → Clients) ----------
+  function funnelStages() {
+    const f = (o.project.config && o.project.config.funnel) || [];
+    return f.map(n => m.idx(n)).filter(i => i >= 0 && m.nums.includes(i));
+  }
+  const pctS = (a, b) => { if (!a) return '—'; const p = b / a * 100; return fmtPct(p, p === 0 || p >= 10 ? 0 : p >= 1 ? 1 : p >= 0.1 ? 2 : 3); };
+  // a funnel spans orders of magnitude, so bar widths use a log scale (labels keep the real numbers)
+  const fW = (v, top) => v <= 0 ? 3 : Math.max(6, Math.log10(v + 1) / Math.log10(top + 1) * 100);
+  function funnelHTML(c, cls) {
+    const stg = funnelStages(); if (stg.length < 2) return '';
+    const v = stg.map(i => m.agg(c.rows, i)), top = Math.max(...v.map(Math.abs), 1);
+    let worst = -1, wr = Infinity; v.slice(1).forEach((x, k) => { const r = v[k] ? x / v[k] : Infinity; if (r < wr && r < 1) { wr = r; worst = k; } });
+    const rowsH = stg.map((mi, k) => `${k ? `<div class="d-fstep ${k - 1 === worst ? 'worst' : ''}"><span>↓ ${pctS(v[k - 1], v[k])}</span>${k - 1 === worst ? `<em>${T('أكبر تسرّب', 'Biggest drop')}</em>` : ''}</div>` : ''}
+      <div class="d-frow" style="--w:${fW(v[k], top).toFixed(1)}%;--k:${k}"><span class="d-fn"><bdi>${esc(m.cols[mi].name)}</bdi></span><span class="d-fbar"><i></i></span><b class="d-fv">${fmt(v[k])}</b></div>`).join('');
+    sqlSet('funnel', { kind: 'funnel', stages: stg, metric: -1 });
+    const last = v[v.length - 1], first = v[0];
+    let per = 100; while (first && last > 0 && last / first * per < 1 && per < 1e7) per *= 10;
+    const n0 = esc(m.cols[stg[0]].name), n1 = esc(m.cols[stg[stg.length - 1]].name), got = first ? Math.round(last / first * per) : 0;
+    const sum = first ? T(`من كل ${per.toLocaleString("en-US")} في «${n0}» يوصل ${fmt(got)} إلى «${n1}».`, `Of every ${per.toLocaleString("en-US")} “${n0}”, ${fmt(got)} reach “${n1}”.`) + (top / Math.max(1, Math.abs(last)) > 50 ? `<br><small>${T('عرض الأشرطة بمقياس لوغاريتمي عشان تبان كل المراحل؛ الأرقام حقيقية.', 'Bar widths use a log scale so every stage stays visible; the numbers are real.')}</small>` : '') : '';
+    return `<article class="${cls} d-funnel">${head(T('قمع التحويل', 'Conversion funnel'), T('التحويل الكلي ', 'Overall conversion ') + pctS(first, last))}<div data-cv="funnel" class="d-fbody">${rowsH}</div>${sum ? `<p class="d-fsum">${sum}</p>` : ''}</article>`;
+  }
+  function funnelPage(c) {
+    const stg = funnelStages(), dim = c.dim;
+    let tbl = '';
+    if (dim >= 0) {
+      const g = m.groups(c.rows, r => r[dim] == null ? null : String(r[dim]));
+      const rs = [...g.entries()].map(([k, x]) => ({ k, v: stg.map(i => m.agg(x, i)) })).sort((a, b) => b.v[0] - a.v[0]).slice(0, 12);
+      const best = Math.max(...rs.map(r => r.v[0] ? r.v[r.v.length - 1] / r.v[0] : -1));
+      tbl = `<article class="d-card d-periods">${head(T('التحويل حسب ', 'Conversion by ') + esc(m.cols[dim].name), T('نسبة كل مرحلة من اللي قبلها', 'Each stage as a share of the one before'))}<div class="d-pscroll" data-cv="funneltbl"><table class="d-ptbl"><thead><tr><th>${esc(m.cols[dim].name)}</th><th>${esc(m.cols[stg[0]].name)}</th>${stg.slice(1).map(i => `<th>→ ${esc(m.cols[i].name)}</th>`).join('')}<th>${T('الكلي', 'Overall')}</th></tr></thead><tbody>${rs.map(r => { const ov = r.v[0] ? r.v[r.v.length - 1] / r.v[0] : -1; return `<tr><td><bdi>${esc(r.k)}</bdi></td><td>${fmt(r.v[0])}</td>${r.v.slice(1).map((x, k) => `<td>${fmt(x)} <small>${pctS(r.v[k], x)}</small></td>`).join('')}<td class="${ov === best && rs.length > 1 ? 'up' : ''}"><b>${pctS(r.v[0], r.v[r.v.length - 1])}</b></td></tr>`; }).join('')}</tbody></table></div></article>`;
+      sqlSet('funneltbl', { kind: 'funnel', stages: stg, dim, metric: -1 });
+    }
+    return { html: `<section class="d-pagegrid one">${funnelHTML(c, 'd-card d-funnelbig')}${tbl}</section>`, after() {} };
+  }
+
   // ---------- pages ----------
   const PI = {
     overview: '<rect x="3" y="3" width="8" height="8" rx="2"/><rect x="13" y="3" width="8" height="5" rx="2"/><rect x="13" y="10" width="8" height="11" rx="2"/><rect x="3" y="13" width="8" height="8" rx="2"/>',
@@ -534,11 +568,13 @@ export function mountDashboard(root, opts) {
     notes: '<path d="M5 4h14v16l-4-3H5z" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"/><path d="M8 9h8M8 12.5h5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>',
     ask: '<path d="M4 5h16v11H9l-5 4z" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"/><path d="M10 9.2a2 2 0 1 1 2.6 1.9c-.4.2-.6.5-.6.9" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><circle cx="12" cy="13.6" r="1"/>',
     data: '<rect x="3" y="4" width="18" height="16" rx="2" fill="none" stroke="currentColor" stroke-width="2.2"/><path d="M3 9.5h18M3 14.5h18M9.5 4v16" stroke="currentColor" stroke-width="1.8"/>',
+    funnel: '<path d="M3 4h18l-7 8v6l-4 2v-8z" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"/>',
     all: '<path d="M4 6h16M4 12h16M4 18h16" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/>'
   };
   function pages() {
     const l = [['overview', T('نظرة عامة', 'Overview')], ['ask', T('اسأل البيانات', 'Ask the data')]];
     if (m.date >= 0 && m.series(m.rows, -1).length >= 2) l.push(['trend', (f => f && !f.unreliable)(fcFor({ rows: m.rows, metric: metricIdx() })) ? T('الاتجاه والتوقع', 'Trend & forecast') : T('الاتجاه', 'Trend')]);
+    if (funnelStages().length >= 2) l.push(['funnel', T('القمع', 'Funnel')]);
     if (geo >= 0) l.push(['map', T('المواقع', 'Locations')]);
     if (recItems().length || noteItems().length) l.push(['notes', T('التوصيات والملاحظات', 'Recommendations & notes')]);
     l.push(['data', T('البيانات', 'Data')]);
@@ -565,6 +601,7 @@ export function mountDashboard(root, opts) {
   function pageOf(c) {
     const v = st.view;
     if (v === 'trend') return trendPage(c);
+    if (v === 'funnel') return funnelPage(c);
     if (v === 'map') return { html: `<section class="d-pagegrid one">${mapHTML(c, 'd-card d-mapbig')}</section>`, after() { drawMap(c); } };
     if (v === 'notes') return { html: `<section class="d-pagegrid one">${recsHTML('d-card')}${notesHTML('d-card')}</section>`, after() {} };
     if (v === 'data') return { html: '', after() {} };
@@ -580,6 +617,10 @@ export function mountDashboard(root, opts) {
     renderNav();
     const t = pageOf(c) || tpl(c), body = root.querySelector('[data-body]');
     body.innerHTML = t.html; body.hidden = !t.html;
+    if ((st.view === 'overview' || st.view === 'all') && t.html && funnelStages().length >= 2 && !body.querySelector('.d-funnel')) {
+      const first = body.querySelector('section'); const fh = `<section class="d-recsec d-fsec">${funnelHTML(c, ['executive', 'compact'].includes(o.project.template) ? 'd-card' : 'd-tile')}</section>`;
+      if (first) first.insertAdjacentHTML('afterend', fh); else body.insertAdjacentHTML('afterbegin', fh);
+    }
     if (st.view === 'overview') {
       // the other pages carry these, so the overview stays short
       body.querySelectorAll('.d-maptile, .d-recs, .d-notesx, .d-fctile').forEach(el => el.remove());

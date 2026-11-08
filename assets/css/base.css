@@ -466,3 +466,11 @@ html[dir=ltr] #cal-prev svg,html[dir=ltr] #cal-next svg,html[dir=ltr] .pwrap .ic
 .ms-pct[hidden]{display:none}
 .ms-msg{margin:0;font-size:12px;color:#B42318;min-height:0}
 .ms-form #ms-add{justify-self:start}
+.fn-list li{justify-content:flex-start}
+.fn-k{display:inline-grid;place-items:center;width:20px;height:20px;border-radius:50%;background:var(--line,#DDE3E9);font-size:11px;font-weight:700;flex:none}
+.fn-act{margin-inline-start:auto;display:flex;gap:2px}
+.fn-act button{border:0;background:none;cursor:pointer;color:inherit;padding:2px 7px;border-radius:6px;font-size:13px}
+.fn-act button:hover:not(:disabled){background:rgba(0,0,0,.08)}
+.fn-act button:disabled{opacity:.3;cursor:default}
+.fn-form{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.fn-form select{font:inherit;font-size:12.5px;padding:6px 8px;flex:1;min-width:140px}

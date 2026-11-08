@@ -329,7 +329,7 @@ function renderDefaults(force) {
     ['pie', 'الرسم الدائري حسب', [['', 'تلقائي'], ...cats.map(n => [n, n])]]
   ];
   box.innerHTML = rows.map(([k, l, os]) => `<label class="field"><span class="label" style="font-size:12.5px">${l}</span><select data-def="${k}">${os.map(([v, t]) => opt(v, t, d[k] || '')).join('')}</select></label>`).join('')
-    + aggHTML(m) + measuresHTML(m);
+    + aggHTML(m) + measuresHTML(m) + funnelEdHTML(m);
 }
 /* calculated measures: A ÷ B, A − B, A + B, A × B */
 const OPS = [['/', '÷ قسمة'], ['-', '− طرح'], ['+', '+ جمع'], ['*', '× ضرب']], OPSYM = { '/': '÷', '-': '−', '+': '+', '*': '×' };
@@ -345,6 +345,23 @@ function measuresHTML(m) {
       <select id="ms-a">${base.map(opt).join('')}</select><select id="ms-op">${OPS.map(([v, l]) => `<option value="${v}">${l}</option>`).join('')}</select><select id="ms-b">${base.map(opt).join('')}</select>
       <label class="ms-pct"><input type="checkbox" id="ms-pct" checked> اعرضها كنسبة % (× 100)</label>
       <button type="button" class="btn btn-primary btn-sm" id="ms-add">إضافة المقياس</button><p class="ms-msg" id="ms-msg" role="status"></p></div></details>`;
+}
+/* conversion funnel: ordered stages */
+const FUNNEL_KW = [/(impression|ظهور|مشاهد|view)/i, /(reach|وصول)/i, /(click|نقر|زيار|visit|session)/i, /(lead|استفسار|محتمل|enquir|inquir|inqu)/i, /(qualif|مؤهل|meeting|اجتماع|عرض سعر|quote|proposal)/i, /(customer|client|booking|deal|won|order|عميل|عملاء|حجز|محجوز|طلب|صفق|مبيعات)/i];
+function suggestFunnel(m) {
+  const base = m.nums.filter(i => !m.cols[i].measure && m.aggOf(i) === 'sum');
+  const out = [];
+  FUNNEL_KW.forEach(re => { const i = base.find(j => re.test(m.cols[j].name) && !out.includes(j)); if (i != null) out.push(i); });
+  return out.map(i => m.cols[i].name);
+}
+function funnelEdHTML(m) {
+  const base = m.nums.filter(i => !m.cols[i].measure).map(i => m.cols[i].name); if (base.length < 2) return '';
+  const f = project.config.funnel || [], rest = base.filter(n => !f.includes(n));
+  const items = f.map((n, i) => `<li><span class="fn-k">${i + 1}</span><bdi>${esc(n)}</bdi>${m.idx(n) < 0 ? ' <em class="ms-bad">(العمود غير موجود في البيانات الحالية)</em>' : ''}<span class="fn-act"><button type="button" data-fn="up" data-i="${i}" ${i ? '' : 'disabled'} aria-label="لفوق">↑</button><button type="button" data-fn="down" data-i="${i}" ${i < f.length - 1 ? '' : 'disabled'} aria-label="لتحت">↓</button><button type="button" data-fn="del" data-i="${i}" aria-label="حذف">✕</button></span></li>`).join('');
+  return `<details class="agg-box fn-box" ${f.length ? 'open' : ''}><summary>قمع التحويل${f.length ? ` <span class="agg-c">${f.length}</span>` : ''}</summary>
+    <p class="muted" style="font-size:12px;margin:6px 0 8px">رتّب المراحل من الأكبر للأصغر، مثل: الظهور ← النقرات ← الاستفسارات ← العملاء. يطلع القمع إذا فيه مرحلتين أو أكثر.</p>
+    ${items ? `<ol class="ms-list fn-list">${items}</ol>` : ''}
+    <div class="fn-form">${rest.length ? `<select id="fn-add"><option value="">+ أضف مرحلة</option>${rest.map(n => `<option value="${esc(n)}">${esc(n)}</option>`).join('')}</select>` : ''}<button type="button" class="btn btn-sm" id="fn-auto">اقتراح تلقائي</button>${f.length ? '<button type="button" class="btn btn-sm" id="fn-clear">مسح القمع</button>' : ''}</div><p class="ms-msg" id="fn-msg" role="status"></p></details>`;
 }
 /* how each number column is summarised (Sum / Average / Max / Min) */
 const AGG_L = { sum: 'مجموع', avg: 'متوسط', max: 'أعلى قيمة', min: 'أدنى قيمة' };
@@ -370,7 +387,17 @@ $('#defs').addEventListener('change', e => { if (e.target.id === 'ms-op') { cons
   queue({ config: project.config }); preview();
 });
 
+const saveFunnel = list => { project.config = { ...project.config, funnel: list }; queue({ config: project.config }); renderDefaults(true); preview(); };
+$('#defs').addEventListener('change', e => { if (e.target.id === 'fn-add' && e.target.value) saveFunnel((project.config.funnel || []).concat([e.target.value])); });
 $('#defs').addEventListener('click', e => {
+  const fb = e.target.closest('[data-fn]');
+  if (fb) { const l = (project.config.funnel || []).slice(), i = +fb.dataset.i, a = fb.dataset.fn;
+    if (a === 'del') l.splice(i, 1); else { const j = a === 'up' ? i - 1 : i + 1; [l[i], l[j]] = [l[j], l[i]]; }
+    saveFunnel(l); return; }
+  if (e.target.closest('#fn-clear')) { saveFunnel([]); return; }
+  if (e.target.closest('#fn-auto')) { const { version } = currentVersion(); if (!version || !version.data) return;
+    const sug = suggestFunnel(createModel(version.data, mopts()));
+    if (sug.length >= 2) saveFunnel(sug); else $('#fn-msg').textContent = 'ما لقيت أعمدة واضحة للقمع، أضف المراحل بنفسك.'; return; }
   const del = e.target.closest('[data-msdel]');
   const save = list => { project.config = { ...project.config, measures: list }; queue({ config: project.config }); renderDefaults(true); preview(); };
   if (del) { const list = (project.config.measures || []).slice(); const [gone] = list.splice(+del.dataset.msdel, 1); const d = { ...(project.config.defaults || {}) }; if (gone && d.metric === gone.name) { delete d.metric; project.config = { ...project.config, defaults: d }; } save(list); return; }
