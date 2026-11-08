@@ -8,7 +8,7 @@ export function buildSQL(m, spec, filters, tcfg) {
   const name = i => m.cols[i].name;
   const metric = spec.metric;
   const alias = q(metric < 0 ? T('عدد السجلات', 'record_count') : name(metric));
-  const agg = (p = '') => metric < 0 ? 'COUNT(*)' : m.isMean(metric) ? `ROUND(AVG(${p}${q(name(metric))}), 2)` : `SUM(${p}${q(name(metric))})`;
+  const agg = (p = '') => { if (metric < 0) return 'COUNT(*)'; const c = p + q(name(metric)), md = m.aggOf ? m.aggOf(metric) : (m.isMean(metric) ? 'avg' : 'sum'); return md === 'avg' ? `ROUND(AVG(${c}), 2)` : md === 'max' ? `MAX(${c})` : md === 'min' ? `MIN(${c})` : `SUM(${c})`; };
   const where = (p = '') => {
     const w = Object.entries(filters || {}).filter(([ci, v]) => v != null && +ci !== spec.exclude && m.cols[+ci] && !m.cols[+ci].virtual).map(([ci, v]) => Array.isArray(v) ? `${p}${q(name(+ci))} IN (${v.map(lit).join(', ')})` : `${p}${q(name(+ci))} = ${lit(v)}`);
     return w.length ? '\nWHERE ' + w.join('\n  AND ') : '';

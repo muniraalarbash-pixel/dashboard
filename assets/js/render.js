@@ -100,7 +100,7 @@ export function mountDashboard(root, opts) {
   function draw(k, cfg) { kill(k); const cv = root.querySelector('[data-cv="' + k + '"]'); if (cv && window.Chart) charts[k] = new Chart(cv, cfg); }
 
   function setup() {
-    m = o.version ? createModel(o.version.data) : null;
+    m = o.version ? createModel(o.version.data, { agg: ((o.project && o.project.config) || {}).agg }) : null;
     geo = m ? findGeoCol(m) : -1;
     saudi = geo >= 0 && saudiOnly(m, geo);
     theme = brandTheme(o.project.brand);
@@ -204,7 +204,8 @@ export function mountDashboard(root, opts) {
       metric, dim, rows, tstats, sd, pie: pieIdx(dim, sd),
       // in the tiles layout the big chart shows targets unless another split was chosen
       showT: !!tstats && (!dimChosen || (dim >= 0 && m.cols[dim].name === tstats.keyName)),
-      ml: m.label(metric), mean: m.isMean(metric), hasF: activeF().length > 0,
+      ml: m.label(metric), mean: metric >= 0 && m.aggOf(metric) !== 'sum', // non-additive: no shares/pies/stacks
+       hasF: activeF().length > 0,
       pal: theme.palette, ink: theme.vars['--d-muted'], grid: theme.vars['--d-line'],
       prev: o.previous && o.previous.totals,
       insights: autoInsights(m, rows, metric, dim, tstats, 3)
@@ -422,7 +423,7 @@ export function mountDashboard(root, opts) {
   // ---------- template: tiles ----------
   function tplTiles(c) {
     const total = m.agg(c.rows, c.metric);
-    let top = `<article class="d-tile d-num">${head(c.ml, c.mean ? T('المتوسط', 'Average') : (c.hasF ? T('الإجمالي حسب الفلاتر', 'Filtered total') : T('الإجمالي', 'Total')))}<p class="d-big">${fmt(total)}</p>${c.tstats && m.cols[c.metric] && m.cols[c.metric].name === c.tstats.valName ? `<p class="d-sub">${T('المستهدف', 'Target')} ${fmt(c.tstats.target)}</p>` : ''}</article>`;
+    let top = `<article class="d-tile d-num">${head(c.ml, m.aggOf(c.metric) === 'max' ? T('أعلى قيمة', 'Highest value') : m.aggOf(c.metric) === 'min' ? T('أدنى قيمة', 'Lowest value') : c.mean ? T('المتوسط', 'Average') : (c.hasF ? T('الإجمالي حسب الفلاتر', 'Filtered total') : T('الإجمالي', 'Total')))}<p class="d-big">${fmt(total)}</p>${c.tstats && m.cols[c.metric] && m.cols[c.metric].name === c.tstats.valName ? `<p class="d-sub">${T('المستهدف', 'Target')} ${fmt(c.tstats.target)}</p>` : ''}</article>`;
     let gauge = null;
     if (c.tstats && c.tstats.pct != null) gauge = { title: T('نسبة الإنجاز', 'Achievement'), sub: c.tstats.valName + T(' مقابل المستهدف', ' vs target'), v: c.tstats.pct, max: 100, label: fmtPct(c.tstats.pct, 1), lo: '0%', hi: '100%' };
     else if (c.dim >= 0 && !c.mean && c.rows.length) { const b = m.breakdown(c.rows, c.dim, c.metric), t = b.reduce((s, x) => s + x.v, 0); if (b.length >= 2 && t > 0) gauge = { title: T('حصة ', 'Share of ') + b[0].k, sub: T('من إجمالي ', 'of total ') + c.ml, v: b[0].v, max: t, label: fmt(b[0].v), lo: '0', hi: fmt(t) }; }
@@ -498,7 +499,7 @@ export function mountDashboard(root, opts) {
     const metrics = m.nums.length ? m.nums.slice(0, 6) : [-1];
     const rows = metrics.map(mi => { const ch = change(c, mi); return `<li data-mi="${mi}" role="button" tabindex="0" class="${mi === c.metric ? 'on' : ''}" aria-pressed="${mi === c.metric}"><span class="d-ln">${esc(m.label(mi))}</span><span class="d-lv">${fmt(m.agg(c.rows, mi))}</span>${spark(ch.s.map(p => p.v).slice(-8))}<span class="d-dl ${arrowCls(ch.pct)}">${ch.pct == null ? '' : (ch.pct >= 0 ? '▲' : '▼') + Math.abs(ch.pct).toFixed(0) + '%'}</span></li>`; }).join('');
     const html = `<section class="d-stack">
-      <article class="d-card d-hero"><p class="d-kl">${esc(c.ml)}${c.mean ? T(' (متوسط)', ' (avg)') : ''}</p><p class="d-kv">${fmt(total)}</p><p class="d-kf"><span class="d-dl ${arrowCls(ch0.pct)}">${ch0.pct == null ? '' : (ch0.pct >= 0 ? '▲ ' : '▼ ') + Math.abs(ch0.pct).toFixed(1) + '%'}</span> ${ch0.pct == null ? '' : esc(ch0.sub)}</p>
+      <article class="d-card d-hero"><p class="d-kl">${esc(c.ml)}${m.aggOf(c.metric) === 'avg' ? T(' (متوسط)', ' (avg)') : ''}</p><p class="d-kv">${fmt(total)}</p><p class="d-kf"><span class="d-dl ${arrowCls(ch0.pct)}">${ch0.pct == null ? '' : (ch0.pct >= 0 ? '▲ ' : '▼ ') + Math.abs(ch0.pct).toFixed(1) + '%'}</span> ${ch0.pct == null ? '' : esc(ch0.sub)}</p>
         ${c.tstats && c.tstats.pct != null ? `<div class="d-target"><span>${m.cols[c.metric] && m.cols[c.metric].name === c.tstats.valName ? T(`الإنجاز ${fmtPct(c.tstats.pct, 1)} من المستهدف`, `${fmtPct(c.tstats.pct, 1)} of target achieved`) : T(`${esc(c.tstats.valName)}: الإنجاز ${fmtPct(c.tstats.pct, 1)} من المستهدف`, `${esc(c.tstats.valName)}: ${fmtPct(c.tstats.pct, 1)} of target`)}</span>${vz('kpi') === 'number' ? '' : `<div class="d-bar-track"><i style="width:${Math.min(100, c.tstats.pct).toFixed(1)}%"></i></div>`}</div>` : ''}</article>
       <article class="d-card">${head(T('المؤشرات', 'Metrics'), T('اضغط مؤشرًا لعرضه', 'Tap a metric to show it'))}<ul class="d-list">${rows}</ul></article>
       ${c.dim >= 0 ? `<article class="d-card">${head(c.ml + T(' حسب ', ' by ') + m.cols[c.dim].name, '')}<div class="d-box d-hbox"><canvas data-cv="hbar" role="img" aria-label="${T('الترتيب', 'Ranking')}"></canvas></div></article>` : ''}

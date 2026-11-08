@@ -51,6 +51,8 @@ const EXACT = {
   'الملف فاضي أو ما فيه صف عناوين. تأكد أن أول صف في الجدول فيه أسماء الأعمدة.': 'The file is empty or has no header row. Make sure the first row holds the column names.',
   'القالب وشكل الرسوم': 'Template & chart style', 'ماذا تعرض الرسوم': 'What the charts show', 'اختر الرقم والأعمدة اللي تتربط فيها. «تلقائي» يخلي الموقع يختار.': 'Choose the number and the columns it’s split by. “Auto” lets the site choose.',
   'المؤشر (الرقم)': 'Metric (number)', 'التقسيم الأساسي': 'Main split', 'التقسيم الثاني (ألوان الأعمدة)': 'Second split (bar colors)', 'الرسم الدائري حسب': 'Pie chart by', 'تلقائي': 'Auto', 'بدون': 'None', 'عدد السجلات': 'Record count',
+  'طريقة تجميع الأرقام': 'How numbers are aggregated', 'مجموع': 'Sum', 'متوسط': 'Average', 'أعلى قيمة': 'Max', 'أدنى قيمة': 'Min',
+  'النسب والمعدلات (مثل CTR أو نسبة الإنجاز) تنحسب «متوسط» تلقائيًا، وباقي الأرقام «مجموع». غيّرها إذا العمود يحتاج غير كذا.': 'Rates and percentages (like CTR or achievement %) are averaged automatically; other numbers are summed. Change it if a column needs something else.',
   'ارفع البيانات أولًا.': 'Upload data first.', 'شكل الرسوم': 'Chart style', 'خصّص الشكل': 'Customize', 'رجوع للشكل الافتراضي': 'Back to default style',
   'التوزيع حسب الفئة': 'Breakdown by category', 'الحصص': 'Shares', 'الاتجاه عبر الزمن': 'Trend over time', 'نسبة الإنجاز': 'Achievement', 'توقع الأشهر القادمة': 'Forecast next months',
   'أعمدة': 'Bars', 'أفقي': 'Horizontal', 'خطي': 'Line', 'دائري': 'Pie', 'حلقي': 'Doughnut', 'مساحة': 'Area', 'عداد': 'Gauge', 'شريط': 'Bar', 'إظهار': 'Show',
@@ -73,6 +75,7 @@ const EXACT = {
 };
 // sentences built with numbers/names: [pattern, replacement]
 const RULES = [
+  [/^تلقائي \((مجموع|متوسط)\)$/, (_, a) => `Auto (${a === 'مجموع' ? 'Sum' : 'Average'})`],
   [/تمت قراءة ([\d,]+) صف و(\d+) عمود من «([^»]+)»\./g, 'Read $1 rows and $2 columns from “$3”.'],
   [/ملف المستهدف: ([\d,]+) صف\./g, 'Target file: $1 rows.'],
   [/راجع المعاينة ثم اضغط «نشر التحديث»\./g, 'Check the preview, then press “Publish update”.'],

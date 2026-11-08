@@ -26,7 +26,8 @@ catch (e) { dtf = new Intl.DateTimeFormat('ar', { day: 'numeric', month: 'long',
 const dtfEn = new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
 export const fmtDate = s => { try { return (isEn() ? dtfEn : dtf).format(new Date(s)); } catch (e) { return ''; } };
 
-const MEAN_RE = /(rate|ratio|%|percent|avg|average|ctr|cpc|cpm|معدل|نسبة|متوسط)/i;
+const MEAN_RE = /(rate|ratio|%|٪|percent|pct|achievement|avg|average|mean|ctr|cpc|cpm|cpa|roas|معدل|نسبة|متوسط|إنجاز|انجاز)/i;
+export const AGG_MODES = ['sum', 'avg', 'max', 'min'];
 
 const MONTHS = [
   ['يناير','جانفي','كانون الثاني','jan','january','محرم'], ['فبراير','فيفري','شباط','feb','february'], ['مارس','آذار','mar','march'],
@@ -44,7 +45,8 @@ export function monthIndex(v) {
 }
 const YEAR_RE = /(year|سنة|السنة|عام|العام)/i, MONTH_RE = /(month|شهر|الشهر)/i;
 
-export function createModel(data) {
+export function createModel(data, opts = {}) {
+  const aggCfg = opts.agg || {};
   let cols = data.columns, rows = data.rows;
   const nums = [], cats = []; let date = -1;
   cols.forEach((c, i) => { if (c.type === 'date' && date < 0) date = i; });
@@ -87,12 +89,17 @@ export function createModel(data) {
   const m = {
     cols, rows, nums, cats, dims, date, monthly, monthCol, uniq,
     idx: name => cols.findIndex(c => c.name === name),
-    isMean: mi => mi >= 0 && !!cols[mi] && MEAN_RE.test(cols[mi].name),
-    label: mi => mi < 0 ? T('عدد السجلات', 'Record count') : cols[mi].name,
+    // how a number column is summarised: owner's choice, else average for rates/percentages, else sum
+    aggOf: mi => { if (mi < 0 || !cols[mi]) return 'count'; const o = aggCfg[cols[mi].name]; return AGG_MODES.includes(o) ? o : (MEAN_RE.test(cols[mi].name) ? 'avg' : 'sum'); },
+    autoAgg: mi => mi >= 0 && !!cols[mi] && MEAN_RE.test(cols[mi].name) ? 'avg' : 'sum',
+    isMean: mi => m.aggOf(mi) === 'avg',
+    label: mi => mi < 0 ? T('عدد السجلات', 'Record count') : cols[mi].name + ({ max: T(' (الأعلى)', ' (max)'), min: T(' (الأدنى)', ' (min)') }[m.aggOf(mi)] || ''),
     agg(rs, mi) {
       if (mi < 0) return rs.length;
-      let s = 0, c = 0; for (const r of rs) { const v = r[mi]; if (typeof v === 'number' && isFinite(v)) { s += v; c++; } }
-      return m.isMean(mi) ? (c ? s / c : 0) : s;
+      const mode = m.aggOf(mi);
+      let s = 0, c = 0, hi = -Infinity, lo = Infinity; for (const r of rs) { const v = r[mi]; if (typeof v === 'number' && isFinite(v)) { s += v; c++; if (v > hi) hi = v; if (v < lo) lo = v; } }
+      if (!c) return 0;
+      return mode === 'avg' ? s / c : mode === 'max' ? hi : mode === 'min' ? lo : s;
     },
     groups(rs, keyFn) { const g = new Map(); for (const r of rs) { const k = keyFn(r); if (k == null || k === '') continue; let a = g.get(k); if (!a) g.set(k, a = []); a.push(r); } return g; },
     series(rs, mi) {
@@ -117,8 +124,8 @@ export function createModel(data) {
   return m;
 }
 
-export function computeTotals(data) {
-  const m = createModel(data), o = {};
+export function computeTotals(data, opts) {
+  const m = createModel(data, opts), o = {};
   m.nums.forEach(i => { o[m.cols[i].name] = m.agg(m.rows, i); });
   return o;
 }
@@ -160,7 +167,7 @@ export function targetStats(m, rows, targets, cfg, filters) {
 
 // ---------- Insights ----------
 export function autoInsights(m, rows, metric, dim, tstats, max = 3) {
-  const out = [], ml = m.label(metric), mean = m.isMean(metric);
+  const out = [], ml = m.label(metric), mean = metric >= 0 && m.aggOf(metric) !== 'sum';
   if (!rows.length) return [{ title: T('لا توجد نتائج', 'No results'), body: T('لا توجد صفوف تطابق الفلاتر الحالية.', 'No rows match the current filters.') }];
   if (tstats && tstats.pct != null) {
     const done = tstats.items.filter(x => x.pct != null && x.pct >= 100).length, withT = tstats.items.filter(x => x.target).length;
@@ -193,7 +200,7 @@ export function autoInsights(m, rows, metric, dim, tstats, max = 3) {
 export function autoRecommendations(m, tstats, prefer) {
   // the owner's chosen metric, else the outcome column (revenue/sales), else the first number
   const pick = () => { const i = prefer ? m.idx(prefer) : -1; if (i >= 0 && m.nums.includes(i)) return i; const r = m.nums.find(j => /(إيراد|الإيراد|ايراد|مبيعات|المبيعات|revenue|sales)/i.test(m.cols[j].name)); return r != null ? r : (m.nums.length ? m.nums[0] : -1); };
-  const rows = m.rows, out = [], metric = pick(), ml = m.label(metric), mean = m.isMean(metric);
+  const rows = m.rows, out = [], metric = pick(), ml = m.label(metric), mean = metric >= 0 && m.aggOf(metric) !== 'sum';
   if (!rows.length) return out;
   const pct = (a, b) => b ? (a / b * 100) : 0;
   const short = k => { k = String(k); return k.length > 28 ? k.slice(0, 26).trim() + '…' : k; };

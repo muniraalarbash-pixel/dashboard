@@ -290,7 +290,7 @@ $('#b-version').addEventListener('click', async () => {
     project_id: id, period: $('#f-vperiod').value.trim(), label: '',
     file_name: pending.actual.reuse ? (pending.actual.name || '') : pending.actual.src.name,
     target_file_name: pending.target ? (pending.target.src ? pending.target.src.name : (latest && latest.target_file_name) || 'مستهدف') : null,
-    data, targets, totals: computeTotals(data), row_count: data.rows.length
+    data, targets, totals: computeTotals(data, { agg: project.config.agg }), row_count: data.rows.length
   };
   const { error } = await sb.from('versions').insert(row);
   btn.disabled = false;
@@ -318,7 +318,7 @@ function renderDefaults(force) {
   const vid = version ? (version.id || version.file_name || 'pending') + ':' + (version.data && version.data.columns ? version.data.columns.length : 0) : null;
   if (!force && vid === defsVid) return; defsVid = vid;
   if (!version || !version.data) { box.innerHTML = '<p class="muted" style="font-size:13px;margin:0">ارفع البيانات أولًا.</p>'; return; }
-  const m = createModel(version.data), d = project.config.defaults || {};
+  const m = createModel(version.data, { agg: project.config.agg }), d = project.config.defaults || {};
   const opt = (v, l, cur) => `<option value="${esc(v)}" ${cur === v ? 'selected' : ''}>${esc(l)}</option>`;
   const cats = m.cats.map(i => m.cols[i].name);
   const rows = [
@@ -327,9 +327,26 @@ function renderDefaults(force) {
     ['sd', 'التقسيم الثاني (ألوان الأعمدة)', [['', 'تلقائي'], ['__none', 'بدون'], ...cats.map(n => [n, n])]],
     ['pie', 'الرسم الدائري حسب', [['', 'تلقائي'], ...cats.map(n => [n, n])]]
   ];
-  box.innerHTML = rows.map(([k, l, os]) => `<label class="field"><span class="label" style="font-size:12.5px">${l}</span><select data-def="${k}">${os.map(([v, t]) => opt(v, t, d[k] || '')).join('')}</select></label>`).join('');
+  box.innerHTML = rows.map(([k, l, os]) => `<label class="field"><span class="label" style="font-size:12.5px">${l}</span><select data-def="${k}">${os.map(([v, t]) => opt(v, t, d[k] || '')).join('')}</select></label>`).join('')
+    + aggHTML(m);
+}
+/* how each number column is summarised (Sum / Average / Max / Min) */
+const AGG_L = { sum: 'مجموع', avg: 'متوسط', max: 'أعلى قيمة', min: 'أدنى قيمة' };
+function aggHTML(m) {
+  if (!m.nums.length) return '';
+  const a = project.config.agg || {}, changed = m.nums.filter(i => a[m.cols[i].name]).length;
+  const rowsH = m.nums.map(i => { const n = m.cols[i].name, cur = a[n] || '';
+    return `<label class="agg-row"><span class="agg-n" title="${esc(n)}"><bdi>${esc(n)}</bdi></span><select data-agg="${esc(n)}"><option value="" ${cur ? '' : 'selected'}>تلقائي (${AGG_L[m.autoAgg(i)]})</option>${['sum', 'avg', 'max', 'min'].map(v => `<option value="${v}" ${cur === v ? 'selected' : ''}>${AGG_L[v]}</option>`).join('')}</select></label>`; }).join('');
+  return `<details class="agg-box" ${changed ? 'open' : ''}><summary>طريقة تجميع الأرقام${changed ? ` <span class="agg-c">${changed}</span>` : ''}</summary><p class="muted" style="font-size:12px;margin:6px 0 8px">النسب والمعدلات (مثل CTR أو نسبة الإنجاز) تنحسب «متوسط» تلقائيًا، وباقي الأرقام «مجموع». غيّرها إذا العمود يحتاج غير كذا.</p>${rowsH}</details>`;
 }
 $('#defs').addEventListener('change', e => {
+  const ag = e.target.closest('[data-agg]');
+  if (ag) {
+    const a = { ...(project.config.agg || {}) };
+    if (ag.value) a[ag.dataset.agg] = ag.value; else delete a[ag.dataset.agg];
+    project.config = { ...project.config, agg: a };
+    queue({ config: project.config }); renderDefaults(true); preview(); return;
+  }
   const s = e.target.closest('[data-def]'); if (!s) return;
   const d = { ...(project.config.defaults || {}) };
   if (s.value) d[s.dataset.def] = s.value; else delete d[s.dataset.def];
@@ -384,7 +401,7 @@ $('#b-recadd').addEventListener('click', () => { const v = $('#f-rec').value.tri
 $('#b-recgen').addEventListener('click', () => {
   const { version } = currentVersion();
   if (!version || !version.data) { $('#rec-status').textContent = 'ارفع ملف البيانات أولًا.'; return; }
-  const m = createModel(version.data);
+  const m = createModel(version.data, { agg: project.config.agg });
   const ts = version.targets ? targetStats(m, m.rows, version.targets, project.config.target, {}) : null;
   const have = new Set(recs().map(r => r.text));
   const fresh = autoRecommendations(m, ts, (project.config.defaults || {}).metric).filter(t => !have.has(t)).map(text => ({ text, auto: true }));

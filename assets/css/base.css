@@ -448,3 +448,9 @@ html:not([lang=en]) .en-only{display:none!important}
 #modes-top{display:flex;gap:8px;align-items:center}
 html[dir=ltr] #cal-prev svg,html[dir=ltr] #cal-next svg,html[dir=ltr] .pwrap .iconbtn svg{transform:scaleX(-1)}
 .lang-side{display:flex;justify-content:center;margin-top:8px}
+.agg-box{grid-column:1/-1;border:1px solid var(--line,#DDE3E9);border-radius:10px;padding:8px 12px;margin-top:4px}
+.agg-box summary{cursor:pointer;font-size:13px;font-weight:600}
+.agg-c{display:inline-grid;place-items:center;min-width:18px;height:18px;border-radius:9px;background:var(--primary,#6C151E);color:#fff;font-size:11px;padding:0 5px;margin-inline-start:4px}
+.agg-row{display:grid;grid-template-columns:minmax(0,1fr) 150px;gap:8px;align-items:center;padding:4px 0;border-top:1px dashed var(--line,#DDE3E9)}
+.agg-n{font-size:12.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.agg-row select{font:inherit;font-size:12.5px;padding:5px 8px}
