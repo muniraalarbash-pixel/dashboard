@@ -365,8 +365,8 @@ export function mountDashboard(root, opts) {
     sqlSet(key, m.date >= 0 ? { kind: 'trend', metric: mi, last: 6 } : { kind: 'breakdown', dim: c.dim, metric: mi, limit: 6 });
     const pts = m.date >= 0 ? m.series(c.rows, mi).slice(-6).map(p => ({ k: pLabel(p.k), v: p.v })) : (c.dim >= 0 ? m.breakdown(c.rows, c.dim, mi).slice(0, 6) : []);
     draw(key, { type: 'bar', data: { labels: pts.map(p => p.k), datasets: [{ data: pts.map(p => p.v), backgroundColor: c.pal[0], borderRadius: 2, maxBarThickness: 24 }] }, plugins: [valueLabels],
-      options: { responsive: true, maintainAspectRatio: false, animation: anim(), layout: { padding: { top: 16 } }, plugins: { legend: { display: false }, tooltip: tip(), valueLabels: { mode: 'top', color: c.ink, font: theme.font } },
-        scales: { x: { grid: { display: false }, border: { display: false }, ticks: { font: { size: 10 }, maxRotation: 0, autoSkip: true } }, y: { display: false, beginAtZero: true } } } });
+      options: { responsive: true, maintainAspectRatio: false, animation: anim(), layout: { padding: { top: 16, left: 10, right: 10 } }, plugins: { legend: { display: false }, tooltip: tip(), valueLabels: { mode: 'top', color: c.ink, font: theme.font } },
+        scales: { x: { reverse: !isEn() && m.date >= 0, grid: { display: false }, border: { display: false }, ticks: { font: { size: 10 }, maxRotation: 0, autoSkip: true } }, y: { display: false, beginAtZero: true } } } });
   }
 
   // ---------- recommendations ----------
@@ -767,6 +767,11 @@ export function mountDashboard(root, opts) {
 
   function renderData() { renderBms(); renderBar(); renderBody(); renderTable(); }
 
+  // phones (in-app browsers especially) can change the page width after the first draw: refit every chart
+  let rzT = null;
+  const refit = () => { clearTimeout(rzT); rzT = setTimeout(() => Object.values(charts).forEach(ch => { try { ch.resize(); } catch (e) {} }), 120); };
+  window.addEventListener('resize', refit); window.addEventListener('orientationchange', refit); window.addEventListener('pageshow', refit);
+  if (window.ResizeObserver) new ResizeObserver(refit).observe(root);
   setup(); if (o.state) applyState(o.state); frame();
   return {
     // keep the viewer's filters/page across data refreshes and editor changes

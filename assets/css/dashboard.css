@@ -415,3 +415,7 @@
 .d-upd.live i{animation:d-pulse 1.6s ease-in-out infinite}
 @keyframes d-pulse{0%,100%{opacity:1}50%{opacity:.3}}
 @media (prefers-reduced-motion:reduce){.d-upd.live i{animation:none}}
+/* charts never spill out of their card (phones that resize the page after load) */
+.d-box,.d-minibox,.d-gbox{overflow:hidden}
+.dash canvas{max-width:100%}
+@media (max-width:600px){.d-minibox{height:100px}.d-chg .d-delta{padding-block:2px}}
