@@ -38,7 +38,7 @@ Teams share performance numbers as Excel attachments or static screenshots. Ever
 | **Filters** | Multi-select filters with search, a From/To period range, saved views (bookmarks) and links that reopen the same view. |
 | **Year over year** | Latest month vs previous month and same month last year, year-to-date vs last year, last-year line on the trend chart. |
 | **Live source** | Link a Google Sheet (or CSV/Excel URL); fetch it as a new version or let the share link read it live. |
-| **Private links** | Each private link shows only rows where one column matches (e.g. Branch = Jeddah), filtered in the database (`supabase/migration-003-private-links.sql`). |
+| **Private links** | Each private link shows only rows where one column matches (e.g. Branch = Jeddah), filtered in the database (`supabase/migration-003-private-links.sql`, then `migration-004-shared-hardening.sql`). |
 | **SQL editor** | Each chart's SQL opens in an in-browser SQLite editor (tables `data` and `targets`); run, edit, and download results as CSV. Nothing leaves the browser. |
 | **Location map** | If a column holds Saudi cities or regions (or GCC cities), in Arabic or English, a map appears automatically with a top-5 ranking: Saudi data shows a shaded map of the 13 administrative regions (switchable to city bubbles); click a region or city to filter the whole dashboard. |
 | **Three templates** | Analytical tiles, executive report, and a mobile summary, all from the same data model. |

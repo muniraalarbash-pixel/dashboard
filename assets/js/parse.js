@@ -1,7 +1,8 @@
 // Excel / CSV / pasted-table reader → {columns:[{name,type}], rows:[[...]]}
 // Types: number | date | category | text. Dates are stored as "YYYY-MM-DD".
 
-export const MAX_ROWS = 10000;
+// rows kept per upload; above this the stored JSON gets too heavy for the share link
+export const MAX_ROWS = 50000;
 export const TYPES = { number: 'رقم', date: 'تاريخ', category: 'فئة', text: 'نص' };
 
 const XLSX_SRC = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
@@ -35,7 +36,8 @@ function parseDateStr(s) {
   let m = s.match(/^(\d{4})[-\/.](\d{1,2})(?:[-\/.](\d{1,2}))?/);
   if (m) { const y = +m[1], mo = +m[2], d = m[3] ? +m[3] : 1; if (mo >= 1 && mo <= 12 && d >= 1 && d <= 31) return y + '-' + pad(mo) + '-' + pad(d); }
   m = s.match(/^(\d{1,2})[-\/.](\d{1,2})[-\/.](\d{4})/);
-  if (m) { const d = +m[1], mo = +m[2], y = +m[3]; if (mo >= 1 && mo <= 12 && d >= 1 && d <= 31) return y + '-' + pad(mo) + '-' + pad(d); }
+  // day/month/year by default; month/day/year when the middle part cannot be a month (12/25/2026)
+  if (m) { let d = +m[1], mo = +m[2]; const y = +m[3]; if (mo > 12 && d <= 12) [d, mo] = [mo, d]; if (mo >= 1 && mo <= 12 && d >= 1 && d <= 31) return y + '-' + pad(mo) + '-' + pad(d); }
   return null;
 }
 export function detect(name, vals) {

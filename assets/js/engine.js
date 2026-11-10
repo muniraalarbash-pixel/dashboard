@@ -16,7 +16,7 @@ export function makeFmt(spec) {
   const ok = f => n => (n == null || !isFinite(n)) ? '—' : f(n);
   if (st === 'full') return ok(n => loc(n, d));
   if (st === 'compact') return ok(n => Math.abs(n) >= 1000 ? nfC.format(n) : loc(n, d));
-  if (st === 'cur') { const u = spec.unit || T('ر.س', 'SAR'); return ok(n => (Math.abs(n) >= 100000 && d == null ? nfC.format(n) : loc(n, d ?? (Math.abs(n) < 10 ? 2 : 0))) + ' ' + u); }
+  if (st === 'cur') { const u = esc(String(spec.unit || T('ر.س', 'SAR')).slice(0, 8)); return ok(n => (Math.abs(n) >= 100000 && d == null ? nfC.format(n) : loc(n, d ?? (Math.abs(n) < 10 ? 2 : 0))) + ' ' + u); }
   if (st === 'pct') return ok(n => n.toFixed(d ?? (Math.abs(n) < 10 ? 1 : 0)) + '%');
   if (st === 'frac') return ok(n => (n * 100).toFixed(d ?? 1) + '%');
   return d == null ? fmtBase : ok(n => Math.abs(n) >= 100000 ? nfC.format(n) : loc(n, d));
@@ -84,7 +84,7 @@ export function createModel(data, opts = {}) {
       date = cols.length - 1;
     }
   }
-  // calculated measures (owner-defined): A ÷ B, A − B, A + B, A × B — aggregated as op(agg(A), agg(B)), never row-by-row
+  // calculated measures (owner-defined): A ÷ B, A − B, A + B as op(agg(A), agg(B)); A × B as the sum of row products
   const measures = [];
   for (const ms of (opts.measures || [])) {
     if (!ms || !ms.name || cols.some(c => c.name === ms.name)) continue;
@@ -109,6 +109,13 @@ export function createModel(data, opts = {}) {
   cols.forEach((c, i) => { const pp = periodPart(c, i); if (pp === 'year') cats.push(i); else if (pp) return; else if (c.type === 'number' && i !== monthCol) nums.push(i); else if (c.type === 'category' || (i === monthCol)) cats.push(i); });
   let monthly = false;
   if (date >= 0) { const ms = new Set(); for (const r of rows) { if (r[date]) ms.add(String(r[date]).slice(0, 7)); if (ms.size > 1) break; } monthly = ms.size > 1; }
+  // daily data whose last month stops before month end (e.g. up to the 10th): that month is still running
+  let partial = null, partialDay = 0;
+  if (monthly && monthCol < 0) {
+    let mx = '', daily = false;
+    for (const r of rows) { const d = r[date] ? String(r[date]) : ''; if (d.length < 10) continue; if (d > mx) mx = d; if (d.slice(8, 10) !== '01') daily = true; }
+    if (daily && mx) { const D = +mx.slice(8, 10), dim = new Date(+mx.slice(0, 4), +mx.slice(5, 7), 0).getDate(); if (D < dim) { partial = mx.slice(0, 7); partialDay = D; } }
+  }
   // Rank category columns for default "split by": 2–15 distinct values first, time-like columns last.
   const uniq = i => new Set(rows.map(r => r[i]).filter(v => v != null && v !== '')).size;
   const dims = cats.slice().sort((a, b) => {
@@ -117,23 +124,26 @@ export function createModel(data, opts = {}) {
     return score(a) - score(b) || Math.min(uniq(b), 15) - Math.min(uniq(a), 15);
   });
   const m = {
-    cols, rows, nums, cats, dims, date, monthly, monthCol, uniq,
+    cols, rows, nums, cats, dims, date, monthly, monthCol, uniq, partial, partialDay,
+    // value of month k counting only days 1..partialDay, to compare a running month fairly
+    sameDays: (rs, mi, k) => m.agg(rs.filter(r => r[date] && String(r[date]).slice(0, 7) === k && +String(r[date]).slice(8, 10) <= partialDay), mi),
     idx: name => cols.findIndex(c => c.name === name),
     // how a number column is summarised: owner's choice, else average for rates/percentages, else sum
     measures,
     fmtSpec: mi => { if (mi < 0 || !cols[mi]) return null; const f = fmtCfg[cols[mi].name]; if (f && (f.style && f.style !== 'auto' || (f.dec !== '' && f.dec != null))) return f; const ms = cols[mi].measure; return ms && ms.calc(1, 1) === 100 ? { style: 'pct' } : null; },
     fmtOf: mi => makeFmt(m.fmtSpec(mi)),
-    aggOf: mi => { if (mi < 0 || !cols[mi]) return 'count'; if (cols[mi].measure) return ['/', '*'].includes(cols[mi].measure.op) ? 'ratio' : 'sum'; const o = aggCfg[cols[mi].name]; return AGG_MODES.includes(o) ? o : (MEAN_RE.test(cols[mi].name) ? 'avg' : 'sum'); },
+    aggOf: mi => { if (mi < 0 || !cols[mi]) return 'count'; if (cols[mi].measure) return cols[mi].measure.op === '/' ? 'ratio' : 'sum'; const o = aggCfg[cols[mi].name]; return AGG_MODES.includes(o) ? o : (MEAN_RE.test(cols[mi].name) ? 'avg' : 'sum'); },
     autoAgg: mi => mi >= 0 && !!cols[mi] && MEAN_RE.test(cols[mi].name) ? 'avg' : 'sum',
     isMean: mi => m.aggOf(mi) === 'avg',
     label: mi => mi < 0 ? T('عدد السجلات', 'Record count') : cols[mi].name + ({ max: T(' (الأعلى)', ' (max)'), min: T(' (الأدنى)', ' (min)') }[m.aggOf(mi)] || ''),
     agg(rs, mi) {
       if (mi < 0) return rs.length;
       const ms = cols[mi] && cols[mi].measure;
-      if (ms) { const v = ms.calc(m.agg(rs, ms.a), m.agg(rs, ms.b)); return v == null || !isFinite(v) ? 0 : v; }
+      // A × B (price × qty) is summed row by row; ÷ − + are computed from the aggregated A and B
+      if (ms && ms.op !== '*') { const v = ms.calc(m.agg(rs, ms.a), m.agg(rs, ms.b)); return v == null || !isFinite(v) ? null : v; }
       const mode = m.aggOf(mi);
       let s = 0, c = 0, hi = -Infinity, lo = Infinity; for (const r of rs) { const v = r[mi]; if (typeof v === 'number' && isFinite(v)) { s += v; c++; if (v > hi) hi = v; if (v < lo) lo = v; } }
-      if (!c) return 0;
+      if (!c) return mode === 'sum' ? 0 : null; // no numbers: an average/min/max is unknown (—), not 0
       return mode === 'avg' ? s / c : mode === 'max' ? hi : mode === 'min' ? lo : s;
     },
     groups(rs, keyFn) { const g = new Map(); for (const r of rs) { const k = keyFn(r); if (k == null || k === '') continue; let a = g.get(k); if (!a) g.set(k, a = []); a.push(r); } return g; },
@@ -162,6 +172,8 @@ export function createModel(data, opts = {}) {
 export function computeTotals(data, opts) {
   const m = createModel(data, opts), o = {};
   m.nums.forEach(i => { o[m.cols[i].name] = m.agg(m.rows, i); });
+  // how each total was aggregated, so a later comparison can tell when the setting changed
+  o.__agg = {}; m.nums.forEach(i => { o.__agg[m.cols[i].name] = m.aggOf(i); });
   return o;
 }
 
@@ -182,7 +194,9 @@ export function guessTargetCfg(data, targets) {
   return { aKey: a.cols[aKey].name, tKey: t.cols[tKey].name, tVal: t.cols[tVal].name, aVal: a.cols[aVal].name };
 }
 
-export function targetStats(m, rows, targets, cfg, filters) {
+// range: {from, to, len} period filter. Targets with a date column are filtered by it; otherwise the
+// target is scaled by the share of periods selected, so January is not compared with a full-year target.
+export function targetStats(m, rows, targets, cfg, filters, range) {
   if (!targets || !cfg) return null;
   const t = createModel(targets);
   const aKey = m.idx(cfg.aKey), aVal = m.idx(cfg.aVal), tKey = t.idx(cfg.tKey), tVal = t.idx(cfg.tVal);
@@ -190,8 +204,15 @@ export function targetStats(m, rows, targets, cfg, filters) {
   let trows = t.rows;
   const fk = filters && filters[aKey];
   if (fk != null) trows = trows.filter(r => Array.isArray(fk) ? fk.includes(String(r[tKey] ?? '')) : String(r[tKey] ?? '') === fk);
-  const tg = new Map(); for (const r of trows) { const k = r[tKey] == null ? null : String(r[tKey]); if (k == null) continue; tg.set(k, (tg.get(k) || 0) + (typeof r[tVal] === 'number' ? r[tVal] : 0)); }
-  const ag = new Map(); for (const r of rows) { const k = r[aKey] == null ? null : String(r[aKey]); if (k == null) continue; ag.set(k, (ag.get(k) || 0) + (typeof r[aVal] === 'number' ? r[aVal] : 0)); }
+  let scale = 1;
+  if (range && (range.from || range.to)) {
+    const L = range.len || 7, inR = k => !!k && (!range.from || k >= range.from) && (!range.to || k <= range.to), key = (r, d) => r[d] ? String(r[d]).slice(0, L) : null;
+    if (t.date >= 0) trows = trows.filter(r => inR(key(r, t.date)));
+    else if (m.date >= 0) { const all = new Set(), sel = new Set(); for (const r of m.rows) { const k = key(r, m.date); if (!k) continue; all.add(k); if (inR(k)) sel.add(k); } if (all.size) scale = sel.size / all.size; }
+  }
+  const tg = new Map(); for (const r of trows) { const k = r[tKey] == null ? null : String(r[tKey]); if (k == null) continue; tg.set(k, (tg.get(k) || 0) + (typeof r[tVal] === 'number' ? r[tVal] * scale : 0)); }
+  // actual follows the column's own aggregation (a rate is averaged, not summed)
+  const ag = new Map(); for (const [k, rs] of m.groups(rows, r => r[aKey] == null ? null : String(r[aKey]))) ag.set(k, m.agg(rs, aVal));
   const keys = [...new Set([...tg.keys(), ...ag.keys()])];
   const items = keys.map(k => ({ k, actual: ag.get(k) || 0, target: tg.get(k) || 0 }))
     .map(x => ({ ...x, pct: x.target ? x.actual / x.target * 100 : null }))
@@ -221,8 +242,8 @@ export function autoInsights(m, rows, metric, dim, tstats, max = 3) {
   if (m.date >= 0) {
     const s = m.series(rows, metric);
     if (s.length >= 2) {
-      const a = s[s.length - 1], p = s[s.length - 2];
-      if (p.v) { const ch = (a.v - p.v) / Math.abs(p.v) * 100; out.push({ title: pLabel(a.k) + T(' مقابل ', ' vs ') + pLabel(p.k), body: T(`${ch >= 0 ? 'ارتفاع' : 'انخفاض'} بنسبة ${Math.abs(ch).toFixed(1)}% في ${ml}.`, `${ml} ${ch >= 0 ? 'up' : 'down'} ${Math.abs(ch).toFixed(1)}%.`) }); }
+      const a = s[s.length - 1], p = s[s.length - 2], pv = a.k === m.partial ? m.sameDays(rows, metric, p.k) : p.v;
+      if (pv) { const ch = (a.v - pv) / Math.abs(pv) * 100; out.push({ title: pLabel(a.k) + T(' مقابل ', ' vs ') + pLabel(p.k), body: T(`${ch >= 0 ? 'ارتفاع' : 'انخفاض'} بنسبة ${Math.abs(ch).toFixed(1)}% في ${ml}.`, `${ml} ${ch >= 0 ? 'up' : 'down'} ${Math.abs(ch).toFixed(1)}%.`) }); }
       const best = s.reduce((x, y) => y.v > x.v ? y : x);
       out.push({ title: T('أفضل فترة', 'Best period'), body: T(`${pLabel(best.k)} بقيمة ${fmt(best.v)}.`, `${pLabel(best.k)} at ${fmt(best.v)}.`) });
     }
@@ -263,9 +284,9 @@ export function autoRecommendations(m, tstats, prefer) {
   if (m.date >= 0) {
     const s = m.series(rows, metric);
     if (s.length >= 2) {
-      const a = s[s.length - 1], p = s[s.length - 2];
-      if (p.v) {
-        const ch = (a.v - p.v) / Math.abs(p.v) * 100;
+      const a = s[s.length - 1], p = s[s.length - 2], pv = a.k === m.partial ? m.sameDays(rows, metric, p.k) : p.v;
+      if (pv) {
+        const ch = (a.v - pv) / Math.abs(pv) * 100;
         if (ch <= -5) out.push(T(`انخفض «${ml}» ${Math.abs(ch).toFixed(0)}% في ${pLabel(a.k)} مقارنة بـ${pLabel(p.k)}. راجع الأسباب مبكرًا قبل الفترة القادمة.`, `${ml} fell ${Math.abs(ch).toFixed(0)}% in ${pLabel(a.k)} vs ${pLabel(p.k)}. Investigate early before the next period.`));
         else if (ch >= 10) out.push(T(`ارتفع «${ml}» ${ch.toFixed(0)}% في ${pLabel(a.k)}. وثّق ما تغيّر وحافظ عليه.`, `${ml} rose ${ch.toFixed(0)}% in ${pLabel(a.k)}. Document what changed and keep it going.`));
       }

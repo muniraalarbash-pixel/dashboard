@@ -55,7 +55,7 @@ wireExport(() => ({ el: document.querySelector('#dash .dash'), title: curTitle }
 import { mountDashboard, TEMPLATES } from './assets/js/render.js';
 
 const qs = new URLSearchParams(location.search);
-let dash = null, lastStamp = null, pass = null, curLiveAt = null;
+let dash = null, lastStamp = null, pass = null, curLiveAt = null, dbStamp = null, lastData = null;
 
 function gate(title, msg, withForm) {
   $('#gate').hidden = false; $('#gate-title').textContent = title; $('#gate-msg').textContent = msg; $('#gate-form').hidden = !withForm;
@@ -79,11 +79,21 @@ if (qs.get('demo')) {
   else {
     async function fetchShared(first) {
       const key = qs.get('k');
+      // refresh: ask only whether anything changed (a few bytes) before downloading the whole dataset again
+      const stampP = sb.rpc('get_shared_stamp', { p_slug: slug }).then(r => r.error ? null : r.data, () => null);
+      if (!first && lastData) { const s0 = await stampP; if (s0 && s0 === dbStamp) return reuse(); }
       const { data, error } = await sb.rpc('get_shared', key ? { p_slug: slug, p_pass: pass, p_key: key } : { p_slug: slug, p_pass: pass });
+      if (!error && data && !data.error) { lastData = { ...data }; dbStamp = await stampP; }
+      return show(data, error, first);
+    }
+    // nothing changed in the database: a live sheet still needs a fresh read, a stored version does not
+    function reuse() { const d = { ...lastData }, src = d.project.config && d.project.config.source; return src && src.live ? show(d, null, false) : null; }
+    async function show(data, error, first) {
       if (error) { if (first) gate(T('تعذّر فتح لوحة المؤشرات', 'Could not open the dashboard'), T('حاول مرة أخرى بعد قليل.', 'Please try again shortly.'), false); return; }
       if (data.error === 'not_found') { gate(T('لوحة المؤشرات غير متاحة', 'Dashboard unavailable'), T('قد يكون الرابط متوقفًا أو غير صحيح.', 'The link may be turned off or incorrect.'), false); return; }
       if (data.error === 'key_required') { gate(data.title || T('لوحة مؤشرات خاصة', 'Private dashboard'), T('هذي اللوحة تفتح بروابط خاصة فقط. اطلب رابطك من صاحب اللوحة.', 'This dashboard opens with private links only. Ask the owner for your link.'), false); return; }
       if (data.error === 'bad_key') { gate(data.title || T('رابط غير صالح', 'Invalid link'), T('هذا الرابط الخاص غير صالح أو تم إلغاؤه. اطلب رابط جديد من صاحب اللوحة.', 'This private link is invalid or was revoked. Ask the owner for a new one.'), false); return; }
+      if (data.error === 'too_many') { gate(data.title || T('لوحة مؤشرات محمية', 'Protected dashboard'), T('محاولات كثيرة بكلمة مرور خاطئة. حاول بعد ربع ساعة.', 'Too many wrong passwords. Try again in 15 minutes.'), false); return; }
       if (data.error === 'password' || data.error === 'wrong_password') {
         gate(data.title || T('لوحة مؤشرات محمية', 'Protected dashboard'), T('لوحة المؤشرات هذه محمية بكلمة مرور.', 'This dashboard is password protected.'), true);
         if (data.error === 'wrong_password') $('#gate-err').textContent = T('كلمة المرور غير صحيحة.', 'Incorrect password.');
@@ -96,12 +106,14 @@ if (qs.get('demo')) {
       if (src && src.live && src.url && data.version) {
         try {
           const P = await import('./assets/js/parse.js');
-          const f = await P.openUrl(src.url), raw = P.extractRaw(f.aoa(f.sheets.includes(src.sheet) ? src.sheet : f.sheets[0]));
+          const f = await P.openUrl(src.url), raw = P.extractRaw(f.aoa(f.sheets.includes(src.sheet) ? src.sheet : f.sheets[0]), { keepTotals: !!src.keepTotals, dedupe: !!src.dedupe });
           const known = new Map((data.version.data.columns || []).map(c => [c.name, c.type])), ov = {};
           raw.headers.forEach((h, i) => { if (known.has(h)) ov[i] = known.get(h); });
           const live = P.convert(raw, ov);
-          liveSig = live.rows.length + ':' + JSON.stringify(live.rows).length;
-          data.version = { ...data.version, data: live, live: true, row_count: live.rows.length, created_at: lastStamp && lastStamp.includes(liveSig) ? (dash && curLiveAt) || new Date().toISOString() : new Date().toISOString() };
+          // content hash (FNV-1a), so an edit that keeps the same length is still picked up
+          const js = JSON.stringify(live.rows); let hh = 0x811c9dc5; for (let i = 0; i < js.length; i++) { hh ^= js.charCodeAt(i); hh = Math.imul(hh, 16777619); }
+          liveSig = live.rows.length + ':' + (hh >>> 0).toString(36);
+          data.version = { ...data.version, data: live, live: true, truncated: raw.truncated ? raw.rowsBeforeCap : 0, row_count: live.rows.length, created_at: lastStamp && lastStamp.includes(liveSig) ? (dash && curLiveAt) || new Date().toISOString() : new Date().toISOString() };
           curLiveAt = data.version.created_at;
         } catch (e) { console.warn('live source failed', e); }
       }

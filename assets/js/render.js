@@ -35,7 +35,8 @@ const valueLabels = {
       mt.data.forEach((el, i) => {
         const v = ds.data[i]; if (!v) return;
         const bg = Array.isArray(ds.backgroundColor) ? ds.backgroundColor[i] : ds.backgroundColor;
-        if (o.mode === 'top') { if (el.width < 20) return; ctx.fillStyle = o.color; ctx.textBaseline = 'bottom'; ctx.fillText(fmt(v), el.x, el.y - 3); }
+        if (o.mode === 'top') { if (el.width < 20 || ctx.measureText(fmt(v)).width > el.width + 10) return; // no overlapping labels on narrow bars
+          ctx.fillStyle = o.color; ctx.textBaseline = 'bottom'; ctx.fillText(fmt(v), el.x, el.y - 3); }
         else if (o.mode === 'inside') { const h = Math.abs(el.base - el.y); if (h < 16 || el.width < 26) return; ctx.fillStyle = onColor(bg); ctx.textBaseline = 'middle'; ctx.fillText(fmt(v), el.x, (el.y + el.base) / 2); }
         else if (o.mode === 'end') { ctx.fillStyle = o.color; ctx.textBaseline = 'middle'; ctx.textAlign = isEn() ? 'left' : 'right'; ctx.fillText(fmt(v), el.x + (isEn() ? 6 : -6), el.y); ctx.textAlign = 'center'; }
         else if (o.mode === 'pct') { const p = v / tot * 100; if (p < 5) return; const pos = el.tooltipPosition(); ctx.fillStyle = onColor(bg); ctx.textBaseline = 'middle'; ctx.fillText(p.toFixed(0) + '%', pos.x, pos.y); }
@@ -97,7 +98,14 @@ export function mountDashboard(root, opts) {
   root.addEventListener('click', e => { const b = e.target.closest('[data-sql]'); if (b && root.contains(b)) openSql(b.dataset.sql); else if (e.target.closest('[data-sqled]')) openSql(''); });
 
   function kill(k) { if (charts[k]) { charts[k].destroy(); delete charts[k]; } }
-  function draw(k, cfg) { kill(k); const cv = root.querySelector('[data-cv="' + k + '"]'); if (cv && window.Chart) charts[k] = new Chart(cv, cfg); }
+  function draw(k, cfg) { kill(k); const cv = root.querySelector('[data-cv="' + k + '"]'); if (cv && window.Chart) { charts[k] = new Chart(cv, cfg); describe(cv, cfg); } }
+  // screen readers get the chart's numbers, not just its title
+  function describe(cv, cfg) {
+    const lb = cfg.data.labels || [], ds = (cfg.data.datasets || []).filter(d => !d.band && d.data);
+    const txt = ds.slice(0, 2).map(d => (d.label ? d.label + ': ' : '') + lb.slice(0, 12).map((l, i) => d.data[i] == null ? null : [].concat(l).join(' ') + ' ' + fmt(d.data[i])).filter(Boolean).join('، ')).filter(Boolean).join(' — ');
+    if (!txt) return; if (cv.dataset.al == null) cv.dataset.al = cv.getAttribute('aria-label') || '';
+    cv.setAttribute('aria-label', (cv.dataset.al ? cv.dataset.al + ': ' : '') + txt);
+  }
 
   function setup() {
     m = o.version ? createModel(o.version.data, (({ agg, measures, fmt }) => ({ agg, measures, fmt }))((o.project && o.project.config) || {})) : null;
@@ -163,7 +171,7 @@ export function mountDashboard(root, opts) {
       <header class="d-head"><div class="d-head-in">
         ${theme.logo ? `<span class="d-logo"><img src="${esc(theme.logo)}" alt=""></span>` : ''}
         <div class="d-titles">${p.topic ? `<p class="d-topic">${esc(p.topic)}</p>` : ''}<h2 class="d-title">${esc(p.title || T('بدون عنوان', 'Untitled'))}</h2>${p.description ? `<p class="d-desc">${esc(p.description)}</p>` : ''}</div>
-        <div class="d-meta">${p.restricted ? `<span class="d-chip d-restr" title="${T('هذا الرابط يعرض جزء من البيانات فقط', 'This link shows only part of the data')}">🔒 ${esc(p.restricted.label || (p.restricted.col + ': ' + (p.restricted.vals || []).join('، ')))}</span>` : ''}${(v && v.period) || p.period ? `<span class="d-chip">${esc((v && v.period) || p.period)}</span>` : ''}${v ? `<span class="d-upd ${v.live ? 'live' : ''}"><i></i>${v.live ? T('مباشر من المصدر', 'Live from source') + ' · ' + esc(new Date(v.created_at).toLocaleTimeString(isEn() ? 'en-GB' : 'ar-SA-u-nu-latn', { hour: '2-digit', minute: '2-digit' })) : T('آخر تحديث', 'Updated') + ' ' + esc(fmtDate(v.created_at))}</span>` : ''}</div>
+        <div class="d-meta">${p.restricted ? `<span class="d-chip d-restr" title="${T('هذا الرابط يعرض جزء من البيانات فقط', 'This link shows only part of the data')}">🔒 ${esc(p.restricted.label || (p.restricted.col + ': ' + (p.restricted.vals || []).join('، ')))}</span>` : ''}${v && v.truncated ? `<span class="d-chip d-restr" title="${T('المصدر أكبر من الحد المسموح', 'The source is larger than the allowed limit')}">⚠️ ${T(`أول ${v.row_count.toLocaleString('en-US')} من ${v.truncated.toLocaleString('en-US')} صف`, `First ${v.row_count.toLocaleString('en-US')} of ${v.truncated.toLocaleString('en-US')} rows`)}</span>` : ''}${(v && v.period) || p.period ? `<span class="d-chip">${esc((v && v.period) || p.period)}</span>` : ''}${v ? `<span class="d-upd ${v.live ? 'live' : ''}"><i></i>${v.live ? T('مباشر من المصدر', 'Live from source') + ' · ' + esc(new Date(v.created_at).toLocaleTimeString(isEn() ? 'en-GB' : 'ar-SA-u-nu-latn', { hour: '2-digit', minute: '2-digit' })) : T('آخر تحديث', 'Updated') + ' ' + esc(fmtDate(v.created_at))}</span>` : ''}</div>
       </div></header>
       ${m ? `<div class="d-layout" data-layout><nav class="d-pages no-export" data-pages aria-label="${T('صفحات اللوحة', 'Dashboard pages')}" hidden></nav><div class="d-main">
       <div class="d-bms no-export" data-bms hidden></div><div class="d-bar" data-bar></div><div class="d-body" data-body></div>
@@ -227,7 +235,7 @@ export function mountDashboard(root, opts) {
   function ctx() {
     const metric = metricIdx(), dim = dimIdx(), rows = rangeRows(regionRows(m.filter(st.filters, '')));
     const tcfg = o.project.config && o.project.config.target;
-    const tstats = o.version.targets ? targetStats(m, rows, o.version.targets, tcfg, st.filters) : null;
+    const tstats = o.version.targets ? targetStats(m, rows, o.version.targets, tcfg, st.filters, st.range ? { ...st.range, len: pLen() } : null) : null;
     const sd = sdIdx(dim), dimChosen = st.dim != null || colIdx(dflt('dim')) != null;
     return {
       metric, dim, rows, tstats, sd, pie: pieIdx(dim, sd),
@@ -243,8 +251,12 @@ export function mountDashboard(root, opts) {
   // change vs previous period (or previous upload)
   function change(c, mi) {
     const s = m.series(c.rows, mi);
+    if (s.length >= 2 && s[s.length - 1].k === m.partial) { const a = s[s.length - 1], p = s[s.length - 2], pv = m.sameDays(c.rows, mi, p.k);
+      if (pv) return { pct: (a.v - pv) / Math.abs(pv) * 100, sub: T(`${pLabel(a.k)} (أول ${m.partialDay} يوم) مقارنة بنفس الأيام من ${pLabel(p.k)}`, `${pLabel(a.k)} (first ${m.partialDay} days) vs same days of ${pLabel(p.k)}`), s }; }
     if (s.length >= 2) { const a = s[s.length - 1], p = s[s.length - 2]; if (p.v) return { pct: (a.v - p.v) / Math.abs(p.v) * 100, sub: pLabel(a.k) + T(' مقارنة بـ', ' vs ') + pLabel(p.k), s }; }
-    if (c.prev && !c.hasF && mi >= 0 && c.prev[m.cols[mi].name]) { const pv = c.prev[m.cols[mi].name]; return { pct: (m.agg(c.rows, mi) - pv) / Math.abs(pv) * 100, sub: T('مقارنة بالتحديث السابق', 'vs previous update'), s }; }
+    // the previous upload's total is only comparable if it was aggregated the same way (sum vs average…)
+    const sameAgg = c.prev && mi >= 0 && (c.prev.__agg ? c.prev.__agg[m.cols[mi].name] === m.aggOf(mi) : m.aggOf(mi) === m.autoAgg(mi) && !m.cols[mi].measure);
+    if (c.prev && !c.hasF && mi >= 0 && sameAgg && typeof c.prev[m.cols[mi].name] === 'number' && c.prev[m.cols[mi].name]) { const pv = c.prev[m.cols[mi].name]; return { pct: (m.agg(c.rows, mi) - pv) / Math.abs(pv) * 100, sub: T('مقارنة بالتحديث السابق', 'vs previous update'), s }; }
     if (s.length >= 2 && !s[s.length - 2].v) return { pct: null, sub: s[s.length - 1].v ? T(`${pLabel(s[s.length - 2].k)} كان صفرًا، فلا تُحسب نسبة`, `${pLabel(s[s.length - 2].k)} was zero — no % change`) : T(`لا قيمة في ${pLabel(s[s.length - 1].k)} ولا ${pLabel(s[s.length - 2].k)}`, `Nothing in ${pLabel(s[s.length - 1].k)} or ${pLabel(s[s.length - 2].k)}`), s };
     return { pct: null, sub: T('لا توجد فترة سابقة للمقارنة', 'No earlier period to compare'), s };
   }
@@ -297,7 +309,7 @@ export function mountDashboard(root, opts) {
       { label: T('المستهدف', 'Target'), data: it.map(x => x.target), backgroundColor: c.pal[1], borderRadius: 3, maxBarThickness: 30 }] },
       plugins: [valueLabels], options: { responsive: true, maintainAspectRatio: false, animation: anim(), layout: { padding: { top: 16 } },
         plugins: { legend: { position: 'top', align: 'start', rtl: !isEn(), textDirection: isEn() ? 'ltr' : 'rtl', labels: { boxWidth: 10, boxHeight: 10, padding: 10 } }, tooltip: tip(), valueLabels: { mode: 'top', color: c.ink, font: theme.font } },
-        scales: { x: { grid: { display: false }, ticks: { maxRotation: 0, autoSkip: false, font: { size: 11 } } }, y: { beginAtZero: true, grid: { color: c.grid }, border: { display: false }, ticks: { callback: v => fmt(v), maxTicksLimit: 5 } } } } });
+        scales: { x: { reverse: !isEn(), grid: { display: false }, ticks: { maxRotation: 0, autoSkip: false, font: { size: 11 } } }, y: { position: isEn() ? 'left' : 'right', beginAtZero: true, grid: { color: c.grid }, border: { display: false }, ticks: { callback: v => fmt(v), maxTicksLimit: 5 } } } } });
   }
   function chartShare(c, key, pd, type, clickable) {
     sqlSet(key, { kind: 'share', dim: pd, metric: c.metric });
@@ -357,7 +369,7 @@ export function mountDashboard(root, opts) {
       const lySet = lyD && lyD.filter(v => v != null).length >= 3 ? [{ label: T('السنة الماضية', 'Last year'), data: pad(lyD), borderColor: alpha(c.ink, .55), backgroundColor: alpha(c.ink, .55), borderDash: [3, 3], borderWidth: 1.6, pointRadius: 0, tension: .3, fill: false }] : [];
       if (lySet.length) { const lg = root.querySelector(`[data-cv="${key}"]`); const card = lg && lg.closest('article'); if (card && !card.querySelector('.d-lylg')) card.querySelector('.d-box').insertAdjacentHTML('beforebegin', `<p class="d-lylg"><i></i>${T('السنة الماضية (نفس الشهر)', 'Last year (same month)')}</p>`); }
       draw(key, { type: 'line', data: { labels, datasets: [{ label: F || lySet.length ? c.ml : '', data: pad(s.map(p => p.v)), borderColor: c.pal[0], backgroundColor: alpha(c.pal[0], .14), fill: tt !== 'line', tension: .3, borderWidth: 2.2, pointRadius: n > 40 ? 0 : 3, pointBackgroundColor: c.pal[0] }].concat(lySet, fcSets) },
-        options: { responsive: true, maintainAspectRatio: false, animation: anim(), interaction: { mode: 'index', intersect: false }, plugins: { legend: { display: false }, tooltip: tp }, scales: { x: { grid: { display: false }, ticks: { maxRotation: 0, autoSkip: true } }, y: { beginAtZero: true, grid: { color: c.grid }, border: { display: false }, ticks: { callback: v => fmt(v), maxTicksLimit: 5 } } } } });
+        options: { responsive: true, maintainAspectRatio: false, animation: anim(), interaction: { mode: 'index', intersect: false }, plugins: { legend: { display: false }, tooltip: tp }, scales: { x: { reverse: !isEn(), grid: { display: false }, ticks: { maxRotation: 0, autoSkip: true } }, y: { position: isEn() ? 'left' : 'right', beginAtZero: true, grid: { color: c.grid }, border: { display: false }, ticks: { callback: v => fmt(v), maxTicksLimit: 5 } } } } });
     }
     fcNote(key, F0, c);
   }
@@ -630,25 +642,28 @@ export function mountDashboard(root, opts) {
     const key = r => r[m.date] ? String(r[m.date]).slice(0, 7) : null;
     const byK = m.groups(base, key), keys = [...byK.keys()].sort(); if (keys.length < 2) return null;
     let end = keys[keys.length - 1]; if (st.range && st.range.to && st.range.to < end) end = keys.filter(k => k <= st.range.to).pop() || end;
-    const val = ks => { const rs = []; let n = 0; ks.forEach(k => { const x = byK.get(k); if (x) { rs.push(...x); n++; } }); return n ? m.agg(rs, mi) : null; };
+    // a running last month is compared with the same days of the other periods
+    const cap = end === m.partial ? m.partialDay : 0, capK = new Set([addM(end, -1), addM(end, -12)]);
+    const day = r => +String(r[m.date]).slice(8, 10);
+    const val = (ks, capped) => { const rs = []; let n = 0; ks.forEach((k, i) => { let x = byK.get(k); if (x) { if (cap && capped && (i === ks.length - 1 || capK.has(k))) x = x.filter(r => day(r) <= cap); rs.push(...x); n++; } }); return n ? m.agg(rs, mi) : null; };
     const span = (from, to) => { const out = []; for (let k = from; k <= to; k = addM(k, 1)) out.push(k); return out; };
     const have = ks => ks.filter(k => byK.has(k)).length;
     const y = end.slice(0, 4), ytd = span(`${y}-01`, end), ytdLY = ytd.map(k => addM(k, -12));
-    const cur = val([end]), pm = val([addM(end, -1)]), ly = val([addM(end, -12)]);
+    const cur = val([end]), pm = val([addM(end, -1)], true), ly = val([addM(end, -12)], true);
     const r3 = span(addM(end, -2), end), p3 = r3.map(k => addM(k, -3));
     const out = [];
-    out.push({ id: 'month', label: pLabel(end), sub: T('آخر شهر', 'Latest month'), v: cur, vs: [{ lab: T('عن ', 'vs ') + pLabel(addM(end, -1)), pct: pm == null ? null : chPct(cur, pm) }, { lab: T('عن ', 'vs ') + pLabel(addM(end, -12)), pct: ly == null ? null : chPct(cur, ly), yoy: true }] });
-    const ytdV = val(ytd), ytdL = have(ytdLY) ? val(ytdLY) : null;
-    out.push({ id: 'ytd', label: T('من بداية ', 'YTD ') + y, sub: ytd.length > 1 ? `${pLabel(ytd[0])} – ${pLabel(end)}` : pLabel(end), v: ytdV, vs: [{ lab: T('عن نفس الفترة ', 'vs same period ') + (+y - 1), pct: ytdL == null ? null : chPct(ytdV, ytdL), yoy: true, partial: ytdL != null && have(ytdLY) < ytdLY.length }] });
-    if (have(r3) === 3 && have(p3) === 3) out.push({ id: 'q', label: T('آخر 3 أشهر', 'Last 3 months'), sub: `${pLabel(r3[0])} – ${pLabel(end)}`, v: val(r3), vs: [{ lab: T('عن الـ3 أشهر اللي قبلها', 'vs the 3 months before'), pct: chPct(val(r3), val(p3)) }, ...(have(r3.map(k => addM(k, -12))) === 3 ? [{ lab: T('عن نفس الفترة السنة الماضية', 'vs same period last year'), pct: chPct(val(r3), val(r3.map(k => addM(k, -12)))), yoy: true }] : [])] });
+    out.push({ id: 'month', label: pLabel(end), sub: cap ? T(`شهر جاري · لين يوم ${cap}، والمقارنة بنفس الأيام`, `Month in progress · to day ${cap}, compared on the same days`) : T('آخر شهر', 'Latest month'), v: cur, vs: [{ lab: T('عن ', 'vs ') + pLabel(addM(end, -1)), pct: pm == null ? null : chPct(cur, pm), zero: pm === 0 }, { lab: T('عن ', 'vs ') + pLabel(addM(end, -12)), pct: ly == null ? null : chPct(cur, ly), zero: ly === 0, yoy: true }] });
+    const ytdV = val(ytd), ytdL = have(ytdLY) ? val(ytdLY, true) : null;
+    out.push({ id: 'ytd', label: T('من بداية ', 'YTD ') + y, sub: ytd.length > 1 ? `${pLabel(ytd[0])} – ${pLabel(end)}` : pLabel(end), v: ytdV, vs: [{ lab: T('عن نفس الفترة ', 'vs same period ') + (+y - 1), pct: ytdL == null ? null : chPct(ytdV, ytdL), zero: ytdL === 0, yoy: true, partial: ytdL != null && have(ytdLY) < ytdLY.length }] });
+    if (have(r3) === 3 && have(p3) === 3) out.push({ id: 'q', label: T('آخر 3 أشهر', 'Last 3 months'), sub: `${pLabel(r3[0])} – ${pLabel(end)}`, v: val(r3), vs: [{ lab: T('عن الـ3 أشهر اللي قبلها', 'vs the 3 months before'), pct: chPct(val(r3), val(p3, true)) }, ...(have(r3.map(k => addM(k, -12))) === 3 ? [{ lab: T('عن نفس الفترة السنة الماضية', 'vs same period last year'), pct: chPct(val(r3), val(r3.map(k => addM(k, -12)), true)), yoy: true }] : [])] });
     const r12 = span(addM(end, -11), end), p12 = r12.map(k => addM(k, -12));
-    if (have(r12) === 12 && have(p12) === 12) out.push({ id: 'r12', label: T('آخر 12 شهر', 'Last 12 months'), sub: `${pLabel(r12[0])} – ${pLabel(end)}`, v: val(r12), vs: [{ lab: T('عن الـ12 شهر اللي قبلها', 'vs the previous 12 months'), pct: chPct(val(r12), val(p12)), yoy: true }] });
+    if (have(r12) === 12 && have(p12) === 12) out.push({ id: 'r12', label: T('آخر 12 شهر', 'Last 12 months'), sub: `${pLabel(r12[0])} – ${pLabel(end)}`, v: val(r12), vs: [{ lab: T('عن الـ12 شهر اللي قبلها', 'vs the previous 12 months'), pct: chPct(val(r12), val(p12, true)), yoy: true }] });
     const lyOf = k => val([addM(k, -12)]);
     return { end, items: out, hasLY: out.some(x => x.vs.some(v => v.yoy && v.pct != null)), lyOf, byK };
   }
   function tiHTML(c, ti) {
     if (!ti) return '';
-    const chip = v => `<li class="${v.pct == null ? 'na' : arrowCls(v.pct)}"><b>${v.pct == null ? '—' : (v.pct > 0 ? '▲ ' : v.pct < 0 ? '▼ ' : '') + Math.abs(v.pct).toFixed(1) + '%'}</b> <span>${esc(v.lab)}${v.pct == null ? T(' · لا توجد بيانات', ' · no data') : ''}${v.partial ? T(' · بيانات ناقصة', ' · partial data') : ''}</span></li>`;
+    const chip = v => `<li class="${v.pct == null ? 'na' : arrowCls(v.pct)}"><b>${v.pct == null ? '—' : (v.pct > 0 ? '▲ ' : v.pct < 0 ? '▼ ' : '') + Math.abs(v.pct).toFixed(1) + '%'}</b> <span>${esc(v.lab)}${v.pct == null ? (v.zero ? T(' · كانت صفر، فلا تُحسب نسبة', ' · was zero, no % change') : T(' · لا توجد بيانات', ' · no data')) : ''}${v.partial ? T(' · بيانات ناقصة', ' · partial data') : ''}</span></li>`;
     return `<article class="d-card d-ti">${head(T('مقارنة الفترات', 'Period comparison'), c.ml + (ti.hasLY ? '' : T(' · المقارنة بالسنة الماضية تطلع لما يكون فيه بيانات سنة كاملة قبلها', ' · year-over-year appears once there is a year of earlier data')))}<div class="d-tigrid">${ti.items.map(x => `<div class="d-tibox"><p class="d-til">${esc(x.label)}</p><p class="d-tis">${esc(x.sub)}</p><p class="d-tiv">${x.v == null ? '—' : fmt(x.v)}</p><ul class="d-tic">${x.vs.map(chip).join('')}</ul></div>`).join('')}</div></article>`;
   }
   function trendPage(c) {

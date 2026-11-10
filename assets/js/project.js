@@ -300,7 +300,7 @@ $('#b-version').addEventListener('click', async () => {
   const btn = $('#b-version'); btn.disabled = true; dstatus('جاري النشر…');
   await flush();
   const data = pending.actual.data, targets = pending.target ? pending.target.data : null;
-  if (pending.actual.src && pending.actual.src.fromSource) { project.config = { ...project.config, source: { ...srcCfg(), sheet: pending.actual.sheet } }; queue({ config: project.config }); await flush(); }
+  if (pending.actual.src && pending.actual.src.fromSource) { project.config = { ...project.config, source: { ...srcCfg(), sheet: pending.actual.sheet, keepTotals: !!pending.actual.keepTotals, dedupe: !!pending.actual.dedupe } }; queue({ config: project.config }); await flush(); }
   const row = {
     project_id: id, period: $('#f-vperiod').value.trim(), label: '',
     file_name: pending.actual.reuse ? (pending.actual.name || '') : pending.actual.src.name,
