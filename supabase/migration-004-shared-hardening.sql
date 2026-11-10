@@ -87,3 +87,12 @@ begin
 end $$;
 revoke all on function public.get_shared(text, text, text) from public;
 grant execute on function public.get_shared(text, text, text) to anon, authenticated;
+
+-- Cheap change check for open share pages: they poll this and download the full data only when it changes.
+create or replace function public.get_shared_stamp(p_slug text)
+returns text language sql stable security definer set search_path = public as $$
+  select coalesce((select max(v.created_at) from public.versions v where v.project_id = p.id)::text, '') || '|' || p.updated_at::text
+    from public.projects p where p.share_slug = p_slug and p.is_published
+$$;
+revoke all on function public.get_shared_stamp(text) from public;
+grant execute on function public.get_shared_stamp(text) to anon, authenticated;
