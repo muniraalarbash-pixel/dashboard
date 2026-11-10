@@ -97,11 +97,13 @@ if (qs.get('demo')) {
       if (src && src.live && src.url && data.version) {
         try {
           const P = await import('./assets/js/parse.js');
-          const f = await P.openUrl(src.url), raw = P.extractRaw(f.aoa(f.sheets.includes(src.sheet) ? src.sheet : f.sheets[0]));
+          const f = await P.openUrl(src.url), raw = P.extractRaw(f.aoa(f.sheets.includes(src.sheet) ? src.sheet : f.sheets[0]), { keepTotals: !!src.keepTotals, dedupe: !!src.dedupe });
           const known = new Map((data.version.data.columns || []).map(c => [c.name, c.type])), ov = {};
           raw.headers.forEach((h, i) => { if (known.has(h)) ov[i] = known.get(h); });
           const live = P.convert(raw, ov);
-          liveSig = live.rows.length + ':' + JSON.stringify(live.rows).length;
+          // content hash (FNV-1a), so an edit that keeps the same length is still picked up
+          const js = JSON.stringify(live.rows); let hh = 0x811c9dc5; for (let i = 0; i < js.length; i++) { hh ^= js.charCodeAt(i); hh = Math.imul(hh, 16777619); }
+          liveSig = live.rows.length + ':' + (hh >>> 0).toString(36);
           data.version = { ...data.version, data: live, live: true, truncated: raw.truncated ? raw.rowsBeforeCap : 0, row_count: live.rows.length, created_at: lastStamp && lastStamp.includes(liveSig) ? (dash && curLiveAt) || new Date().toISOString() : new Date().toISOString() };
           curLiveAt = data.version.created_at;
         } catch (e) { console.warn('live source failed', e); }
