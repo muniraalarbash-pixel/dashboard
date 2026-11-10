@@ -11,6 +11,7 @@ export function buildSQL(m, spec, filters, tcfg) {
   const aggOne = (mi, p) => { const c = p + q(name(mi)), md = m.aggOf(mi); return md === 'avg' ? `AVG(${c})` : md === 'max' ? `MAX(${c})` : md === 'min' ? `MIN(${c})` : `SUM(${c})`; };
   const agg = (p = '') => { const ms = metric >= 0 && m.cols[metric].measure;
     if (ms) { const A = aggOne(ms.a, p), B = aggOne(ms.b, p), cm = m.cols[metric];
+      if (ms.op === '*') return `SUM(${p + q(name(ms.a))} * ${p + q(name(ms.b))})`;
       return ms.op === '/' ? `ROUND(${A} * ${cm.measure.calc(1, 1) === 100 ? '100.0' : '1.0'} / NULLIF(${B}, 0), 2)` : `(${A} ${ms.op} ${B})`; }
     if (metric < 0) return 'COUNT(*)'; const c = p + q(name(metric)), md = m.aggOf ? m.aggOf(metric) : (m.isMean(metric) ? 'avg' : 'sum'); return md === 'avg' ? `ROUND(AVG(${c}), 2)` : md === 'max' ? `MAX(${c})` : md === 'min' ? `MIN(${c})` : `SUM(${c})`; };
   const where = (p = '') => {

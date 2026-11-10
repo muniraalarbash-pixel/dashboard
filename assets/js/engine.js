@@ -84,7 +84,7 @@ export function createModel(data, opts = {}) {
       date = cols.length - 1;
     }
   }
-  // calculated measures (owner-defined): A ÷ B, A − B, A + B, A × B — aggregated as op(agg(A), agg(B)), never row-by-row
+  // calculated measures (owner-defined): A ÷ B, A − B, A + B as op(agg(A), agg(B)); A × B as the sum of row products
   const measures = [];
   for (const ms of (opts.measures || [])) {
     if (!ms || !ms.name || cols.some(c => c.name === ms.name)) continue;
@@ -123,14 +123,15 @@ export function createModel(data, opts = {}) {
     measures,
     fmtSpec: mi => { if (mi < 0 || !cols[mi]) return null; const f = fmtCfg[cols[mi].name]; if (f && (f.style && f.style !== 'auto' || (f.dec !== '' && f.dec != null))) return f; const ms = cols[mi].measure; return ms && ms.calc(1, 1) === 100 ? { style: 'pct' } : null; },
     fmtOf: mi => makeFmt(m.fmtSpec(mi)),
-    aggOf: mi => { if (mi < 0 || !cols[mi]) return 'count'; if (cols[mi].measure) return ['/', '*'].includes(cols[mi].measure.op) ? 'ratio' : 'sum'; const o = aggCfg[cols[mi].name]; return AGG_MODES.includes(o) ? o : (MEAN_RE.test(cols[mi].name) ? 'avg' : 'sum'); },
+    aggOf: mi => { if (mi < 0 || !cols[mi]) return 'count'; if (cols[mi].measure) return cols[mi].measure.op === '/' ? 'ratio' : 'sum'; const o = aggCfg[cols[mi].name]; return AGG_MODES.includes(o) ? o : (MEAN_RE.test(cols[mi].name) ? 'avg' : 'sum'); },
     autoAgg: mi => mi >= 0 && !!cols[mi] && MEAN_RE.test(cols[mi].name) ? 'avg' : 'sum',
     isMean: mi => m.aggOf(mi) === 'avg',
     label: mi => mi < 0 ? T('عدد السجلات', 'Record count') : cols[mi].name + ({ max: T(' (الأعلى)', ' (max)'), min: T(' (الأدنى)', ' (min)') }[m.aggOf(mi)] || ''),
     agg(rs, mi) {
       if (mi < 0) return rs.length;
       const ms = cols[mi] && cols[mi].measure;
-      if (ms) { const v = ms.calc(m.agg(rs, ms.a), m.agg(rs, ms.b)); return v == null || !isFinite(v) ? 0 : v; }
+      // A × B (price × qty) is summed row by row; ÷ − + are computed from the aggregated A and B
+      if (ms && ms.op !== '*') { const v = ms.calc(m.agg(rs, ms.a), m.agg(rs, ms.b)); return v == null || !isFinite(v) ? 0 : v; }
       const mode = m.aggOf(mi);
       let s = 0, c = 0, hi = -Infinity, lo = Infinity; for (const r of rs) { const v = r[mi]; if (typeof v === 'number' && isFinite(v)) { s += v; c++; if (v > hi) hi = v; if (v < lo) lo = v; } }
       if (!c) return 0;
