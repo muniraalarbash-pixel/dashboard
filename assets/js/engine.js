@@ -183,7 +183,9 @@ export function guessTargetCfg(data, targets) {
   return { aKey: a.cols[aKey].name, tKey: t.cols[tKey].name, tVal: t.cols[tVal].name, aVal: a.cols[aVal].name };
 }
 
-export function targetStats(m, rows, targets, cfg, filters) {
+// range: {from, to, len} period filter. Targets with a date column are filtered by it; otherwise the
+// target is scaled by the share of periods selected, so January is not compared with a full-year target.
+export function targetStats(m, rows, targets, cfg, filters, range) {
   if (!targets || !cfg) return null;
   const t = createModel(targets);
   const aKey = m.idx(cfg.aKey), aVal = m.idx(cfg.aVal), tKey = t.idx(cfg.tKey), tVal = t.idx(cfg.tVal);
@@ -191,8 +193,15 @@ export function targetStats(m, rows, targets, cfg, filters) {
   let trows = t.rows;
   const fk = filters && filters[aKey];
   if (fk != null) trows = trows.filter(r => Array.isArray(fk) ? fk.includes(String(r[tKey] ?? '')) : String(r[tKey] ?? '') === fk);
-  const tg = new Map(); for (const r of trows) { const k = r[tKey] == null ? null : String(r[tKey]); if (k == null) continue; tg.set(k, (tg.get(k) || 0) + (typeof r[tVal] === 'number' ? r[tVal] : 0)); }
-  const ag = new Map(); for (const r of rows) { const k = r[aKey] == null ? null : String(r[aKey]); if (k == null) continue; ag.set(k, (ag.get(k) || 0) + (typeof r[aVal] === 'number' ? r[aVal] : 0)); }
+  let scale = 1;
+  if (range && (range.from || range.to)) {
+    const L = range.len || 7, inR = k => !!k && (!range.from || k >= range.from) && (!range.to || k <= range.to), key = (r, d) => r[d] ? String(r[d]).slice(0, L) : null;
+    if (t.date >= 0) trows = trows.filter(r => inR(key(r, t.date)));
+    else if (m.date >= 0) { const all = new Set(), sel = new Set(); for (const r of m.rows) { const k = key(r, m.date); if (!k) continue; all.add(k); if (inR(k)) sel.add(k); } if (all.size) scale = sel.size / all.size; }
+  }
+  const tg = new Map(); for (const r of trows) { const k = r[tKey] == null ? null : String(r[tKey]); if (k == null) continue; tg.set(k, (tg.get(k) || 0) + (typeof r[tVal] === 'number' ? r[tVal] * scale : 0)); }
+  // actual follows the column's own aggregation (a rate is averaged, not summed)
+  const ag = new Map(); for (const [k, rs] of m.groups(rows, r => r[aKey] == null ? null : String(r[aKey]))) ag.set(k, m.agg(rs, aVal));
   const keys = [...new Set([...tg.keys(), ...ag.keys()])];
   const items = keys.map(k => ({ k, actual: ag.get(k) || 0, target: tg.get(k) || 0 }))
     .map(x => ({ ...x, pct: x.target ? x.actual / x.target * 100 : null }))

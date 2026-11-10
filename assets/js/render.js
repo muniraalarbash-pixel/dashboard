@@ -227,7 +227,7 @@ export function mountDashboard(root, opts) {
   function ctx() {
     const metric = metricIdx(), dim = dimIdx(), rows = rangeRows(regionRows(m.filter(st.filters, '')));
     const tcfg = o.project.config && o.project.config.target;
-    const tstats = o.version.targets ? targetStats(m, rows, o.version.targets, tcfg, st.filters) : null;
+    const tstats = o.version.targets ? targetStats(m, rows, o.version.targets, tcfg, st.filters, st.range ? { ...st.range, len: pLen() } : null) : null;
     const sd = sdIdx(dim), dimChosen = st.dim != null || colIdx(dflt('dim')) != null;
     return {
       metric, dim, rows, tstats, sd, pie: pieIdx(dim, sd),
