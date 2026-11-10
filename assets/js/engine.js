@@ -109,6 +109,13 @@ export function createModel(data, opts = {}) {
   cols.forEach((c, i) => { const pp = periodPart(c, i); if (pp === 'year') cats.push(i); else if (pp) return; else if (c.type === 'number' && i !== monthCol) nums.push(i); else if (c.type === 'category' || (i === monthCol)) cats.push(i); });
   let monthly = false;
   if (date >= 0) { const ms = new Set(); for (const r of rows) { if (r[date]) ms.add(String(r[date]).slice(0, 7)); if (ms.size > 1) break; } monthly = ms.size > 1; }
+  // daily data whose last month stops before month end (e.g. up to the 10th): that month is still running
+  let partial = null, partialDay = 0;
+  if (monthly && monthCol < 0) {
+    let mx = '', daily = false;
+    for (const r of rows) { const d = r[date] ? String(r[date]) : ''; if (d.length < 10) continue; if (d > mx) mx = d; if (d.slice(8, 10) !== '01') daily = true; }
+    if (daily && mx) { const D = +mx.slice(8, 10), dim = new Date(+mx.slice(0, 4), +mx.slice(5, 7), 0).getDate(); if (D < dim) { partial = mx.slice(0, 7); partialDay = D; } }
+  }
   // Rank category columns for default "split by": 2–15 distinct values first, time-like columns last.
   const uniq = i => new Set(rows.map(r => r[i]).filter(v => v != null && v !== '')).size;
   const dims = cats.slice().sort((a, b) => {
@@ -117,7 +124,9 @@ export function createModel(data, opts = {}) {
     return score(a) - score(b) || Math.min(uniq(b), 15) - Math.min(uniq(a), 15);
   });
   const m = {
-    cols, rows, nums, cats, dims, date, monthly, monthCol, uniq,
+    cols, rows, nums, cats, dims, date, monthly, monthCol, uniq, partial, partialDay,
+    // value of month k counting only days 1..partialDay, to compare a running month fairly
+    sameDays: (rs, mi, k) => m.agg(rs.filter(r => r[date] && String(r[date]).slice(0, 7) === k && +String(r[date]).slice(8, 10) <= partialDay), mi),
     idx: name => cols.findIndex(c => c.name === name),
     // how a number column is summarised: owner's choice, else average for rates/percentages, else sum
     measures,
@@ -231,8 +240,8 @@ export function autoInsights(m, rows, metric, dim, tstats, max = 3) {
   if (m.date >= 0) {
     const s = m.series(rows, metric);
     if (s.length >= 2) {
-      const a = s[s.length - 1], p = s[s.length - 2];
-      if (p.v) { const ch = (a.v - p.v) / Math.abs(p.v) * 100; out.push({ title: pLabel(a.k) + T(' مقابل ', ' vs ') + pLabel(p.k), body: T(`${ch >= 0 ? 'ارتفاع' : 'انخفاض'} بنسبة ${Math.abs(ch).toFixed(1)}% في ${ml}.`, `${ml} ${ch >= 0 ? 'up' : 'down'} ${Math.abs(ch).toFixed(1)}%.`) }); }
+      const a = s[s.length - 1], p = s[s.length - 2], pv = a.k === m.partial ? m.sameDays(rows, metric, p.k) : p.v;
+      if (pv) { const ch = (a.v - pv) / Math.abs(pv) * 100; out.push({ title: pLabel(a.k) + T(' مقابل ', ' vs ') + pLabel(p.k), body: T(`${ch >= 0 ? 'ارتفاع' : 'انخفاض'} بنسبة ${Math.abs(ch).toFixed(1)}% في ${ml}.`, `${ml} ${ch >= 0 ? 'up' : 'down'} ${Math.abs(ch).toFixed(1)}%.`) }); }
       const best = s.reduce((x, y) => y.v > x.v ? y : x);
       out.push({ title: T('أفضل فترة', 'Best period'), body: T(`${pLabel(best.k)} بقيمة ${fmt(best.v)}.`, `${pLabel(best.k)} at ${fmt(best.v)}.`) });
     }
@@ -273,9 +282,9 @@ export function autoRecommendations(m, tstats, prefer) {
   if (m.date >= 0) {
     const s = m.series(rows, metric);
     if (s.length >= 2) {
-      const a = s[s.length - 1], p = s[s.length - 2];
-      if (p.v) {
-        const ch = (a.v - p.v) / Math.abs(p.v) * 100;
+      const a = s[s.length - 1], p = s[s.length - 2], pv = a.k === m.partial ? m.sameDays(rows, metric, p.k) : p.v;
+      if (pv) {
+        const ch = (a.v - pv) / Math.abs(pv) * 100;
         if (ch <= -5) out.push(T(`انخفض «${ml}» ${Math.abs(ch).toFixed(0)}% في ${pLabel(a.k)} مقارنة بـ${pLabel(p.k)}. راجع الأسباب مبكرًا قبل الفترة القادمة.`, `${ml} fell ${Math.abs(ch).toFixed(0)}% in ${pLabel(a.k)} vs ${pLabel(p.k)}. Investigate early before the next period.`));
         else if (ch >= 10) out.push(T(`ارتفع «${ml}» ${ch.toFixed(0)}% في ${pLabel(a.k)}. وثّق ما تغيّر وحافظ عليه.`, `${ml} rose ${ch.toFixed(0)}% in ${pLabel(a.k)}. Document what changed and keep it going.`));
       }

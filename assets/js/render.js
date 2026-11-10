@@ -243,6 +243,8 @@ export function mountDashboard(root, opts) {
   // change vs previous period (or previous upload)
   function change(c, mi) {
     const s = m.series(c.rows, mi);
+    if (s.length >= 2 && s[s.length - 1].k === m.partial) { const a = s[s.length - 1], p = s[s.length - 2], pv = m.sameDays(c.rows, mi, p.k);
+      if (pv) return { pct: (a.v - pv) / Math.abs(pv) * 100, sub: T(`${pLabel(a.k)} (أول ${m.partialDay} يوم) مقارنة بنفس الأيام من ${pLabel(p.k)}`, `${pLabel(a.k)} (first ${m.partialDay} days) vs same days of ${pLabel(p.k)}`), s }; }
     if (s.length >= 2) { const a = s[s.length - 1], p = s[s.length - 2]; if (p.v) return { pct: (a.v - p.v) / Math.abs(p.v) * 100, sub: pLabel(a.k) + T(' مقارنة بـ', ' vs ') + pLabel(p.k), s }; }
     if (c.prev && !c.hasF && mi >= 0 && c.prev[m.cols[mi].name]) { const pv = c.prev[m.cols[mi].name]; return { pct: (m.agg(c.rows, mi) - pv) / Math.abs(pv) * 100, sub: T('مقارنة بالتحديث السابق', 'vs previous update'), s }; }
     if (s.length >= 2 && !s[s.length - 2].v) return { pct: null, sub: s[s.length - 1].v ? T(`${pLabel(s[s.length - 2].k)} كان صفرًا، فلا تُحسب نسبة`, `${pLabel(s[s.length - 2].k)} was zero — no % change`) : T(`لا قيمة في ${pLabel(s[s.length - 1].k)} ولا ${pLabel(s[s.length - 2].k)}`, `Nothing in ${pLabel(s[s.length - 1].k)} or ${pLabel(s[s.length - 2].k)}`), s };
@@ -630,19 +632,22 @@ export function mountDashboard(root, opts) {
     const key = r => r[m.date] ? String(r[m.date]).slice(0, 7) : null;
     const byK = m.groups(base, key), keys = [...byK.keys()].sort(); if (keys.length < 2) return null;
     let end = keys[keys.length - 1]; if (st.range && st.range.to && st.range.to < end) end = keys.filter(k => k <= st.range.to).pop() || end;
-    const val = ks => { const rs = []; let n = 0; ks.forEach(k => { const x = byK.get(k); if (x) { rs.push(...x); n++; } }); return n ? m.agg(rs, mi) : null; };
+    // a running last month is compared with the same days of the other periods
+    const cap = end === m.partial ? m.partialDay : 0, capK = new Set([addM(end, -1), addM(end, -12)]);
+    const day = r => +String(r[m.date]).slice(8, 10);
+    const val = (ks, capped) => { const rs = []; let n = 0; ks.forEach((k, i) => { let x = byK.get(k); if (x) { if (cap && capped && (i === ks.length - 1 || capK.has(k))) x = x.filter(r => day(r) <= cap); rs.push(...x); n++; } }); return n ? m.agg(rs, mi) : null; };
     const span = (from, to) => { const out = []; for (let k = from; k <= to; k = addM(k, 1)) out.push(k); return out; };
     const have = ks => ks.filter(k => byK.has(k)).length;
     const y = end.slice(0, 4), ytd = span(`${y}-01`, end), ytdLY = ytd.map(k => addM(k, -12));
-    const cur = val([end]), pm = val([addM(end, -1)]), ly = val([addM(end, -12)]);
+    const cur = val([end]), pm = val([addM(end, -1)], true), ly = val([addM(end, -12)], true);
     const r3 = span(addM(end, -2), end), p3 = r3.map(k => addM(k, -3));
     const out = [];
-    out.push({ id: 'month', label: pLabel(end), sub: T('آخر شهر', 'Latest month'), v: cur, vs: [{ lab: T('عن ', 'vs ') + pLabel(addM(end, -1)), pct: pm == null ? null : chPct(cur, pm) }, { lab: T('عن ', 'vs ') + pLabel(addM(end, -12)), pct: ly == null ? null : chPct(cur, ly), yoy: true }] });
-    const ytdV = val(ytd), ytdL = have(ytdLY) ? val(ytdLY) : null;
+    out.push({ id: 'month', label: pLabel(end), sub: cap ? T(`شهر جاري · لين يوم ${cap}، والمقارنة بنفس الأيام`, `Month in progress · to day ${cap}, compared on the same days`) : T('آخر شهر', 'Latest month'), v: cur, vs: [{ lab: T('عن ', 'vs ') + pLabel(addM(end, -1)), pct: pm == null ? null : chPct(cur, pm) }, { lab: T('عن ', 'vs ') + pLabel(addM(end, -12)), pct: ly == null ? null : chPct(cur, ly), yoy: true }] });
+    const ytdV = val(ytd), ytdL = have(ytdLY) ? val(ytdLY, true) : null;
     out.push({ id: 'ytd', label: T('من بداية ', 'YTD ') + y, sub: ytd.length > 1 ? `${pLabel(ytd[0])} – ${pLabel(end)}` : pLabel(end), v: ytdV, vs: [{ lab: T('عن نفس الفترة ', 'vs same period ') + (+y - 1), pct: ytdL == null ? null : chPct(ytdV, ytdL), yoy: true, partial: ytdL != null && have(ytdLY) < ytdLY.length }] });
-    if (have(r3) === 3 && have(p3) === 3) out.push({ id: 'q', label: T('آخر 3 أشهر', 'Last 3 months'), sub: `${pLabel(r3[0])} – ${pLabel(end)}`, v: val(r3), vs: [{ lab: T('عن الـ3 أشهر اللي قبلها', 'vs the 3 months before'), pct: chPct(val(r3), val(p3)) }, ...(have(r3.map(k => addM(k, -12))) === 3 ? [{ lab: T('عن نفس الفترة السنة الماضية', 'vs same period last year'), pct: chPct(val(r3), val(r3.map(k => addM(k, -12)))), yoy: true }] : [])] });
+    if (have(r3) === 3 && have(p3) === 3) out.push({ id: 'q', label: T('آخر 3 أشهر', 'Last 3 months'), sub: `${pLabel(r3[0])} – ${pLabel(end)}`, v: val(r3), vs: [{ lab: T('عن الـ3 أشهر اللي قبلها', 'vs the 3 months before'), pct: chPct(val(r3), val(p3, true)) }, ...(have(r3.map(k => addM(k, -12))) === 3 ? [{ lab: T('عن نفس الفترة السنة الماضية', 'vs same period last year'), pct: chPct(val(r3), val(r3.map(k => addM(k, -12)), true)), yoy: true }] : [])] });
     const r12 = span(addM(end, -11), end), p12 = r12.map(k => addM(k, -12));
-    if (have(r12) === 12 && have(p12) === 12) out.push({ id: 'r12', label: T('آخر 12 شهر', 'Last 12 months'), sub: `${pLabel(r12[0])} – ${pLabel(end)}`, v: val(r12), vs: [{ lab: T('عن الـ12 شهر اللي قبلها', 'vs the previous 12 months'), pct: chPct(val(r12), val(p12)), yoy: true }] });
+    if (have(r12) === 12 && have(p12) === 12) out.push({ id: 'r12', label: T('آخر 12 شهر', 'Last 12 months'), sub: `${pLabel(r12[0])} – ${pLabel(end)}`, v: val(r12), vs: [{ lab: T('عن الـ12 شهر اللي قبلها', 'vs the previous 12 months'), pct: chPct(val(r12), val(p12, true)), yoy: true }] });
     const lyOf = k => val([addM(k, -12)]);
     return { end, items: out, hasLY: out.some(x => x.vs.some(v => v.yoy && v.pct != null)), lyOf, byK };
   }
