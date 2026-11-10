@@ -102,7 +102,7 @@ if (qs.get('demo')) {
           raw.headers.forEach((h, i) => { if (known.has(h)) ov[i] = known.get(h); });
           const live = P.convert(raw, ov);
           liveSig = live.rows.length + ':' + JSON.stringify(live.rows).length;
-          data.version = { ...data.version, data: live, live: true, row_count: live.rows.length, created_at: lastStamp && lastStamp.includes(liveSig) ? (dash && curLiveAt) || new Date().toISOString() : new Date().toISOString() };
+          data.version = { ...data.version, data: live, live: true, truncated: raw.truncated ? raw.rowsBeforeCap : 0, row_count: live.rows.length, created_at: lastStamp && lastStamp.includes(liveSig) ? (dash && curLiveAt) || new Date().toISOString() : new Date().toISOString() };
           curLiveAt = data.version.created_at;
         } catch (e) { console.warn('live source failed', e); }
       }

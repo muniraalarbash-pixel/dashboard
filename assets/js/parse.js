@@ -1,7 +1,8 @@
 // Excel / CSV / pasted-table reader → {columns:[{name,type}], rows:[[...]]}
 // Types: number | date | category | text. Dates are stored as "YYYY-MM-DD".
 
-export const MAX_ROWS = 10000;
+// rows kept per upload; above this the stored JSON gets too heavy for the share link
+export const MAX_ROWS = 50000;
 export const TYPES = { number: 'رقم', date: 'تاريخ', category: 'فئة', text: 'نص' };
 
 const XLSX_SRC = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
