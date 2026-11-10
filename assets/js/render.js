@@ -246,7 +246,9 @@ export function mountDashboard(root, opts) {
     if (s.length >= 2 && s[s.length - 1].k === m.partial) { const a = s[s.length - 1], p = s[s.length - 2], pv = m.sameDays(c.rows, mi, p.k);
       if (pv) return { pct: (a.v - pv) / Math.abs(pv) * 100, sub: T(`${pLabel(a.k)} (أول ${m.partialDay} يوم) مقارنة بنفس الأيام من ${pLabel(p.k)}`, `${pLabel(a.k)} (first ${m.partialDay} days) vs same days of ${pLabel(p.k)}`), s }; }
     if (s.length >= 2) { const a = s[s.length - 1], p = s[s.length - 2]; if (p.v) return { pct: (a.v - p.v) / Math.abs(p.v) * 100, sub: pLabel(a.k) + T(' مقارنة بـ', ' vs ') + pLabel(p.k), s }; }
-    if (c.prev && !c.hasF && mi >= 0 && c.prev[m.cols[mi].name]) { const pv = c.prev[m.cols[mi].name]; return { pct: (m.agg(c.rows, mi) - pv) / Math.abs(pv) * 100, sub: T('مقارنة بالتحديث السابق', 'vs previous update'), s }; }
+    // the previous upload's total is only comparable if it was aggregated the same way (sum vs average…)
+    const sameAgg = c.prev && mi >= 0 && (c.prev.__agg ? c.prev.__agg[m.cols[mi].name] === m.aggOf(mi) : m.aggOf(mi) === m.autoAgg(mi) && !m.cols[mi].measure);
+    if (c.prev && !c.hasF && mi >= 0 && sameAgg && typeof c.prev[m.cols[mi].name] === 'number' && c.prev[m.cols[mi].name]) { const pv = c.prev[m.cols[mi].name]; return { pct: (m.agg(c.rows, mi) - pv) / Math.abs(pv) * 100, sub: T('مقارنة بالتحديث السابق', 'vs previous update'), s }; }
     if (s.length >= 2 && !s[s.length - 2].v) return { pct: null, sub: s[s.length - 1].v ? T(`${pLabel(s[s.length - 2].k)} كان صفرًا، فلا تُحسب نسبة`, `${pLabel(s[s.length - 2].k)} was zero — no % change`) : T(`لا قيمة في ${pLabel(s[s.length - 1].k)} ولا ${pLabel(s[s.length - 2].k)}`, `Nothing in ${pLabel(s[s.length - 1].k)} or ${pLabel(s[s.length - 2].k)}`), s };
     return { pct: null, sub: T('لا توجد فترة سابقة للمقارنة', 'No earlier period to compare'), s };
   }

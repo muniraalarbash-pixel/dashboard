@@ -172,6 +172,8 @@ export function createModel(data, opts = {}) {
 export function computeTotals(data, opts) {
   const m = createModel(data, opts), o = {};
   m.nums.forEach(i => { o[m.cols[i].name] = m.agg(m.rows, i); });
+  // how each total was aggregated, so a later comparison can tell when the setting changed
+  o.__agg = {}; m.nums.forEach(i => { o.__agg[m.cols[i].name] = m.aggOf(i); });
   return o;
 }
 
