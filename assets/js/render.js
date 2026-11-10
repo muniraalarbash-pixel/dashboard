@@ -35,7 +35,8 @@ const valueLabels = {
       mt.data.forEach((el, i) => {
         const v = ds.data[i]; if (!v) return;
         const bg = Array.isArray(ds.backgroundColor) ? ds.backgroundColor[i] : ds.backgroundColor;
-        if (o.mode === 'top') { if (el.width < 20) return; ctx.fillStyle = o.color; ctx.textBaseline = 'bottom'; ctx.fillText(fmt(v), el.x, el.y - 3); }
+        if (o.mode === 'top') { if (el.width < 20 || ctx.measureText(fmt(v)).width > el.width + 10) return; // no overlapping labels on narrow bars
+          ctx.fillStyle = o.color; ctx.textBaseline = 'bottom'; ctx.fillText(fmt(v), el.x, el.y - 3); }
         else if (o.mode === 'inside') { const h = Math.abs(el.base - el.y); if (h < 16 || el.width < 26) return; ctx.fillStyle = onColor(bg); ctx.textBaseline = 'middle'; ctx.fillText(fmt(v), el.x, (el.y + el.base) / 2); }
         else if (o.mode === 'end') { ctx.fillStyle = o.color; ctx.textBaseline = 'middle'; ctx.textAlign = isEn() ? 'left' : 'right'; ctx.fillText(fmt(v), el.x + (isEn() ? 6 : -6), el.y); ctx.textAlign = 'center'; }
         else if (o.mode === 'pct') { const p = v / tot * 100; if (p < 5) return; const pos = el.tooltipPosition(); ctx.fillStyle = onColor(bg); ctx.textBaseline = 'middle'; ctx.fillText(p.toFixed(0) + '%', pos.x, pos.y); }
@@ -301,7 +302,7 @@ export function mountDashboard(root, opts) {
       { label: T('المستهدف', 'Target'), data: it.map(x => x.target), backgroundColor: c.pal[1], borderRadius: 3, maxBarThickness: 30 }] },
       plugins: [valueLabels], options: { responsive: true, maintainAspectRatio: false, animation: anim(), layout: { padding: { top: 16 } },
         plugins: { legend: { position: 'top', align: 'start', rtl: !isEn(), textDirection: isEn() ? 'ltr' : 'rtl', labels: { boxWidth: 10, boxHeight: 10, padding: 10 } }, tooltip: tip(), valueLabels: { mode: 'top', color: c.ink, font: theme.font } },
-        scales: { x: { grid: { display: false }, ticks: { maxRotation: 0, autoSkip: false, font: { size: 11 } } }, y: { beginAtZero: true, grid: { color: c.grid }, border: { display: false }, ticks: { callback: v => fmt(v), maxTicksLimit: 5 } } } } });
+        scales: { x: { reverse: !isEn(), grid: { display: false }, ticks: { maxRotation: 0, autoSkip: false, font: { size: 11 } } }, y: { position: isEn() ? 'left' : 'right', beginAtZero: true, grid: { color: c.grid }, border: { display: false }, ticks: { callback: v => fmt(v), maxTicksLimit: 5 } } } } });
   }
   function chartShare(c, key, pd, type, clickable) {
     sqlSet(key, { kind: 'share', dim: pd, metric: c.metric });
@@ -361,7 +362,7 @@ export function mountDashboard(root, opts) {
       const lySet = lyD && lyD.filter(v => v != null).length >= 3 ? [{ label: T('السنة الماضية', 'Last year'), data: pad(lyD), borderColor: alpha(c.ink, .55), backgroundColor: alpha(c.ink, .55), borderDash: [3, 3], borderWidth: 1.6, pointRadius: 0, tension: .3, fill: false }] : [];
       if (lySet.length) { const lg = root.querySelector(`[data-cv="${key}"]`); const card = lg && lg.closest('article'); if (card && !card.querySelector('.d-lylg')) card.querySelector('.d-box').insertAdjacentHTML('beforebegin', `<p class="d-lylg"><i></i>${T('السنة الماضية (نفس الشهر)', 'Last year (same month)')}</p>`); }
       draw(key, { type: 'line', data: { labels, datasets: [{ label: F || lySet.length ? c.ml : '', data: pad(s.map(p => p.v)), borderColor: c.pal[0], backgroundColor: alpha(c.pal[0], .14), fill: tt !== 'line', tension: .3, borderWidth: 2.2, pointRadius: n > 40 ? 0 : 3, pointBackgroundColor: c.pal[0] }].concat(lySet, fcSets) },
-        options: { responsive: true, maintainAspectRatio: false, animation: anim(), interaction: { mode: 'index', intersect: false }, plugins: { legend: { display: false }, tooltip: tp }, scales: { x: { grid: { display: false }, ticks: { maxRotation: 0, autoSkip: true } }, y: { beginAtZero: true, grid: { color: c.grid }, border: { display: false }, ticks: { callback: v => fmt(v), maxTicksLimit: 5 } } } } });
+        options: { responsive: true, maintainAspectRatio: false, animation: anim(), interaction: { mode: 'index', intersect: false }, plugins: { legend: { display: false }, tooltip: tp }, scales: { x: { reverse: !isEn(), grid: { display: false }, ticks: { maxRotation: 0, autoSkip: true } }, y: { position: isEn() ? 'left' : 'right', beginAtZero: true, grid: { color: c.grid }, border: { display: false }, ticks: { callback: v => fmt(v), maxTicksLimit: 5 } } } } });
     }
     fcNote(key, F0, c);
   }
