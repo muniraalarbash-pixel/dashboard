@@ -36,7 +36,8 @@ function parseDateStr(s) {
   let m = s.match(/^(\d{4})[-\/.](\d{1,2})(?:[-\/.](\d{1,2}))?/);
   if (m) { const y = +m[1], mo = +m[2], d = m[3] ? +m[3] : 1; if (mo >= 1 && mo <= 12 && d >= 1 && d <= 31) return y + '-' + pad(mo) + '-' + pad(d); }
   m = s.match(/^(\d{1,2})[-\/.](\d{1,2})[-\/.](\d{4})/);
-  if (m) { const d = +m[1], mo = +m[2], y = +m[3]; if (mo >= 1 && mo <= 12 && d >= 1 && d <= 31) return y + '-' + pad(mo) + '-' + pad(d); }
+  // day/month/year by default; month/day/year when the middle part cannot be a month (12/25/2026)
+  if (m) { let d = +m[1], mo = +m[2]; const y = +m[3]; if (mo > 12 && d <= 12) [d, mo] = [mo, d]; if (mo >= 1 && mo <= 12 && d >= 1 && d <= 31) return y + '-' + pad(mo) + '-' + pad(d); }
   return null;
 }
 export function detect(name, vals) {
