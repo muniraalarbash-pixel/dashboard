@@ -16,7 +16,7 @@ export function makeFmt(spec) {
   const ok = f => n => (n == null || !isFinite(n)) ? '—' : f(n);
   if (st === 'full') return ok(n => loc(n, d));
   if (st === 'compact') return ok(n => Math.abs(n) >= 1000 ? nfC.format(n) : loc(n, d));
-  if (st === 'cur') { const u = spec.unit || T('ر.س', 'SAR'); return ok(n => (Math.abs(n) >= 100000 && d == null ? nfC.format(n) : loc(n, d ?? (Math.abs(n) < 10 ? 2 : 0))) + ' ' + u); }
+  if (st === 'cur') { const u = esc(String(spec.unit || T('ر.س', 'SAR')).slice(0, 8)); return ok(n => (Math.abs(n) >= 100000 && d == null ? nfC.format(n) : loc(n, d ?? (Math.abs(n) < 10 ? 2 : 0))) + ' ' + u); }
   if (st === 'pct') return ok(n => n.toFixed(d ?? (Math.abs(n) < 10 ? 1 : 0)) + '%');
   if (st === 'frac') return ok(n => (n * 100).toFixed(d ?? 1) + '%');
   return d == null ? fmtBase : ok(n => Math.abs(n) >= 100000 ? nfC.format(n) : loc(n, d));
