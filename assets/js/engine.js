@@ -140,10 +140,10 @@ export function createModel(data, opts = {}) {
       if (mi < 0) return rs.length;
       const ms = cols[mi] && cols[mi].measure;
       // A × B (price × qty) is summed row by row; ÷ − + are computed from the aggregated A and B
-      if (ms && ms.op !== '*') { const v = ms.calc(m.agg(rs, ms.a), m.agg(rs, ms.b)); return v == null || !isFinite(v) ? 0 : v; }
+      if (ms && ms.op !== '*') { const v = ms.calc(m.agg(rs, ms.a), m.agg(rs, ms.b)); return v == null || !isFinite(v) ? null : v; }
       const mode = m.aggOf(mi);
       let s = 0, c = 0, hi = -Infinity, lo = Infinity; for (const r of rs) { const v = r[mi]; if (typeof v === 'number' && isFinite(v)) { s += v; c++; if (v > hi) hi = v; if (v < lo) lo = v; } }
-      if (!c) return 0;
+      if (!c) return mode === 'sum' ? 0 : null; // no numbers: an average/min/max is unknown (—), not 0
       return mode === 'avg' ? s / c : mode === 'max' ? hi : mode === 'min' ? lo : s;
     },
     groups(rs, keyFn) { const g = new Map(); for (const r of rs) { const k = keyFn(r); if (k == null || k === '') continue; let a = g.get(k); if (!a) g.set(k, a = []); a.push(r); } return g; },
