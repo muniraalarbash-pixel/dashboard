@@ -645,9 +645,9 @@ export function mountDashboard(root, opts) {
     const cur = val([end]), pm = val([addM(end, -1)], true), ly = val([addM(end, -12)], true);
     const r3 = span(addM(end, -2), end), p3 = r3.map(k => addM(k, -3));
     const out = [];
-    out.push({ id: 'month', label: pLabel(end), sub: cap ? T(`شهر جاري · لين يوم ${cap}، والمقارنة بنفس الأيام`, `Month in progress · to day ${cap}, compared on the same days`) : T('آخر شهر', 'Latest month'), v: cur, vs: [{ lab: T('عن ', 'vs ') + pLabel(addM(end, -1)), pct: pm == null ? null : chPct(cur, pm) }, { lab: T('عن ', 'vs ') + pLabel(addM(end, -12)), pct: ly == null ? null : chPct(cur, ly), yoy: true }] });
+    out.push({ id: 'month', label: pLabel(end), sub: cap ? T(`شهر جاري · لين يوم ${cap}، والمقارنة بنفس الأيام`, `Month in progress · to day ${cap}, compared on the same days`) : T('آخر شهر', 'Latest month'), v: cur, vs: [{ lab: T('عن ', 'vs ') + pLabel(addM(end, -1)), pct: pm == null ? null : chPct(cur, pm), zero: pm === 0 }, { lab: T('عن ', 'vs ') + pLabel(addM(end, -12)), pct: ly == null ? null : chPct(cur, ly), zero: ly === 0, yoy: true }] });
     const ytdV = val(ytd), ytdL = have(ytdLY) ? val(ytdLY, true) : null;
-    out.push({ id: 'ytd', label: T('من بداية ', 'YTD ') + y, sub: ytd.length > 1 ? `${pLabel(ytd[0])} – ${pLabel(end)}` : pLabel(end), v: ytdV, vs: [{ lab: T('عن نفس الفترة ', 'vs same period ') + (+y - 1), pct: ytdL == null ? null : chPct(ytdV, ytdL), yoy: true, partial: ytdL != null && have(ytdLY) < ytdLY.length }] });
+    out.push({ id: 'ytd', label: T('من بداية ', 'YTD ') + y, sub: ytd.length > 1 ? `${pLabel(ytd[0])} – ${pLabel(end)}` : pLabel(end), v: ytdV, vs: [{ lab: T('عن نفس الفترة ', 'vs same period ') + (+y - 1), pct: ytdL == null ? null : chPct(ytdV, ytdL), zero: ytdL === 0, yoy: true, partial: ytdL != null && have(ytdLY) < ytdLY.length }] });
     if (have(r3) === 3 && have(p3) === 3) out.push({ id: 'q', label: T('آخر 3 أشهر', 'Last 3 months'), sub: `${pLabel(r3[0])} – ${pLabel(end)}`, v: val(r3), vs: [{ lab: T('عن الـ3 أشهر اللي قبلها', 'vs the 3 months before'), pct: chPct(val(r3), val(p3, true)) }, ...(have(r3.map(k => addM(k, -12))) === 3 ? [{ lab: T('عن نفس الفترة السنة الماضية', 'vs same period last year'), pct: chPct(val(r3), val(r3.map(k => addM(k, -12)), true)), yoy: true }] : [])] });
     const r12 = span(addM(end, -11), end), p12 = r12.map(k => addM(k, -12));
     if (have(r12) === 12 && have(p12) === 12) out.push({ id: 'r12', label: T('آخر 12 شهر', 'Last 12 months'), sub: `${pLabel(r12[0])} – ${pLabel(end)}`, v: val(r12), vs: [{ lab: T('عن الـ12 شهر اللي قبلها', 'vs the previous 12 months'), pct: chPct(val(r12), val(p12, true)), yoy: true }] });
@@ -656,7 +656,7 @@ export function mountDashboard(root, opts) {
   }
   function tiHTML(c, ti) {
     if (!ti) return '';
-    const chip = v => `<li class="${v.pct == null ? 'na' : arrowCls(v.pct)}"><b>${v.pct == null ? '—' : (v.pct > 0 ? '▲ ' : v.pct < 0 ? '▼ ' : '') + Math.abs(v.pct).toFixed(1) + '%'}</b> <span>${esc(v.lab)}${v.pct == null ? T(' · لا توجد بيانات', ' · no data') : ''}${v.partial ? T(' · بيانات ناقصة', ' · partial data') : ''}</span></li>`;
+    const chip = v => `<li class="${v.pct == null ? 'na' : arrowCls(v.pct)}"><b>${v.pct == null ? '—' : (v.pct > 0 ? '▲ ' : v.pct < 0 ? '▼ ' : '') + Math.abs(v.pct).toFixed(1) + '%'}</b> <span>${esc(v.lab)}${v.pct == null ? (v.zero ? T(' · كانت صفر، فلا تُحسب نسبة', ' · was zero, no % change') : T(' · لا توجد بيانات', ' · no data')) : ''}${v.partial ? T(' · بيانات ناقصة', ' · partial data') : ''}</span></li>`;
     return `<article class="d-card d-ti">${head(T('مقارنة الفترات', 'Period comparison'), c.ml + (ti.hasLY ? '' : T(' · المقارنة بالسنة الماضية تطلع لما يكون فيه بيانات سنة كاملة قبلها', ' · year-over-year appears once there is a year of earlier data')))}<div class="d-tigrid">${ti.items.map(x => `<div class="d-tibox"><p class="d-til">${esc(x.label)}</p><p class="d-tis">${esc(x.sub)}</p><p class="d-tiv">${x.v == null ? '—' : fmt(x.v)}</p><ul class="d-tic">${x.vs.map(chip).join('')}</ul></div>`).join('')}</div></article>`;
   }
   function trendPage(c) {
