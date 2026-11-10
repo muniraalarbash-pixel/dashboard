@@ -26,6 +26,8 @@
 .dash .d-ctl select,.dash input.d-search{font:inherit;font-size:13px;color:var(--d-ink);background:var(--d-surface);border:1px solid var(--d-line);border-radius:7px;padding:7px 9px;width:100%;min-width:0}
 .d-clear{background:none;border:0;color:var(--d-ink-primary);font:inherit;font-size:12.5px;font-weight:700;cursor:pointer;padding:8px 2px}
 @media (max-width:640px){.d-bar{flex-wrap:nowrap;overflow-x:auto;padding-bottom:4px}.d-ctl{flex:0 0 145px}}
+/* phones: fade the trailing edge so it is clear the filter row scrolls */
+@media (max-width:640px){.dash[dir=rtl] .d-bar{-webkit-mask-image:linear-gradient(to left,transparent 0,#000 28px);mask-image:linear-gradient(to left,transparent 0,#000 28px)}.dash[dir=ltr] .d-bar{-webkit-mask-image:linear-gradient(to right,transparent 0,#000 28px);mask-image:linear-gradient(to right,transparent 0,#000 28px)}.d-bar:has(.d-ms[open]){-webkit-mask-image:none;mask-image:none}}
 
 /* shared blocks */
 .d-th h3{font-size:13.5px;font-weight:700;line-height:1.4;text-wrap:balance}

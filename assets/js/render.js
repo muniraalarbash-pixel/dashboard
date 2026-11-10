@@ -98,7 +98,14 @@ export function mountDashboard(root, opts) {
   root.addEventListener('click', e => { const b = e.target.closest('[data-sql]'); if (b && root.contains(b)) openSql(b.dataset.sql); else if (e.target.closest('[data-sqled]')) openSql(''); });
 
   function kill(k) { if (charts[k]) { charts[k].destroy(); delete charts[k]; } }
-  function draw(k, cfg) { kill(k); const cv = root.querySelector('[data-cv="' + k + '"]'); if (cv && window.Chart) charts[k] = new Chart(cv, cfg); }
+  function draw(k, cfg) { kill(k); const cv = root.querySelector('[data-cv="' + k + '"]'); if (cv && window.Chart) { charts[k] = new Chart(cv, cfg); describe(cv, cfg); } }
+  // screen readers get the chart's numbers, not just its title
+  function describe(cv, cfg) {
+    const lb = cfg.data.labels || [], ds = (cfg.data.datasets || []).filter(d => !d.band && d.data);
+    const txt = ds.slice(0, 2).map(d => (d.label ? d.label + ': ' : '') + lb.slice(0, 12).map((l, i) => d.data[i] == null ? null : [].concat(l).join(' ') + ' ' + fmt(d.data[i])).filter(Boolean).join('، ')).filter(Boolean).join(' — ');
+    if (!txt) return; if (cv.dataset.al == null) cv.dataset.al = cv.getAttribute('aria-label') || '';
+    cv.setAttribute('aria-label', (cv.dataset.al ? cv.dataset.al + ': ' : '') + txt);
+  }
 
   function setup() {
     m = o.version ? createModel(o.version.data, (({ agg, measures, fmt }) => ({ agg, measures, fmt }))((o.project && o.project.config) || {})) : null;
