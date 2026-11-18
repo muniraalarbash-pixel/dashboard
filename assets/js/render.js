@@ -336,14 +336,15 @@ export function mountDashboard(root, opts) {
       options: { responsive: true, maintainAspectRatio: false, rotation: -90, circumference: 180, cutout: '70%', animation: anim(), plugins: { legend: { display: false }, tooltip: { enabled: false } } } });
   }
   // forecast for the trend chart (monthly data, 6+ months, owner can switch it off)
-  const fcFor = c => (m.date >= 0 && m.monthly && vz('forecast') !== 'off') ? forecast(m.series(c.rows, c.metric), 3) : null;
+  const fcFor = c => (m.date >= 0 && m.monthly && vz('forecast') !== 'off') ? forecast(m.closed(m.series(c.rows, c.metric)), 3) : null;
   function fcNote(key, F, c) {
     const cv = root.querySelector(`[data-cv="${key}"]`), card = cv && cv.closest('article'); if (!card) return;
     let el = card.querySelector('.d-fcnote'); if (!el) { el = document.createElement('div'); el.className = 'd-fcnote'; card.appendChild(el); }
     if (!F) { el.remove(); return; }
     const acc = F.accuracy == null ? '' : ` · ${T('الدقة', 'accuracy')} ~${F.accuracy.toFixed(0)}%`;
+    const runNote = m.partial && F.keys[0] === m.partial ? `<p class="d-fchelp">${T(`${pLabel(m.partial)} شهر جاري (لين يوم ${m.partialDay})، فما دخل في التوقع. التوقع يقدّر الشهر كامل.`, `${pLabel(m.partial)} is still running (to day ${m.partialDay}), so it is left out; the forecast estimates the full month.`)}</p>` : '';
     if (F.unreliable) { el.innerHTML = `<p class="d-fcvals"><span aria-hidden="true">⚠️</span>${T('ما عرضنا توقعًا: الأرقام متذبذبة كثير، وأفضل طريقة أخطأت بأكثر من النصف عند اختبارها على آخر الأشهر.', 'No forecast shown: the numbers swing too much — the best method was off by more than half when tested on recent months.')}</p>`; return; }
-    el.innerHTML = `<p class="d-fcvals"><span class="d-fckey" aria-hidden="true"></span>${T('التوقع', 'Forecast')}: ${F.keys.map((k, i) => `<span><bdi>${esc(pLabel(k))}</bdi> <b>${fmt(F.pts[i])}</b></span>`).join('<i>·</i>')}</p>
+    el.innerHTML = `<p class="d-fcvals"><span class="d-fckey" aria-hidden="true"></span>${T('التوقع', 'Forecast')}: ${F.keys.map((k, i) => `<span><bdi>${esc(pLabel(k))}</bdi> <b>${fmt(F.pts[i])}</b></span>`).join('<i>·</i>')}</p>${runNote}
       <details><summary>${T('الطريقة', 'Method')}: ${esc(F.best.name)}${acc} <small>(${T(F.test === 2 ? 'اختُبرت على آخر شهرين معروفين' : F.test === 1 ? 'اختُبرت على آخر شهر معروف' : `اختُبرت على آخر ${F.test} أشهر معروفة`, `tested on the last ${F.test} known months`)})</small></summary>
       <table class="d-fctbl"><thead><tr><th>${T('الطريقة', 'Method')}</th><th>${T('الدقة', 'Accuracy')}</th><th>${T('متوسط الخطأ', 'Avg. error')}</th></tr></thead><tbody>${F.ranking.map((r, i) => `<tr class="${i ? '' : 'on'}"><td>${esc(r.name)}${i ? '' : ' ✓'}</td><td>${r.mape == null ? '—' : Math.max(0, 100 - r.mape).toFixed(1) + '%'}</td><td>${fmt(r.rmse)}</td></tr>`).join('')}</tbody></table>
       <p class="d-fchelp">${T('النطاق المظلل يوضّح المدى المتوقع بثقة ~80%. التوقع مبني على الأرقام السابقة فقط ولا يعرف عن أي حدث قادم.', 'The shaded band is the ~80% expected range. The forecast uses past numbers only and knows nothing about upcoming events.')}</p></details>`;
@@ -351,15 +352,17 @@ export function mountDashboard(root, opts) {
   function chartLine(c, key, mi, ti) {
     sqlSet(key, { kind: 'trend', metric: mi });
     const s = m.series(c.rows, mi), tt = vz('trend');
-    const F0 = mi === c.metric ? fcFor(c) : null, F = F0 && !F0.unreliable ? F0 : null, n = s.length, fl = F ? F.keys.length : 0;
-    const labels = s.map(p => pLabel(p.k)).concat(F ? F.keys.map(pLabel) : []);
+    const F0 = mi === c.metric ? fcFor(c) : null, F = F0 && !F0.unreliable ? F0 : null, n = s.length;
+    // the running month already has a slot: its forecast sits there, next to the partial actual
+    const ov = F && n && s[n - 1].k === m.partial && F.keys[0] === m.partial ? 1 : 0, fl = F ? F.keys.length - ov : 0, ai = n - 1 - ov;
+    const labels = s.map(p => pLabel(p.k) + (p.k === m.partial ? T(' (جاري)', ' (so far)') : '')).concat(F ? F.keys.slice(ov).map(pLabel) : []);
     const pad = (arr) => arr.concat(Array(fl).fill(null));
     const fcCol = c.pal[1] || c.pal[0];
     const fcSets = !F ? [] : tt === 'bar'
-      ? [{ label: T('التوقع', 'Forecast'), data: Array(n).fill(null).concat(F.pts), backgroundColor: alpha(fcCol, .45), borderColor: fcCol, borderWidth: 1.5, borderDash: [4, 3], borderRadius: 3, maxBarThickness: 40, grouped: false }]
-      : [{ label: T('التوقع', 'Forecast'), data: Array(n - 1).fill(null).concat([s[n - 1].v], F.pts), borderColor: fcCol, backgroundColor: fcCol, borderDash: [6, 4], borderWidth: 2.2, tension: .3, pointRadius: Array(n - 1).fill(0).concat([0], F.pts.map(() => 3)), pointBackgroundColor: fcCol, fill: false },
-         { label: 'lo', band: true, data: Array(n - 1).fill(null).concat([s[n - 1].v], F.band.map(b => b[0])), borderWidth: 0, pointRadius: 0, fill: false, tension: .3 },
-         { label: 'hi', band: true, data: Array(n - 1).fill(null).concat([s[n - 1].v], F.band.map(b => b[1])), borderWidth: 0, pointRadius: 0, fill: '-1', backgroundColor: alpha(fcCol, .16), tension: .3 }];
+      ? [{ label: T('التوقع', 'Forecast'), data: Array(n - ov).fill(null).concat(F.pts), backgroundColor: alpha(fcCol, .45), borderColor: fcCol, borderWidth: 1.5, borderDash: [4, 3], borderRadius: 3, maxBarThickness: 40, grouped: false }]
+      : [{ label: T('التوقع', 'Forecast'), data: Array(ai).fill(null).concat([s[ai].v], F.pts), borderColor: fcCol, backgroundColor: fcCol, borderDash: [6, 4], borderWidth: 2.2, tension: .3, pointRadius: Array(ai).fill(0).concat([0], F.pts.map(() => 3)), pointBackgroundColor: fcCol, fill: false },
+         { label: 'lo', band: true, data: Array(ai).fill(null).concat([s[ai].v], F.band.map(b => b[0])), borderWidth: 0, pointRadius: 0, fill: false, tension: .3 },
+         { label: 'hi', band: true, data: Array(ai).fill(null).concat([s[ai].v], F.band.map(b => b[1])), borderWidth: 0, pointRadius: 0, fill: '-1', backgroundColor: alpha(fcCol, .16), tension: .3 }];
     const tp = { ...tip(), filter: it => !it.dataset.band };
     if (tt === 'bar') {
       draw(key, { type: 'bar', data: { labels, datasets: [{ label: F ? c.ml : '', data: pad(s.map(p => p.v)), backgroundColor: c.pal[0], borderRadius: 3, maxBarThickness: 40, grouped: false }].concat(fcSets) },
@@ -658,7 +661,7 @@ export function mountDashboard(root, opts) {
     if (have(r3) === 3 && have(p3) === 3) out.push({ id: 'q', label: T('آخر 3 أشهر', 'Last 3 months'), sub: `${pLabel(r3[0])} – ${pLabel(end)}`, v: val(r3), vs: [{ lab: T('عن الـ3 أشهر اللي قبلها', 'vs the 3 months before'), pct: chPct(val(r3), val(p3, true)) }, ...(have(r3.map(k => addM(k, -12))) === 3 ? [{ lab: T('عن نفس الفترة السنة الماضية', 'vs same period last year'), pct: chPct(val(r3), val(r3.map(k => addM(k, -12)), true)), yoy: true }] : [])] });
     const r12 = span(addM(end, -11), end), p12 = r12.map(k => addM(k, -12));
     if (have(r12) === 12 && have(p12) === 12) out.push({ id: 'r12', label: T('آخر 12 شهر', 'Last 12 months'), sub: `${pLabel(r12[0])} – ${pLabel(end)}`, v: val(r12), vs: [{ lab: T('عن الـ12 شهر اللي قبلها', 'vs the previous 12 months'), pct: chPct(val(r12), val(p12, true)), yoy: true }] });
-    const lyOf = k => val([addM(k, -12)]);
+    const lyOf = k => val([addM(k, -12)], k === end); // capped to the same days when k is the running month
     return { end, items: out, hasLY: out.some(x => x.vs.some(v => v.yoy && v.pct != null)), lyOf, byK };
   }
   function tiHTML(c, ti) {
@@ -669,7 +672,7 @@ export function mountDashboard(root, opts) {
   function trendPage(c) {
     const s = m.series(c.rows, c.metric), F0 = fcFor(c), F = F0 && !F0.unreliable ? F0 : null;
     const ti = timeIntel(c), yo = ti && ti.hasLY, pc = ch => ch == null ? '—' : (ch > 0 ? '+' : ch < 0 ? '−' : '') + Math.abs(ch).toFixed(1) + '%';
-    const rowsH = s.map((p, i) => { const pv = i ? s[i - 1].v : null, ch = pv ? (p.v - pv) / Math.abs(pv) * 100 : null; const lv = yo && /^\d{4}-\d{2}$/.test(p.k) ? ti.lyOf(p.k) : null, yc = lv ? chPct(p.v, lv) : null; return `<tr><td>${esc(pLabel(p.k))}</td><td>${fmt(p.v)}</td><td class="${arrowCls(ch)}">${pc(ch)}</td>${yo ? `<td class="${arrowCls(yc)}">${pc(yc)}</td>` : ''}</tr>`; }).reverse().join('');
+    const rowsH = s.map((p, i) => { const run = p.k === m.partial && i > 0; const pv = !i ? null : run ? m.sameDays(c.rows, c.metric, s[i - 1].k) : s[i - 1].v, ch = pv ? (p.v - pv) / Math.abs(pv) * 100 : null; const lv = yo && /^\d{4}-\d{2}$/.test(p.k) ? ti.lyOf(p.k) : null, yc = lv ? chPct(p.v, lv) : null; return `<tr${run ? ' class="run"' : ''}><td>${esc(pLabel(p.k))}${run ? ` <small>${T(`أول ${m.partialDay} يوم`, `first ${m.partialDay} days`)}</small>` : ''}</td><td>${fmt(p.v)}</td><td class="${arrowCls(ch)}">${pc(ch)}</td>${yo ? `<td class="${arrowCls(yc)}">${pc(yc)}</td>` : ''}</tr>`; }).reverse().join('');
     const fcRows = F ? F.keys.map((k, i) => `<tr class="fc"><td>${esc(pLabel(k))} <small>${T('متوقع', 'forecast')}</small></td><td>${fmt(F.pts[i])}</td><td${yo ? ' colspan="2"' : ''}><small>${fmt(F.band[i][0])} – ${fmt(F.band[i][1])}</small></td></tr>`).reverse().join('') : '';
     return { html: `<section class="d-pagegrid">
       ${tiHTML(c, ti)}

@@ -42,26 +42,33 @@ export function askQuestions({ m, c, F, sqlFor, ti }) {
   const s = m.date >= 0 ? m.series(rows, mi) : [];
   const unit = m.monthly ? T('شهر', 'month') : T('يوم', 'day');
   if (s.length >= 2 && (s[s.length - 1].v || s[s.length - 2].v)) {
-    const last = s[s.length - 1], prev = s[s.length - 2];
+    const last = s[s.length - 1], prevK = s[s.length - 2].k;
+    // a running month is compared with the same days of the month before it
+    const run = last.k === m.partial, cut = r => !run || +String(r[m.date]).slice(8, 10) <= m.partialDay;
+    const prev = { k: prevK, v: run ? m.sameDays(rows, mi, prevK) : s[s.length - 2].v };
+    const runTxt = run ? T(` المقارنة على أول ${m.partialDay} يوم من الشهرين.`, ` Compared on the first ${m.partialDay} days of both months.`) : '';
     out.push({ id: 'change', q: T(`وش تغيّر في ${pLabel(last.k)} عن ${pLabel(prev.k)}؟`, `What changed in ${pLabel(last.k)} vs ${pLabel(prev.k)}?`), a: () => {
       const ch = prev.v ? (last.v - prev.v) / Math.abs(prev.v) * 100 : null;
       let items = [], movers = '';
       if (dn) {
         const key = r => r[m.date] ? String(r[m.date]).slice(0, m.monthly ? 7 : 10) : null;
         const bl = new Map(m.breakdown(rows.filter(r => key(r) === last.k), dim, mi).map(x => [x.k, x.v]));
-        const bp = new Map(m.breakdown(rows.filter(r => key(r) === prev.k), dim, mi).map(x => [x.k, x.v]));
+        const bp = new Map(m.breakdown(rows.filter(r => key(r) === prev.k && cut(r)), dim, mi).map(x => [x.k, x.v]));
         const d = [...new Set([...bl.keys(), ...bp.keys()])].map(k => ({ k, v: (bl.get(k) || 0) - (bp.get(k) || 0), p: bp.get(k) ? ((bl.get(k) || 0) - bp.get(k)) / Math.abs(bp.get(k)) * 100 : null })).sort((a, b) => b.v - a.v);
         const mx = Math.max(1, ...d.map(x => Math.abs(x.v)));
         items = d.slice(0, 5).map(x => ({ k: x.k, v: x.v, signed: true, w: Math.abs(x.v) / mx, sub: sgn(x.p), cls: x.v >= 0 ? 'up' : 'down' }));
-        if (d.length > 1) movers = T(` أكبر ارتفاع: <b>${iso(d[0].k)}</b> (${sgn(d[0].p)})، وأكبر انخفاض: <b>${d[d.length - 1].k}</b> (${sgn(d[d.length - 1].p)}).`, ` Biggest rise: <b>${iso(d[0].k)}</b> (${sgn(d[0].p)}); biggest drop: <b>${d[d.length - 1].k}</b> (${sgn(d[d.length - 1].p)}).`);
+        if (d.length > 1) { const hi = d[0], lo = d[d.length - 1];
+          const hiA = hi.v >= 0 ? 'أكبر ارتفاع' : 'أقل انخفاض', hiE = hi.v >= 0 ? 'biggest rise' : 'smallest drop', loA = lo.v < 0 ? 'أكبر انخفاض' : 'أقل ارتفاع', loE = lo.v < 0 ? 'biggest drop' : 'smallest rise';
+          movers = T(` ${hiA}: <b>${iso(hi.k)}</b> (${sgn(hi.p)})، و${loA}: <b>${iso(lo.k)}</b> (${sgn(lo.p)}).`, ` ${hiE[0].toUpperCase() + hiE.slice(1)}: <b>${iso(hi.k)}</b> (${sgn(hi.p)}); ${loE}: <b>${iso(lo.k)}</b> (${sgn(lo.p)}).`); }
       }
-      return { head: T(`${ml}: ${ch == null ? 'تغيّر' : ch >= 0 ? 'ارتفاع' : 'انخفاض'} من ${fmt(prev.v)} إلى <b>${fmt(last.v)}</b> (${sgn(ch)}).${movers}`, `${ml} ${ch == null ? 'changed' : ch >= 0 ? 'rose' : 'fell'} from ${fmt(prev.v)} to <b>${fmt(last.v)}</b> (${sgn(ch)}).${movers}`),
+      return { head: T(`${ml}: ${ch == null ? 'تغيّر' : ch >= 0 ? 'ارتفاع' : 'انخفاض'} من ${fmt(prev.v)} إلى <b>${fmt(last.v)}</b> (${sgn(ch)}).${runTxt}${movers}`, `${ml} ${ch == null ? 'changed' : ch >= 0 ? 'rose' : 'fell'} from ${fmt(prev.v)} to <b>${fmt(last.v)}</b> (${sgn(ch)}).${runTxt}${movers}`),
         items, itemsTitle: dn ? T(`التغير حسب ${dn}`, `Change by ${dn}`) : '', sql: sqlFor({ kind: 'trend', metric: mi, last: 2 }) };
     } });
   }
-  if (s.length >= 3) {
+  const sc = m.closed ? m.closed(s) : s; // a running month would always look like the worst
+  if (sc.length >= 3) {
     out.push({ id: 'bestworst', q: T(`وش أفضل وأسوأ ${unit}؟`, `Best and worst ${unit}?`), a: () => {
-      const srt = s.slice().sort((a, b) => b.v - a.v), hi = srt[0], lo = srt[srt.length - 1], avg = s.reduce((t, x) => t + x.v, 0) / s.length, mx = Math.abs(hi.v) || 1;
+      const s = sc, srt = s.slice().sort((a, b) => b.v - a.v), hi = srt[0], lo = srt[srt.length - 1], avg = s.reduce((t, x) => t + x.v, 0) / s.length, mx = Math.abs(hi.v) || 1;
       return { head: T(`أفضل ${unit}: <b>${pLabel(hi.k)}</b> بـ ${fmt(hi.v)}، وأسوأ ${unit}: <b>${pLabel(lo.k)}</b> بـ ${fmt(lo.v)}. المتوسط ${fmt(avg)}.`, `Best ${unit}: <b>${pLabel(hi.k)}</b> at ${fmt(hi.v)}; worst: <b>${pLabel(lo.k)}</b> at ${fmt(lo.v)}. Average ${fmt(avg)}.`),
         items: [hi, ...srt.slice(1, 3), lo].filter((x, i, a) => a.indexOf(x) === i).map(x => ({ k: pLabel(x.k), v: x.v, w: Math.abs(x.v) / mx, sub: avg ? sgn((x.v - avg) / Math.abs(avg) * 100) + T(' عن المتوسط', ' vs avg') : '', cls: x === lo ? 'down' : x === hi ? 'up' : '' })),
         sql: sqlFor({ kind: 'trend', metric: mi }).replace(/ORDER BY 1;/, 'ORDER BY 2 DESC;') };
@@ -110,7 +117,7 @@ export function askQuestions({ m, c, F, sqlFor, ti }) {
   }
   if (F && !F.unreliable) {
     out.push({ id: 'forecast', q: T('وش المتوقع للأشهر الجاية؟', 'What is expected next?'), a: () => {
-      const last = s[s.length - 1], mx = Math.max(Math.abs(last.v), ...F.band.map(x => Math.abs(x[1]))) || 1;
+      const s0 = m.closed ? m.closed(s) : s, last = s0[s0.length - 1], mx = Math.max(Math.abs(last.v), ...F.band.map(x => Math.abs(x[1]))) || 1;
       const ch = last.v ? (F.pts[0] - last.v) / Math.abs(last.v) * 100 : null;
       return { head: T(`المتوقع في <b>${pLabel(F.keys[0])}</b>: <b>${fmt(F.pts[0])}</b> (${sgn(ch)} عن ${pLabel(last.k)})، والمدى المتوقع بين ${fmt(F.band[0][0])} و${fmt(F.band[0][1])}.`, `Expected in <b>${pLabel(F.keys[0])}</b>: <b>${fmt(F.pts[0])}</b> (${sgn(ch)} vs ${pLabel(last.k)}), likely between ${fmt(F.band[0][0])} and ${fmt(F.band[0][1])}.`),
         items: F.keys.map((k, i) => ({ k: pLabel(k), v: F.pts[i], w: Math.abs(F.pts[i]) / mx, sub: `${fmt(F.band[i][0])} – ${fmt(F.band[i][1])}` })),
