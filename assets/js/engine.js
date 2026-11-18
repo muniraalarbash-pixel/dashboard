@@ -44,7 +44,18 @@ catch (e) { dtf = new Intl.DateTimeFormat('ar', { day: 'numeric', month: 'long',
 const dtfEn = new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
 export const fmtDate = s => { try { return (isEn() ? dtfEn : dtf).format(new Date(s)); } catch (e) { return ''; } };
 
-const MEAN_RE = /(rate|ratio|%|٪|percent|pct|achievement|avg|average|mean|ctr|cpc|cpm|cpa|roas|معدل|نسبة|متوسط|إنجاز|انجاز)/i;
+// Columns averaged by default: rates, shares, averages, prices and ratings. Matched on whole words, so
+// "Generated" (rate), "Operations" (ratio) or "بالنسبة" no longer count, and anything that is a count stays a sum.
+const MEAN_EN = new Set(['rate', 'rates', 'ratio', 'ratios', 'percent', 'percentage', 'pct', 'achievement', 'avg', 'average', 'mean', 'ctr', 'cpc', 'cpm', 'cpa', 'cpl', 'cac', 'roas', 'roi', 'aov', 'rating', 'ratings', 'score', 'nps', 'csat', 'price']);
+const MEAN_AR = /^و?(ال)?(معدل|معدلات|نسبة|نسبه|متوسط|إنجاز|انجاز|تقييم|التقييم|سعر|أسعار|اسعار)$/;
+const COUNT_WORD = /^(count|number|qty|quantity|no|#|عدد|كمية)$/i;
+const MEAN_RE = { test(name) {
+  const s = String(name || '');
+  if (/[%٪]/.test(s)) return true;
+  const words = s.toLowerCase().split(/[^\p{L}\p{N}#]+/u).filter(Boolean);
+  if (words.some(w => COUNT_WORD.test(w))) return false;
+  return words.some(w => MEAN_EN.has(w) || MEAN_AR.test(w));
+} };
 export const AGG_MODES = ['sum', 'avg', 'max', 'min'];
 
 const MONTHS = [
@@ -127,6 +138,8 @@ export function createModel(data, opts = {}) {
     cols, rows, nums, cats, dims, date, monthly, monthCol, uniq, partial, partialDay,
     // value of month k counting only days 1..partialDay, to compare a running month fairly
     sameDays: (rs, mi, k) => m.agg(rs.filter(r => r[date] && String(r[date]).slice(0, 7) === k && +String(r[date]).slice(8, 10) <= partialDay), mi),
+    // a series without the running month, for anything that must only see complete months (forecast, best/worst)
+    closed: s => s.length && s[s.length - 1].k === partial ? s.slice(0, -1) : s,
     idx: name => cols.findIndex(c => c.name === name),
     // how a number column is summarised: owner's choice, else average for rates/percentages, else sum
     measures,
